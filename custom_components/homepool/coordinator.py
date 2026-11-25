@@ -1782,10 +1782,22 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     # For entities and the card
     # ──────────────────────────────────────────
 
+    def own_entities(self) -> dict[str, str]:
+        """HomePool's own entities for this pool, by key: the card's index."""
+        from homeassistant.helpers import entity_registry as er
+
+        prefix = f"{self.entry.entry_id}_"
+        return {
+            entry.unique_id[len(prefix):]: entry.entity_id
+            for entry in er.async_entries_for_config_entry(er.async_get(self.hass), self.entry.entry_id)
+            if entry.unique_id.startswith(prefix)
+        }
+
     def card_attributes(self) -> dict[str, Any]:
         """What the companion card needs beyond the entity states."""
         conf = self.conf
         return {
+            "pool_entities": self.own_entities(),
             "shape": conf.get("shape"),
             "dimensions": {
                 k: conf.get(k)

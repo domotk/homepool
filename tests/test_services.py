@@ -128,3 +128,16 @@ async def test_a_service_aimed_at_nothing_is_refused(hass: HomeAssistant) -> Non
         await hass.services.async_call(
             "homepool", "start_cycle", {"entity_id": "sensor.unrelated"}, blocking=True
         )
+
+
+async def test_the_card_can_find_every_entity(hass: HomeAssistant) -> None:
+    SwitchRouter(hass)
+    entry = await setup_pool(hass, **FULL)
+    # The index fills in once every platform has registered its entities.
+    await entry.runtime_data.async_refresh()
+    await hass.async_block_till_done()
+    attrs = hass.states.get("sensor.pool_daily_filtration_target").attributes
+    assert attrs["pool_entities"]["pump_control"] == "sensor.pool_pump_control"
+    assert attrs["pool_entities"]["operation_mode"] == "select.pool_operation_mode"
+    assert attrs["entities"]["ph_sensor"] == "sensor.ph"
+    assert attrs["shape"] == "rectangular"
