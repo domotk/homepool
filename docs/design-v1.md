@@ -1130,4 +1130,7 @@ historial de cinco días soleados de noviembre:
 3. **Etiquetas del dibujo de la piscina traducidas**, un juego por forma
    (`layout_variant_<forma>`), porque el mismo id se lee distinto en una L.
 4. **`min_minutes` y `max_minutes`** como atributos del sensor de objetivo.
-5. **Los servicios declaran también el dispositivo** como destino.
+5. **Destino de los servicios.** `services.yaml` no declara un filtro de
+   dispositivo (hassfest no lo admite en `target`), pero el filtro de entidad
+   ya deja elegir el dispositivo de la piscina en el selector, y la llamada
+   con `device_id` funciona.
