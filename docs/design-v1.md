@@ -1111,3 +1111,23 @@ historial de cinco días soleados de noviembre:
 5. **Minutos redondeados**, no truncados.
 6. **«Clorador en uso»** como nombre del interruptor maestro del clorador, que
    nunca acciona la célula por sí mismo.
+
+## 20. Cambios en la v0.1.2 (noviembre de 2026), tras la segunda prueba real
+
+1. **Tope a la temperatura medida.** La máxima es el estadístico que más
+   altera un sensor al sol o en la unidad exterior de una aerotermia (23 °C
+   medidos con 17,7 previstos dieron 268 min en vez de unos 187). Con previsión
+   disponible, la medida cuenta como mucho 3 °C por encima de la máxima
+   prevista, y la fuente es `air_temperature_max_capped`.
+2. **Quién movió la bomba.** HomePool anota los contextos de los eventos
+   `automation_triggered` y `script_started`; un cambio bajo uno de ellos (o
+   un hijo suyo) se atribuye a esa automatización o script, con su nombre. Con
+   `user_id` es una persona; sin nada, «fuera de HomePool» (un pulsador, el
+   botón del aparato o un relé que confirma tarde). Claves nuevas:
+   `automation_override_*`, `script_override_*` y `external_override_*`;
+   atributo `manual_override_by` en el sensor de control. La autoridad sigue
+   siendo la misma: se respeta igual.
+3. **Etiquetas del dibujo de la piscina traducidas**, un juego por forma
+   (`layout_variant_<forma>`), porque el mismo id se lee distinto en una L.
+4. **`min_minutes` y `max_minutes`** como atributos del sensor de objetivo.
+5. **Los servicios declaran también el dispositivo** como destino.

@@ -53,6 +53,10 @@ class ControlInputs:
     manual_cycle: bool = False
     # The state a person chose by hand, while that choice is still respected.
     manual_override: bool | None = None
+    # Who made that choice: "user", "automation", "script" or "external"
+    # (a wall switch, a device's button), and the automation's or script's name.
+    manual_override_by: str = "user"
+    manual_override_name: str | None = None
 
     mode_decision: PumpDecision | None = None
 
@@ -107,6 +111,22 @@ def arbitrate(inp: ControlInputs) -> ControlDecision:
         return ControlDecision(True, "manual_cycle", "Manual cycle in progress", "manual_cycle")
     if inp.manual_override is not None:
         state = "on" if inp.manual_override else "off"
+        by = inp.manual_override_by
+        if by in ("automation", "script") and inp.manual_override_name:
+            return ControlDecision(
+                inp.manual_override,
+                "manual_override",
+                f"Switched {state} by the {by} {inp.manual_override_name}; respected for now",
+                f"{by}_override_{state}",
+                {"name": inp.manual_override_name},
+            )
+        if by == "external":
+            return ControlDecision(
+                inp.manual_override,
+                "manual_override",
+                f"Switched {state} outside HomePool; respected for now",
+                f"external_override_{state}",
+            )
         return ControlDecision(
             inp.manual_override,
             "manual_override",

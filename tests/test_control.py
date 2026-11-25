@@ -402,7 +402,8 @@ async def test_the_reason_is_in_home_assistants_language(
     assert attrs["reason"] == "Modo apagado: la bomba se maneja a mano"
 
     await hass.services.async_call(
-        "input_boolean", "turn_on", {"entity_id": PUMP}, blocking=True, context=Context()
+        "input_boolean", "turn_on", {"entity_id": PUMP}, blocking=True,
+        context=Context(user_id=(await hass.auth.async_create_user("Someone")).id),
     )
     await tick(hass, freezer, 1)
     attrs = hass.states.get("sensor.pool_pump_control").attributes
@@ -422,3 +423,85 @@ async def test_minutes_are_rounded_not_truncated(
     assert coordinator.elapsed_minutes == 2
     coordinator.elapsed_s = 89
     assert coordinator.elapsed_minutes == 1
+
+
+async def test_a_sunny_air_sensor_is_held_near_the_forecast(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
+) -> None:
+    """A sensor reading 23 °C against a 17.7 °C forecast counts as 20.7 °C."""
+    from homeassistant.core import SupportsResponse
+
+    freezer.move_to(local(2026, 11, 25, 12, 0))
+    hass.states.async_set("sensor.air", "23.0", {"unit_of_measurement": "°C"})
+    hass.states.async_set("weather.home", "sunny")
+
+    async def forecasts(call):
+        return {"weather.home": {"forecast": [{"temperature": 17.7, "precipitation": 0}]}}
+
+    hass.services.async_register(
+        "weather", "get_forecasts", forecasts, supports_response=SupportsResponse.ONLY
+    )
+    SwitchRouter(hass)
+    await setup_pool(
+        hass, air_temperature_sensor="sensor.air", weather_entity="weather.home"
+    )
+    attrs = hass.states.get("sensor.pool_daily_filtration_target").attributes
+    assert attrs["sources"]["temperature"] == "air_temperature_max_capped"
+    assert attrs["inputs"]["air_temperature"] == 20.7
+    # The floor is on the sensor, not only in the diagnostics.
+    assert attrs["min_minutes"] is not None
+    assert attrs["max_minutes"] >= attrs["min_minutes"]
+
+
+async def _switch_on_under(hass: HomeAssistant, freezer, context: Context) -> dict:
+    await hass.services.async_call(
+        "input_boolean", "turn_on", {"entity_id": PUMP}, blocking=True, context=context
+    )
+    await tick(hass, freezer, 1)
+    return hass.states.get("sensor.pool_pump_control").attributes
+
+
+async def test_an_automation_is_not_taken_for_a_hand(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
+) -> None:
+    freezer.move_to(local(2026, 11, 25, 10, 0))
+    SwitchRouter(hass)
+    await setup_pool(hass)
+    context = Context()
+    hass.bus.async_fire(
+        "automation_triggered",
+        {"name": "Pump on with solar", "entity_id": "automation.pump_solar"},
+        context=context,
+    )
+    # Recorded as the event fires, with nothing awaited: the automation's
+    # service call may change the pump right after.
+    assert context.id in hass.config_entries.async_entries("homepool")[0].runtime_data._runner_contexts
+    attrs = await _switch_on_under(hass, freezer, context)
+    assert state(hass, "sensor.pool_pump_control") == "manual_override"
+    assert attrs["reason_key"] == "automation_override_on"
+    assert attrs["reason"] == "Switched on by the automation «Pump on with solar»; respected for now"
+    assert attrs["manual_override_by"] == "automation"
+
+
+async def test_a_scripts_child_context_is_traced_to_it(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
+) -> None:
+    freezer.move_to(local(2026, 11, 25, 10, 0))
+    SwitchRouter(hass)
+    await setup_pool(hass)
+    run = Context()
+    hass.bus.async_fire("script_started", {"name": "Morning", "entity_id": "script.morning"}, context=run)
+    await hass.async_block_till_done()
+    attrs = await _switch_on_under(hass, freezer, Context(parent_id=run.id))
+    assert attrs["reason_key"] == "script_override_on"
+
+
+async def test_a_change_with_no_person_or_automation_is_outside(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
+) -> None:
+    freezer.move_to(local(2026, 11, 25, 10, 0))
+    SwitchRouter(hass)
+    await setup_pool(hass)
+    attrs = await _switch_on_under(hass, freezer, Context())
+    assert attrs["reason_key"] == "external_override_on"
+    assert attrs["manual_override_by"] == "external"

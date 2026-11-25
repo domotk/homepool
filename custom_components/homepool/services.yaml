@@ -4,6 +4,8 @@ start_cycle:
   target:
     entity:
       integration: homepool
+    device:
+      integration: homepool
   fields:
     duration:
       selector:
@@ -18,10 +20,14 @@ stop_cycle:
   target:
     entity:
       integration: homepool
+    device:
+      integration: homepool
 
 record_manual_action:
   target:
     entity:
+      integration: homepool
+    device:
       integration: homepool
   fields:
     action_type:
@@ -54,6 +60,8 @@ record_salt_level:
   target:
     entity:
       integration: homepool
+    device:
+      integration: homepool
   fields:
     value:
       required: true
@@ -68,6 +76,8 @@ record_salt_level:
 record_free_chlorine:
   target:
     entity:
+      integration: homepool
+    device:
       integration: homepool
   fields:
     value:
@@ -84,10 +94,14 @@ recalculate_schedule:
   target:
     entity:
       integration: homepool
+    device:
+      integration: homepool
 
 force_ph_correction_window:
   target:
     entity:
+      integration: homepool
+    device:
       integration: homepool
   fields:
     duration:
@@ -102,4 +116,6 @@ force_ph_correction_window:
 reset_daily_counters:
   target:
     entity:
+      integration: homepool
+    device:
       integration: homepool

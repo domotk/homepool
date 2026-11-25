@@ -62,8 +62,12 @@ Three rules keep the target honest:
 
 - **No sensor is required.** Without a water thermometer, the air temperature
   stands in for it: the highest your own sensor measured today or yesterday,
-  or the forecast's daily high if there is no sensor. Without any of
-  them the factor stays neutral and the target is still there.
+  or the forecast's daily high if there is no sensor. With both, the measured
+  figure may top the forecast by 3 °C at most, so a sensor in the sun or on a
+  heat pump's outdoor unit cannot inflate the target; keep it in the shade
+  anyway. Without any of them the factor stays neutral and the target is
+  still there. The `min_minutes` and `max_minutes` attributes give the floor
+  and ceiling the target is held between.
 - **It is recalculated every hour, and during the day it only goes up.** A day's
   demand does not shrink because a cloud passed. `homepool.recalculate_schedule`
   forces a fresh figure, up or down.
@@ -109,9 +113,11 @@ Several things can want the pump on or off at once. One decides, in this order:
    that needs correcting runs the pump for a while, capped per day so a faulty
    probe cannot run it all night.
 6. **Manual cycle** — started from HomePool's button, switch or service.
-7. **Switched by hand** — someone switched the relay outside HomePool. That is
-   respected for two hours (configurable) instead of being undone a minute
-   later.
+7. **Switched from outside** — a person, an automation, a script or the
+   device's own button switched the relay. That is respected for two hours
+   (configurable) instead of being undone a minute later, and the reason says
+   which it was, naming the automation or script. A relay that confirms late
+   may report an automation's change as made outside HomePool.
 8. **The mode.**
 
 `sensor.<pool>_pump_control` says which of these is in charge right now. Its
