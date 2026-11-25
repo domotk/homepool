@@ -39,7 +39,6 @@ from homeassistant.const import (
 from homeassistant.core import Context, Event, EventStateChangedData, HomeAssistant, callback
 from homeassistant.helpers.event import async_call_later, async_track_state_change_event
 from homeassistant.helpers.storage import Store
-from homeassistant.helpers.sun import get_astral_event_date
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.util import dt as dt_util
 
@@ -79,6 +78,7 @@ from .const import (
     CONF_HAS_PH_DOSING,
     CONF_IS_COVERED_BY_ROOF,
     CONF_LATITUDE,
+    CONF_LONGITUDE,
     CONF_MANUAL_OVERRIDE_MINUTES,
     CONF_NOTIFICATION_QUIET_HOURS_END,
     CONF_NOTIFICATION_QUIET_HOURS_START,
@@ -172,6 +172,7 @@ from .pool.scheduler import (
     SolarDebouncer,
     arbitrate,
     chlorinator_wanted,
+    solar_noon_utc,
     surplus_watts,
 )
 from .texts import text
@@ -423,9 +424,12 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._pump_was_on = self._is_on(CONF_PUMP_SWITCH) is True
         self._chlor_was_on = self._is_on(CONF_CHLORINATOR_SWITCH) is True
         pump_state = self.hass.states.get(self.conf[CONF_PUMP_SWITCH])
-        if pump_state is not None:
-            self.pump_changed_at = pump_state.last_changed
-            self.pump_on_since = pump_state.last_changed if self._pump_was_on else None
+        # After a restart, last_changed is when Home Assistant started, not
+        # when the pump last moved, so the minimum run and rest times start
+        # unknown rather than holding the pump for no reason.
+        self.pump_changed_at = None
+        if pump_state is not None and self._pump_was_on:
+            self.pump_on_since = pump_state.last_changed
 
         # A cell left on with the pump off (a crash, a power cut, a restart in
         # the middle of a switch-off) is the first thing to put right.
@@ -1232,14 +1236,9 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     # ── control ──
 
     def _solar_noon_minute(self) -> int:
-        try:
-            noon = get_astral_event_date(self.hass, "noon", dt_util.now().date())
-        except Exception:  # noqa: BLE001
-            noon = None
-        if noon is None:
-            return 13 * 60 + 30
-        local = dt_util.as_local(noon)
-        return local.hour * 60 + local.minute
+        longitude = float(self.opt(CONF_LONGITUDE, self.hass.config.longitude) or 0)
+        noon = dt_util.as_local(solar_noon_utc(dt_util.now().date(), longitude))
+        return noon.hour * 60 + noon.minute
 
     def _minutes_until_day_end(self, now: datetime) -> int:
         local = dt_util.as_local(now)

@@ -57,3 +57,42 @@ async def setup_pool(hass: HomeAssistant, **overrides: Any) -> MockConfigEntry:
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
     return entry
+
+
+class SwitchRouter:
+    """Stands in for ``homeassistant.turn_on/turn_off``.
+
+    Forwards to the input_boolean with the caller's context, as the real one
+    does, so HomePool can tell its own commands from a person's. ``ignore``
+    makes the next N commands to an entity vanish, like a relay that rejects
+    a request.
+    """
+
+    def __init__(self, hass: HomeAssistant) -> None:
+        self.hass = hass
+        self.calls: list[tuple[str, str]] = []
+        self.ignore: dict[str, int] = {}
+        hass.services.async_register("homeassistant", "turn_on", self._on)
+        hass.services.async_register("homeassistant", "turn_off", self._off)
+
+    async def _forward(self, call, service: str) -> None:
+        entity_ids = call.data["entity_id"]
+        if isinstance(entity_ids, str):
+            entity_ids = [entity_ids]
+        for entity_id in entity_ids:
+            self.calls.append((service, entity_id))
+            if self.ignore.get(entity_id, 0) > 0:
+                self.ignore[entity_id] -= 1
+                continue
+            await self.hass.services.async_call(
+                "input_boolean", service, {"entity_id": entity_id}, blocking=True, context=call.context
+            )
+
+    async def _on(self, call) -> None:
+        await self._forward(call, "turn_on")
+
+    async def _off(self, call) -> None:
+        await self._forward(call, "turn_off")
+
+    def count(self, service: str, entity_id: str) -> int:
+        return sum(1 for s, e in self.calls if s == service and e == entity_id)

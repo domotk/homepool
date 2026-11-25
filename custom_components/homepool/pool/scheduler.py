@@ -28,7 +28,7 @@ relay both last longer when they are not cycled every few minutes.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 from ..modes.base import PumpAction, PumpDecision
 
@@ -221,3 +221,18 @@ class SolarDebouncer:
             self.available = not self.available
             self._since = None
         return self.available
+
+
+def solar_noon_utc(day: date, longitude: float) -> datetime:
+    """When the sun is highest at this longitude, in UTC. Within a minute or so.
+
+    Uses the pool's own coordinates rather than Home Assistant's home location:
+    a second home's pool is not at the first home.
+    """
+    import math
+
+    n = day.timetuple().tm_yday
+    b = 2 * math.pi * (n - 81) / 364
+    equation_of_time = 9.87 * math.sin(2 * b) - 7.53 * math.cos(b) - 1.5 * math.sin(b)
+    minutes = 720 - 4 * longitude - equation_of_time
+    return datetime(day.year, day.month, day.day, tzinfo=timezone.utc) + timedelta(minutes=minutes)
