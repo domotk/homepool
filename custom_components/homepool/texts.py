@@ -17,6 +17,10 @@ TEXTS: dict[str, dict[str, str]] = {
             "{pool}: the pump switch did not follow the last {attempts} commands "
             "(wanted {state})."
         ),
+        "chlorinator_not_responding": (
+            "{pool}: the chlorinator switch did not follow the last {attempts} commands "
+            "(wanted {state}). The pump was stopped anyway; check the cell."
+        ),
         "freeze_protection": "{pool}: water near freezing, the pump is kept running.",
         "ph_out_of_range": "{pool}: pH {value:.2f} is outside {low:.1f}–{high:.1f}.",
         "salt_low": "{pool}: salt at {value:.1f} g/L, below {low:.1f} g/L.",
@@ -49,6 +53,11 @@ TEXTS: dict[str, dict[str, str]] = {
         "pump_not_responding": (
             "{pool}: el interruptor de la bomba no ha obedecido las últimas "
             "{attempts} órdenes (se quería {state})."
+        ),
+        "chlorinator_not_responding": (
+            "{pool}: el interruptor del clorador no ha obedecido las últimas "
+            "{attempts} órdenes (se quería {state}). La bomba se ha parado igualmente; "
+            "revisa la célula."
         ),
         "freeze_protection": (
             "{pool}: el agua está cerca de congelarse, la bomba se mantiene en marcha."

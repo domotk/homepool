@@ -33,6 +33,10 @@ async def tick(hass: HomeAssistant, freezer: FrozenDateTimeFactory, minutes: flo
         freezer.tick(timedelta(minutes=minutes / steps))
         async_fire_time_changed(hass, dt_util.utcnow())
         await hass.async_block_till_done()
+        router = hass.data.get("_test_router")
+        if router is not None and router.deferred:
+            await router.flush()
+            await hass.async_block_till_done()
 
 
 async def set_mode(hass: HomeAssistant, mode: str) -> None:
@@ -310,3 +314,50 @@ async def test_ph_correction_runs_the_pump_within_its_daily_cap(
     await tick(hass, freezer, 90)
     assert state(hass, PUMP) == "off"
     assert state(hass, "binary_sensor.pool_ph_correction") == "on"
+
+
+async def test_a_late_confirmation_is_not_taken_for_a_hand(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
+) -> None:
+    freezer.move_to(local(2026, 11, 16, 10, 0))
+    router = SwitchRouter(hass)
+    router.deferred = True
+    hass.states.async_set("sensor.grid", "2000", {"unit_of_measurement": "W"})
+    await setup_pool(hass, solar_excess_sensor="sensor.grid")
+    await set_mode(hass, "solar")
+    sources = set()
+    for _ in range(8):
+        await tick(hass, freezer, 1)
+        sources.add(state(hass, "sensor.pool_pump_control"))
+    assert state(hass, PUMP) == "on"
+    hass.states.async_set("sensor.grid", "-900", {"unit_of_measurement": "W"})
+    for _ in range(40):
+        await tick(hass, freezer, 1)
+        sources.add(state(hass, "sensor.pool_pump_control"))
+    # Off when the surplus went, not held on for two hours as a "manual" choice.
+    assert state(hass, PUMP) == "off"
+    assert "manual_override" not in sources
+
+
+async def test_a_stuck_cell_does_not_keep_the_pump_running(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
+) -> None:
+    freezer.move_to(local(2026, 7, 15, 12, 0))
+    router = SwitchRouter(hass)
+    hass.states.async_set("binary_sensor.flood", "off")
+    events = []
+    hass.bus.async_listen("homepool_alert", events.append)
+    await setup_pool(hass, chlorinator_switch=CHLORINATOR, flood_sensor="binary_sensor.flood")
+    await set_mode(hass, "smart")
+    await tick(hass, freezer, 3)
+    assert state(hass, CHLORINATOR) == "on"
+    router.ignore[CHLORINATOR] = 99
+    hass.states.async_set("binary_sensor.flood", "on")
+    await hass.async_block_till_done()
+    await tick(hass, freezer, 1)
+    # The cell is asked to stop first, and the pump waits for it...
+    assert state(hass, PUMP) == "on"
+    # ...but only while the cell's retries last.
+    await tick(hass, freezer, 4)
+    assert state(hass, PUMP) == "off"
+    assert "chlorinator_not_responding" in [e.data["type"] for e in events]

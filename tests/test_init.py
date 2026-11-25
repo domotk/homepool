@@ -38,3 +38,23 @@ async def test_unload(hass: HomeAssistant) -> None:
     await hass.async_block_till_done()
     assert entry.state is ConfigEntryState.NOT_LOADED
     assert not hass.services.has_service("homepool", "start_cycle")
+
+
+async def test_the_pool_hangs_off_the_relay_device(hass: HomeAssistant) -> None:
+    from homeassistant.helpers import device_registry as dr
+    from homeassistant.helpers import entity_registry as er
+    from pytest_homeassistant_custom_component.common import MockConfigEntry
+
+    relay_entry = MockConfigEntry(domain="shelly")
+    relay_entry.add_to_hass(hass)
+    relay = dr.async_get(hass).async_get_or_create(
+        config_entry_id=relay_entry.entry_id, identifiers={("shelly", "abc")}, name="Relay"
+    )
+    er.async_get(hass).async_get_or_create(
+        "switch", "shelly", "relay-1", device_id=relay.id, suggested_object_id="relay"
+    )
+    hass.states.async_set("switch.relay", "off")
+    await setup_pool(hass, pump_switch="switch.relay")
+    target = er.async_get(hass).async_get("sensor.pool_daily_filtration_target")
+    pool = dr.async_get(hass).async_get(target.device_id)
+    assert pool.via_device_id == relay.id

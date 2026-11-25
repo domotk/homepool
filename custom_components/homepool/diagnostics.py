@@ -49,7 +49,13 @@ async def async_get_config_entry_diagnostics(
             if coordinator.pump_changed_at
             else None,
             "pending_commands": {
-                key: {**value, "sent": value["sent"].isoformat() if value.get("sent") else None}
+                key: {
+                    **value,
+                    "sent": value["sent"].isoformat() if value.get("sent") else None,
+                    "first_sent": value["first_sent"].isoformat()
+                    if value.get("first_sent")
+                    else None,
+                }
                 for key, value in coordinator._pending.items()  # noqa: SLF001
             },
         },

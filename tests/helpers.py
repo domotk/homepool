@@ -72,6 +72,11 @@ class SwitchRouter:
         self.hass = hass
         self.calls: list[tuple[str, str]] = []
         self.ignore: dict[str, int] = {}
+        # A slow relay: commands land later, under a fresh context, the way a
+        # polled or cloud integration reports them.
+        self.deferred = False
+        self._queue: list[tuple[str, str]] = []
+        hass.data["_test_router"] = self
         hass.services.async_register("homeassistant", "turn_on", self._on)
         hass.services.async_register("homeassistant", "turn_off", self._off)
 
@@ -84,6 +89,9 @@ class SwitchRouter:
             if self.ignore.get(entity_id, 0) > 0:
                 self.ignore[entity_id] -= 1
                 continue
+            if self.deferred:
+                self._queue.append((service, entity_id))
+                continue
             await self.hass.services.async_call(
                 "input_boolean", service, {"entity_id": entity_id}, blocking=True, context=call.context
             )
@@ -93,6 +101,16 @@ class SwitchRouter:
 
     async def _off(self, call) -> None:
         await self._forward(call, "turn_off")
+
+    async def flush(self) -> None:
+        """Deliver deferred commands, each under a context nobody sent."""
+        from homeassistant.core import Context
+
+        queue, self._queue = self._queue, []
+        for service, entity_id in queue:
+            await self.hass.services.async_call(
+                "input_boolean", service, {"entity_id": entity_id}, blocking=True, context=Context()
+            )
 
     def count(self, service: str, entity_id: str) -> int:
         return sum(1 for s, e in self.calls if s == service and e == entity_id)

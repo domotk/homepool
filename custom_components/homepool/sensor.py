@@ -245,8 +245,9 @@ async def async_setup_entry(
     hass: HomeAssistant, entry, async_add_entities: AddEntitiesCallback
 ) -> None:
     coordinator: PoolCoordinator = entry.runtime_data
+    classes = {"daily_filtration_target": TargetSensor, "pump_control": ControlSensor}
     async_add_entities(
-        PoolSensor(coordinator, d) for d in SENSORS if d.exists_fn(coordinator)
+        classes.get(d.key, PoolSensor)(coordinator, d) for d in SENSORS if d.exists_fn(coordinator)
     )
 
 
@@ -268,3 +269,21 @@ class PoolSensor(PoolEntity, SensorEntity):
         if self.entity_description.attrs_fn is None:
             return None
         return self.entity_description.attrs_fn(self.coordinator)
+
+
+class TargetSensor(PoolSensor):
+    """The target, whose bulky attributes are for the card, not the recorder."""
+
+    _unrecorded_attributes = frozenset(
+        {"history", "pool_entities", "entities", "dimensions", "inputs", "lights"}
+    )
+
+
+class ControlSensor(PoolSensor):
+    """Who decides the pump.
+
+    The surplus and the reason change with every reading of the grid meter;
+    recording them would write a row every few seconds all day.
+    """
+
+    _unrecorded_attributes = frozenset({"surplus_w", "reason", "chlorinator"})

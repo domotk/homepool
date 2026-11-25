@@ -79,8 +79,11 @@ Three rules keep the target honest:
 The solar modes need a surplus sensor, ideally the grid meter. HomePool adds
 the pump's own draw back while it runs, so a pump that starts on surplus does
 not immediately see none and stop. The surplus has to hold for 5 minutes to
-start the pump; once running, short household peaks up to a tolerance (400 W by
-default) are ridden out, and only 10 minutes below that stop it. The pump also
+start the pump. Once it runs, a small import is tolerated — up to 400 W by
+default, so a kettle or an oven does not stop it — and only 10 minutes of
+importing more than that stop it. In practice the pump can keep running on a
+small import as the sun drops in the late afternoon; set the tolerance to 0 if
+you would rather it never imported at all. The pump also
 runs at least 20 minutes and rests at least 10 between starts.
 
 ## Who decides

@@ -183,6 +183,8 @@ BAD_STATES = (STATE_UNAVAILABLE, STATE_UNKNOWN, None, "")
 # A power reading has to stay out of range this long to count as an anomaly.
 ANOMALY_MINUTES = 5
 ACTIONS_KEPT = 50
+# How long after a command a matching state change still counts as its result.
+OWN_CHANGE_WINDOW_S = 120
 
 
 def parse_timer_slots(text_value: str | None) -> list[tuple[int, int]]:
@@ -763,7 +765,11 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     @property
     def overall_status(self) -> str:
-        if self.safety_active or "pump_not_responding" in self.alerts:
+        if (
+            self.safety_active
+            or "pump_not_responding" in self.alerts
+            or "chlorinator_not_responding" in self.alerts
+        ):
             return OverallStatus.ACTION_REQUIRED
         if (
             self.alerts
@@ -835,8 +841,24 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     self.started_by = None
             if valid_new:
                 self._pump_was_on = new_on
-            ours = new is not None and new.context.id in self._own_contexts
             pending = self._pending.get(CONF_PUMP_SWITCH)
+            # A change is HomePool's own if it carries the context of one of
+            # its commands, or if it is what a command sent moments ago asked
+            # for. The second matters for relays that confirm late: Home
+            # Assistant only keeps a service call's context on the state for a
+            # few seconds, and a slow or polled integration reports the change
+            # under a fresh one. Without this, each such command would read as
+            # someone switching the pump by hand.
+            ours = new is not None and (
+                new.context.id in self._own_contexts
+                or (
+                    pending is not None
+                    and valid_new
+                    and pending["state"] == new_on
+                    and pending.get("sent") is not None
+                    and now - pending["first_sent"] <= timedelta(seconds=OWN_CHANGE_WINDOW_S)
+                )
+            )
             if pending and valid_new and pending["state"] == new_on:
                 self._pending.pop(CONF_PUMP_SWITCH, None)
             if valid_new and valid_old and not ours and old.state != new.state:
@@ -1419,8 +1441,19 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             if not decision.pump and self._is_on(CONF_CHLORINATOR_SWITCH) is True:
                 # Do not stop the pump while the cell is still on: it has just
                 # been told to stop, and its state change brings us back here.
-                await self._async_retry(now)
-                return
+                # A cell that ignores every retry must not keep the pump
+                # running for ever, through a flood included: once its retries
+                # are spent the pump stops anyway, and an alert says why.
+                cell = self._pending.get(CONF_CHLORINATOR_SWITCH)
+                cell_gave_up = (
+                    cell is not None
+                    and cell["attempts"] >= COMMAND_MAX_ATTEMPTS
+                    and cell["sent"] is not None
+                    and now - cell["sent"] >= timedelta(seconds=COMMAND_RETRY_S)
+                )
+                if not cell_gave_up:
+                    await self._async_retry(now)
+                    return
             if decision.pump:
                 self.started_by = decision.source
             await self._async_command(CONF_PUMP_SWITCH, decision.pump)
@@ -1468,7 +1501,12 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         pending = self._pending.get(key)
         if pending and pending["state"] == turn_on:
             return  # already asked; the retry loop takes it from here
-        self._pending[key] = {"state": turn_on, "attempts": 0, "sent": None}
+        self._pending[key] = {
+            "state": turn_on,
+            "attempts": 0,
+            "sent": None,
+            "first_sent": dt_util.utcnow(),
+        }
         await self._async_send(key)
 
     async def _async_send(self, key: str) -> None:
@@ -1507,21 +1545,24 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 continue  # unavailable: wait, do not keep firing
             if actual == pending["state"]:
                 self._pending.pop(key, None)
-                if key == CONF_PUMP_SWITCH:
-                    await self._async_clear("pump_not_responding")
+                await self._async_clear(
+                    "pump_not_responding" if key == CONF_PUMP_SWITCH else "chlorinator_not_responding"
+                )
                 continue
             if pending["sent"] and now - pending["sent"] < timedelta(seconds=COMMAND_RETRY_S):
                 continue
             if pending["attempts"] >= COMMAND_MAX_ATTEMPTS:
-                if key == CONF_PUMP_SWITCH:
-                    await self._async_raise(
-                        "pump_not_responding",
-                        Severity.CRITICAL,
-                        {
-                            "attempts": pending["attempts"],
-                            "state": "on" if pending["state"] else "off",
-                        },
-                    )
+                alert = (
+                    "pump_not_responding" if key == CONF_PUMP_SWITCH else "chlorinator_not_responding"
+                )
+                await self._async_raise(
+                    alert,
+                    Severity.CRITICAL,
+                    {
+                        "attempts": pending["attempts"],
+                        "state": "on" if pending["state"] else "off",
+                    },
+                )
                 continue
             await self._async_send(key)
 
