@@ -674,6 +674,52 @@
         "cell_cleaned": "Cell cleaned",
         "other": "Other"
       }
+    },
+    "layout_variant_square": {
+      "options": {
+        "plain": "No interior elements",
+        "corner_steps": "Built-in corner steps",
+        "full_side_steps": "Full-width steps on one side"
+      }
+    },
+    "layout_variant_rectangular": {
+      "options": {
+        "plain": "No interior elements",
+        "corner_steps": "Built-in corner steps",
+        "roman_steps_short_side": "Roman steps on short side",
+        "roman_steps_long_side": "Roman steps on long side",
+        "full_side_island": "Island covering full short side",
+        "full_side_island_with_steps": "Island with integrated steps on short side",
+        "beach_entry": "Beach/gradual entry",
+        "small_ladder_only": "Standard metal ladder only (no built-in elements)"
+      }
+    },
+    "layout_variant_oval": {
+      "options": {
+        "plain": "No interior elements",
+        "roman_steps": "Roman steps on one end",
+        "beach_entry": "Beach/gradual entry"
+      }
+    },
+    "layout_variant_round": {
+      "options": {
+        "plain": "No interior elements",
+        "steps_segment": "Built-in steps on one segment"
+      }
+    },
+    "layout_variant_kidney": {
+      "options": {
+        "plain": "No interior elements",
+        "steps_concave": "Steps on concave side",
+        "beach_entry": "Beach entry on shallow end"
+      }
+    },
+    "layout_variant_l_shape": {
+      "options": {
+        "plain": "No interior elements",
+        "corner_steps": "Built-in steps at junction",
+        "roman_steps": "Roman steps on one arm"
+      }
     }
   },
   "entity": {

@@ -340,6 +340,9 @@ class _Wizard:
             sel.SelectSelectorConfig(
                 options=[sel.SelectOptionDict(value=v.id, label=v.name) for v in variants],
                 mode=sel.SelectSelectorMode.DROPDOWN,
+                # One set per shape: the same id reads differently on an L
+                # (steps at the junction) than on a rectangle (in a corner).
+                translation_key=f"layout_variant_{shape}",
             )
         )
         schema = vol.Schema(fields)

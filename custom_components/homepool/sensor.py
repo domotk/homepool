@@ -52,6 +52,10 @@ def _target_attrs(c: PoolCoordinator) -> dict[str, Any]:
         "target_chlorine_minutes": t.get("target_chlorine_minutes"),
         "dominant_component": t.get("dominant_component"),
         "clamped": t.get("clamped"),
+        # The floor and ceiling the target was clamped between: the floor is
+        # why a cold day's target stops falling.
+        "min_minutes": t.get("min_minutes"),
+        "max_minutes": t.get("max_minutes"),
         "held_at_previous": t.get("held_at_previous", False),
         "inputs": t.get("inputs"),
         "sources": t.get("sources"),
@@ -71,6 +75,7 @@ def _control_attrs(c: PoolCoordinator) -> dict[str, Any]:
         "surplus_w": round(c.surplus_w) if c.surplus_w is not None else None,
         "solar_threshold_w": c.solar_threshold,
         "manual_override_until": (c.override or {}).get("until"),
+        "manual_override_by": (c.override or {}).get("by"),
         "manual_cycle_until": c.cycle_until.isoformat() if c.cycle_until else None,
         "safety_conditions": c.safety_reasons,
     }

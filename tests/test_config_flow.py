@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from homeassistant import config_entries
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
@@ -221,3 +223,22 @@ async def test_options_menu_edits_one_group(hass: HomeAssistant) -> None:
     # Everything else is kept.
     assert entry.options["pump_switch"] == PUMP
     assert entry.options["volume"] == 30.0
+
+
+@pytest.mark.parametrize("language", ["en", "es"])
+def test_every_layout_has_a_label_in_each_language(language: str) -> None:
+    import json
+    import pathlib
+
+    import yaml
+
+    root = pathlib.Path(__file__).parent.parent / "custom_components" / "homepool"
+    layouts = yaml.safe_load((root / "data" / "layouts.yaml").read_text(encoding="utf-8"))
+    selectors = json.loads(
+        (root / "translations" / f"{language}.json").read_text(encoding="utf-8")
+    )["selector"]
+    for shape, variants in layouts.items():
+        if not isinstance(variants, list):
+            continue
+        options = selectors[f"layout_variant_{shape}"]["options"]
+        assert {v["id"] for v in variants} == set(options), shape

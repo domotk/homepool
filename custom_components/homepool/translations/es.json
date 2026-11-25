@@ -674,6 +674,52 @@
         "cell_cleaned": "Célula limpiada",
         "other": "Otra"
       }
+    },
+    "layout_variant_square": {
+      "options": {
+        "plain": "Sin elementos interiores",
+        "corner_steps": "Escalera de obra en una esquina",
+        "full_side_steps": "Escalera de obra a lo ancho de un lado"
+      }
+    },
+    "layout_variant_rectangular": {
+      "options": {
+        "plain": "Sin elementos interiores",
+        "corner_steps": "Escalera de obra en una esquina",
+        "roman_steps_short_side": "Escalera romana en el lado corto",
+        "roman_steps_long_side": "Escalera romana en el lado largo",
+        "full_side_island": "Isla a lo ancho del lado corto",
+        "full_side_island_with_steps": "Isla con escalera en el lado corto",
+        "beach_entry": "Entrada de playa",
+        "small_ladder_only": "Solo escalerilla metálica (sin elementos de obra)"
+      }
+    },
+    "layout_variant_oval": {
+      "options": {
+        "plain": "Sin elementos interiores",
+        "roman_steps": "Escalera romana en un extremo",
+        "beach_entry": "Entrada de playa"
+      }
+    },
+    "layout_variant_round": {
+      "options": {
+        "plain": "Sin elementos interiores",
+        "steps_segment": "Escalera de obra en un tramo"
+      }
+    },
+    "layout_variant_kidney": {
+      "options": {
+        "plain": "Sin elementos interiores",
+        "steps_concave": "Escalera en el lado cóncavo",
+        "beach_entry": "Entrada de playa en la zona poco profunda"
+      }
+    },
+    "layout_variant_l_shape": {
+      "options": {
+        "plain": "Sin elementos interiores",
+        "corner_steps": "Escalera de obra en la unión",
+        "roman_steps": "Escalera romana en un brazo"
+      }
     }
   },
   "entity": {

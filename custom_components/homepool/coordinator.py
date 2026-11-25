@@ -218,6 +218,18 @@ def _parse_dt(value: str | None) -> datetime | None:
     return dt_util.parse_datetime(value) if value else None
 
 
+# The events automations and scripts fire as they start, named here rather
+# than imported so HomePool does not load either integration.
+EVENT_AUTOMATION_TRIGGERED = "automation_triggered"
+EVENT_SCRIPT_STARTED = "script_started"
+
+# Automation and script runs remembered to attribute pump changes.
+RUNNER_CONTEXTS_KEPT = 300
+
+# How far the pool's own air sensor may read above the forecast high.
+MEASURED_AIR_MARGIN_C = 3.0
+
+
 class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     """Runs one pool."""
 
@@ -235,6 +247,10 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         )
         self._unsubs: list[Any] = []
         self._own_contexts: deque[str] = deque(maxlen=20)
+        # Contexts of automations and scripts that ran lately, with their
+        # kind and name: a pump change under one of them was theirs, not a
+        # person's.
+        self._runner_contexts: dict[str, tuple[str, str]] = {}
         self._solar = SolarDebouncer(SOLAR_START_DELAY_MIN, SOLAR_STOP_DELAY_MIN)
         self._ph_samples: deque[tuple[datetime, float]] = deque(maxlen=60)
         self._anomaly_since: datetime | None = None
@@ -468,6 +484,32 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._unsubs.append(
             async_track_state_change_event(self.hass, watched, self._handle_state_change)
         )
+        # Bound @callback methods run inline as the event fires, before the
+        # automation's own service call can change the pump.
+        for event_type in (EVENT_AUTOMATION_TRIGGERED, EVENT_SCRIPT_STARTED):
+            self._unsubs.append(self.hass.bus.async_listen(event_type, self._note_runner))
+
+    @callback
+    def _note_runner(self, event: Event) -> None:
+        """Remember an automation or script run, to tell its changes apart."""
+        kind = "automation" if event.event_type == EVENT_AUTOMATION_TRIGGERED else "script"
+        name = event.data.get("name") or event.data.get("entity_id") or ""
+        self._runner_contexts[event.context.id] = (kind, str(name))
+        while len(self._runner_contexts) > RUNNER_CONTEXTS_KEPT:
+            self._runner_contexts.pop(next(iter(self._runner_contexts)))
+
+    def _changed_by(self, context: Context) -> tuple[str, str | None]:
+        """Who made a change HomePool did not: a person, an automation, a script or else."""
+        runner = self._runner_contexts.get(context.id)
+        if runner is None and context.parent_id:
+            runner = self._runner_contexts.get(context.parent_id)
+        if runner is not None:
+            return runner
+        if context.user_id:
+            return "user", None
+        # A wall switch, a device's own button, or a relay that reported a
+        # change late under a fresh context.
+        return "external", None
 
     async def async_stop(self) -> None:
         for unsub in self._unsubs:
@@ -871,16 +913,21 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 minutes = float(
                     self.opt(CONF_MANUAL_OVERRIDE_MINUTES, DEFAULT_MANUAL_OVERRIDE_MINUTES)
                 )
+                by, by_name = self._changed_by(new.context)
                 self.override = {
                     "state": new_on,
                     "until": _iso(now + timedelta(minutes=minutes)),
+                    "by": by,
+                    "name": by_name,
                 }
                 self.started_by = None
                 self._pending.pop(CONF_PUMP_SWITCH, None)
                 _LOGGER.info(
-                    "%s: pump switched %s outside HomePool; respected for %.0f min",
+                    "%s: pump switched %s outside HomePool (%s%s); respected for %.0f min",
                     self.pool_name,
                     "on" if new_on else "off",
+                    by,
+                    f" {by_name}" if by_name else "",
                     minutes,
                 )
                 self._save()
@@ -1102,12 +1149,20 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # cell kilometres away. Today's maximum so far, or yesterday's if that
         # was warmer: early in the morning today's is still the night's low,
         # and the target only rises as the day warms up.
+        # A sensor in the sun, or on a heat pump's outdoor unit, reads well
+        # above the shade temperature, and the maximum is the figure most
+        # thrown by it; so with a forecast at hand the measurement may top
+        # the forecast high by MEASURED_AIR_MARGIN_C at most.
+        high = self._forecast.get("high")
+        high = float(high) if isinstance(high, (int, float)) else None
         observed = [v for v in (self.air_max.get("today"), self.air_max.get("yesterday")) if v is not None]
         if observed:
-            return None, max(observed), "air_temperature_max"
-        high = self._forecast.get("high")
-        if isinstance(high, (int, float)):
-            return None, float(high), "forecast_high"
+            air = max(observed)
+            if high is not None and air > high + MEASURED_AIR_MARGIN_C:
+                return None, round(high + MEASURED_AIR_MARGIN_C, 1), "air_temperature_max_capped"
+            return None, air, "air_temperature_max"
+        if high is not None:
+            return None, high, "forecast_high"
         return None, None, "none"
 
     def _uv(self) -> tuple[float | None, str | None]:
@@ -1434,6 +1489,8 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 ph_correction=ph_force,
                 manual_cycle=self.cycle_until is not None,
                 manual_override=self.override.get("state") if self.override else None,
+                manual_override_by=(self.override or {}).get("by") or "user",
+                manual_override_name=(self.override or {}).get("name"),
                 mode_decision=mode_decision,
                 started_by=self.started_by,
                 min_on_minutes=MIN_ON_MINUTES,
