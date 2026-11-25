@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import inspect
 import logging
 from typing import Any
 
@@ -117,6 +118,17 @@ async def _async_update_options(hass: HomeAssistant, entry: ConfigEntry) -> None
     await hass.config_entries.async_reload(entry.entry_id)
 
 
+async def _extract_entity_ids(hass: HomeAssistant, call: ServiceCall) -> set[str]:
+    """Entity ids a service call targets, on old and new Home Assistant alike.
+
+    The helper dropped its ``hass`` argument in 2025 and stops accepting it in
+    2026.10; before that change it required it.
+    """
+    if "hass" in inspect.signature(async_extract_entity_ids).parameters:
+        return await async_extract_entity_ids(hass, call)
+    return await async_extract_entity_ids(call)
+
+
 def _async_register_services(hass: HomeAssistant) -> None:
     """Register once, however many pools there are."""
     if hass.services.has_service(DOMAIN, SERVICE_START_CYCLE):
@@ -126,7 +138,7 @@ def _async_register_services(hass: HomeAssistant) -> None:
         """Every pool the call points at, each once, however it was targeted."""
         registry = er.async_get(hass)
         found: dict[str, PoolCoordinator] = {}
-        for entity_id in await async_extract_entity_ids(hass, call):
+        for entity_id in await _extract_entity_ids(hass, call):
             entity = registry.async_get(entity_id)
             if entity is None or entity.config_entry_id is None:
                 continue

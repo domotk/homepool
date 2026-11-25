@@ -260,6 +260,7 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.override: dict[str, Any] | None = None
         self.pump_changed_at: datetime | None = None
         self.pump_on_since: datetime | None = None
+        self.started_by: str | None = None
         self.alerts: dict[str, dict[str, Any]] = {}
         self.due_notified: dict[str, str] = {}
         self._closed_days: list[dict[str, Any]] = []
@@ -272,6 +273,7 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.safety_reasons: list[str] = []
         self.freeze_active = False
         self.ph_correction_active = False
+        self.ph_correction_forced = False
         self.pump_anomaly = False
         self.pressure_high = False
         self.surplus_w: float | None = None
@@ -390,6 +392,7 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.cycle_until = _parse_dt(data.get("cycle_until"))
         self.ph_window_until = _parse_dt(data.get("ph_window_until"))
         self.override = data.get("override")
+        self.started_by = data.get("started_by")
         self.due_notified = data.get("due_notified") or {}
 
         if "chlorinator_enabled" not in self.settings and self.is_salt:
@@ -484,6 +487,7 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "cycle_until": _iso(self.cycle_until),
             "ph_window_until": _iso(self.ph_window_until),
             "override": self.override,
+            "started_by": self.started_by,
             "due_notified": self.due_notified,
         }
 
@@ -827,6 +831,8 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             if valid_new and new_on != self._pump_was_on:
                 self.pump_changed_at = now
                 self.pump_on_since = now if new_on else None
+                if not new_on:
+                    self.started_by = None
             if valid_new:
                 self._pump_was_on = new_on
             ours = new is not None and new.context.id in self._own_contexts
@@ -841,6 +847,7 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     "state": new_on,
                     "until": _iso(now + timedelta(minutes=minutes)),
                 }
+                self.started_by = None
                 self._pending.pop(CONF_PUMP_SWITCH, None)
                 _LOGGER.info(
                     "%s: pump switched %s outside HomePool; respected for %.0f min",
@@ -938,7 +945,6 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.air_max = {"today": None, "yesterday": self.air_max.get("today")}
         self.target = {}
         self.target_at = None
-        self.cycle_until = None
         self._save()
 
     async def _async_rollover(self, now: datetime) -> None:
@@ -1304,10 +1310,19 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.freeze_active = freeze
 
     def _evaluate_ph(self, now: datetime) -> bool:
-        """Is the dosing pump asking for water flow? Opens and closes the window."""
-        if self.ph_window_until and now < self.ph_window_until:
-            return True
-        self.ph_window_until = None
+        """Should the pump run so the pH doser can work? Keeps the window open.
+
+        A window opens for the configured time when the doser needs flow and
+        the pump is not already running for another reason; it is extended
+        while the need lasts, up to the daily cap, so the pump is not stopped
+        and restarted every half hour.
+        """
+        if self.ph_correction_forced:
+            if self.ph_window_until and now < self.ph_window_until:
+                # A window forced from the service runs its course regardless.
+                return True
+            self.ph_correction_forced = False
+            self.ph_window_until = None
         needed = False
         if self._is_on(CONF_PH_DOSING_ENTITY):
             needed = True
@@ -1316,16 +1331,16 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             # Hysteresis: start above the range, stop once back at the target.
             needed = self.ph > high or (self.ph_correction_active and self.ph > self.ph_target)
         self.ph_correction_active = needed
-        if not needed:
-            return False
         cap = float(self.opt(CONF_PH_CORRECTION_MAX_DAILY, DEFAULT_PH_CORRECTION_MAX_DAILY))
-        if self.ph_correction_minutes >= cap:
+        if not needed or self.ph_correction_minutes >= cap:
+            self.ph_window_until = None
             return False
-        if self._pump_was_on:
-            # Water is already flowing; nothing to force.
+        if self._pump_was_on and self.started_by != "ph_correction":
+            # Water is already flowing for another reason; nothing to force.
             return False
-        minutes = float(self.opt(CONF_PH_CORRECTION_MINUTES, DEFAULT_PH_CORRECTION_MINUTES))
-        self.ph_window_until = now + timedelta(minutes=minutes)
+        if self.ph_window_until is None or now >= self.ph_window_until:
+            minutes = float(self.opt(CONF_PH_CORRECTION_MINUTES, DEFAULT_PH_CORRECTION_MINUTES))
+            self.ph_window_until = now + timedelta(minutes=minutes)
         return True
 
     async def _async_control(self, now: datetime) -> None:
@@ -1388,6 +1403,7 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 manual_cycle=self.cycle_until is not None,
                 manual_override=self.override.get("state") if self.override else None,
                 mode_decision=mode_decision,
+                started_by=self.started_by,
                 min_on_minutes=MIN_ON_MINUTES,
                 min_off_minutes=MIN_OFF_MINUTES,
             )
@@ -1405,6 +1421,8 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 # been told to stop, and its state change brings us back here.
                 await self._async_retry(now)
                 return
+            if decision.pump:
+                self.started_by = decision.source
             await self._async_command(CONF_PUMP_SWITCH, decision.pump)
         elif decision.pump is None or decision.pump == self._pump_was_on:
             pending = self._pending.get(CONF_PUMP_SWITCH)
@@ -1746,6 +1764,7 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self.opt(CONF_PH_CORRECTION_MINUTES, DEFAULT_PH_CORRECTION_MINUTES)
         )
         self.ph_window_until = dt_util.utcnow() + timedelta(minutes=float(duration))
+        self.ph_correction_forced = True
         self._save()
         await self.async_refresh()
 

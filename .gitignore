@@ -1,23 +1,13 @@
 __pycache__
-*.nosync
 *.py[cod]
-*$py.class
-*.so
-.Python
-env/
-venv/
-.env
-.venv
-*.egg-info/
-dist/
-build/
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-node_modules/
-frontend/dist/
+.DS_Store
 *.log
-
+*.tmp
+.venv
+.venv*/
+*.nosync
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
 # macOS/Finder duplicates (e.g. ".venv 2", "__pycache__ 2")
 * [0-9]
-.DS_Store

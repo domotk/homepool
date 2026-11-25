@@ -56,8 +56,18 @@ class ControlInputs:
 
     mode_decision: PumpDecision | None = None
 
+    # Why HomePool itself last switched the pump on, if it did. When that
+    # reason ends and the mode has no opinion (off mode, a timer with no
+    # slots), the pump is switched off again: HomePool started it, so
+    # HomePool stops it.
+    started_by: str | None = None
+
     min_on_minutes: float = 20
     min_off_minutes: float = 10
+
+
+# Reasons for which HomePool switches the pump on regardless of the mode.
+FORCING_SOURCES = ("freeze_protection", "ph_correction", "manual_cycle")
 
 
 @dataclass
@@ -95,6 +105,10 @@ def arbitrate(inp: ControlInputs) -> ControlDecision:
 
     decision = inp.mode_decision
     if decision is None or decision.action == PumpAction.NO_CHANGE:
+        if inp.pump_is_on and inp.started_by in FORCING_SOURCES:
+            return ControlDecision(
+                False, "mode", f"No longer needed for {inp.started_by.replace('_', ' ')}"
+            )
         return ControlDecision(None, "mode", decision.reason if decision else "No mode")
 
     want_on = decision.action == PumpAction.TURN_ON

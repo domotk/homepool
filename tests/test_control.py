@@ -239,8 +239,9 @@ async def test_freeze_protection_runs_the_pump_in_off_mode(
     assert state(hass, PUMP) == "on"
     assert state(hass, "sensor.pool_pump_control") == "freeze_protection"
     hass.states.async_set("sensor.water", "6.0", {"unit_of_measurement": "°C"})
-    await tick(hass, freezer, 25)
-    assert state(hass, PUMP) == "on"  # Off mode: HomePool only stopped forcing it
+    await tick(hass, freezer, 2)
+    # HomePool started it, so HomePool stops it once the reason has gone.
+    assert state(hass, PUMP) == "off"
     assert state(hass, "sensor.pool_pump_control") == "mode"
 
 
@@ -290,3 +291,22 @@ async def test_solar_mode_follows_the_debounced_surplus(
     await tick(hass, freezer, 12)
     assert state(hass, PUMP) == "off"
     assert router.count("turn_on", PUMP) == 1
+
+
+async def test_ph_correction_runs_the_pump_within_its_daily_cap(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
+) -> None:
+    freezer.move_to(local(2026, 7, 15, 6, 0))
+    SwitchRouter(hass)
+    hass.states.async_set("sensor.ph", "7.9")
+    await setup_pool(
+        hass, ph_sensor="sensor.ph", has_ph_dosing=True,
+        ph_correction_minutes=30, ph_correction_max_daily=60,
+    )
+    await tick(hass, freezer, 1)
+    assert state(hass, PUMP) == "on"
+    assert state(hass, "sensor.pool_pump_control") == "ph_correction"
+    # The probe never recovers: the cap stops it after an hour.
+    await tick(hass, freezer, 90)
+    assert state(hass, PUMP) == "off"
+    assert state(hass, "binary_sensor.pool_ph_correction") == "on"

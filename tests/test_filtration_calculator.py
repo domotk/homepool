@@ -2,7 +2,7 @@
 
 Validates the algorithm against the Astralpool manufacturer table
 and various environmental scenarios using the reference pool:
-  - 30 m³, Astralpool Sena 12.8 m³/h, Pobla de Vallbona (lat 39.6)
+  - 30 m³, Astralpool Sena 12.8 m³/h, Mediterranean coast (lat 39.6)
 """
 
 import pytest
@@ -22,7 +22,7 @@ from custom_components.homepool.pool.filtration_calculator import (
 
 REF_VOLUME = 30.0
 REF_FLOW_RATE = 12.8
-REF_LATITUDE = 39.6  # Pobla de Vallbona, Valencia
+REF_LATITUDE = 39.6  # Mediterranean coast, Spain
 
 
 def make_inputs(**kwargs) -> FiltrationInputs:
