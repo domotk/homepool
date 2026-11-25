@@ -1,242 +1,960 @@
 {
   "config": {
     "step": {
-      "user": {
-        "title": "Pool Identity",
-        "description": "Give your pool a name. If you have multiple pools, each will be a separate instance.",
+      "identity": {
+        "title": "Your pool",
+        "description": "A name, and where the pool is. The location sets the hemisphere and the seasons; it defaults to your home.",
         "data": {
-          "name": "Pool name"
-        }
-      },
-      "location": {
-        "title": "Pool Location",
-        "description": "Set the geographic location of your pool. Used for solar calculations and weather data.",
-        "data": {
-          "location_source": "Location source",
+          "name": "Name",
           "latitude": "Latitude",
           "longitude": "Longitude"
         }
       },
-      "geometry": {
-        "title": "Pool Geometry",
-        "description": "Define the shape and dimensions of your pool.",
+      "shape": {
+        "title": "Shape",
         "data": {
-          "shape": "Pool shape",
-          "side": "Side length (m)",
-          "length": "Length (m)",
-          "width": "Width (m)",
-          "diameter": "Diameter (m)",
-          "length_1": "Section 1 length (m)",
-          "width_1": "Section 1 width (m)",
-          "length_2": "Section 2 length (m)",
-          "width_2": "Section 2 width (m)",
-          "depth_min": "Minimum depth (m)",
-          "depth_max": "Maximum depth (m)",
-          "layout_variant": "Interior layout",
-          "layout_orientation": "Layout orientation",
-          "volume_override": "Volume override (m³, leave empty to calculate)"
+          "shape": "Shape of the pool"
         }
       },
-      "geometry_confirm": {
-        "title": "Confirm Pool Volume",
-        "description": "Based on your dimensions, the estimated volume is **{volume} m³**. Is this correct?"
+      "dimensions": {
+        "title": "Dimensions",
+        "description": "Inside measurements of the water, in metres. If the depth is the same everywhere, give it twice.",
+        "data": {
+          "side": "Side",
+          "length": "Length",
+          "width": "Width",
+          "diameter": "Diameter",
+          "length_1": "Length, first part",
+          "width_1": "Width, first part",
+          "length_2": "Length, second part",
+          "width_2": "Width, second part",
+          "depth_min": "Shallowest depth",
+          "depth_max": "Deepest depth",
+          "layout_variant": "Steps, islands and the like"
+        }
+      },
+      "layout_orientation": {
+        "title": "Where they are",
+        "data": {
+          "layout_orientation": "Position"
+        }
+      },
+      "volume": {
+        "title": "Volume",
+        "description": "From those measurements the pool holds about **{volume} m³**. If you know the real figure, from the builder or from filling it, enter it here; otherwise leave it empty.",
+        "data": {
+          "volume_override": "Real volume"
+        }
       },
       "construction": {
-        "title": "Construction & Environment",
+        "title": "Construction",
         "data": {
-          "construction_type": "Construction type",
-          "has_cover": "Pool cover",
-          "cover_entity": "Cover entity (if automatic)",
-          "has_heating": "Has heating system",
-          "heating_type": "Heating type",
-          "is_covered_by_roof": "Covered by fixed roof/porch",
-          "orientation": "Pool orientation",
-          "liner_type": "Interior finish type",
-          "liner_color": "Interior color"
+          "construction_type": "Type",
+          "has_cover": "Cover",
+          "cover_entity": "Cover entity",
+          "is_covered_by_roof": "Under a fixed roof or porch",
+          "heating_type": "Heating",
+          "liner_type": "Finish",
+          "liner_color": "Colour of the finish",
+          "orientation": "Orientation"
+        },
+        "data_description": {
+          "cover_entity": "Only for an automatic cover: closed means covered.",
+          "is_covered_by_roof": "Sun and rain then no longer change the filtration time."
+        }
+      },
+      "pump": {
+        "title": "Pump",
+        "description": "Pick your pump to fill in its figures, or enter them yourself.",
+        "data": {
+          "pump_model": "Model"
         }
       },
       "filtration": {
-        "title": "Filtration System",
+        "title": "Filtration",
         "data": {
-          "use_pump_catalog": "Select pump from catalog",
-          "pump_speed_type": "Pump speed type",
-          "pump_nominal_flow_rate": "Nominal flow rate (m³/h)",
-          "pump_nominal_power": "Nominal power (W)",
-          "skimmers_count": "Number of skimmers",
-          "has_autofill_skimmer": "Has autofill skimmer",
-          "returns_count": "Number of return jets",
-          "filter_type": "Filter type"
+          "pump_nominal_flow_rate": "Pump flow rate",
+          "pump_nominal_power": "Pump power",
+          "pump_speed_type": "Speed",
+          "filter_type": "Filter",
+          "skimmers_count": "Skimmers",
+          "returns_count": "Returns",
+          "has_autofill_skimmer": "Has an auto-fill skimmer",
+          "filter_pressure_normal_min": "Normal filter pressure, low",
+          "filter_pressure_normal_max": "Normal filter pressure, high",
+          "backwash_interval_days": "Backwash or clean every"
+        },
+        "data_description": {
+          "pump_nominal_flow_rate": "The one figure the daily target cannot do without.",
+          "pump_nominal_power": "Used to tell a solar surplus from the pump's own draw when there is no power meter on it."
         }
       },
-      "water_treatment": {
-        "title": "Water Treatment",
+      "water": {
+        "title": "Water treatment",
         "data": {
-          "chlorination_type": "Chlorination system",
-          "ph_target": "Target pH",
-          "ph_range_min": "Minimum acceptable pH",
-          "ph_range_max": "Maximum acceptable pH",
-          "salt_target": "Target salt level (g/L)",
-          "chlorinator_nominal_production": "Chlorinator production (g/h at 100%)",
-          "chlorinator_production_default": "Current production setting (%)",
-          "chlorinator_controllable": "Chlorinator controllable from HA",
-          "chlorinator_self_regulating": "Chlorinator self-regulates (has ORP sensor)",
-          "chlorinator_active_months": "Months with salt chlorinator active",
-          "chlorinator_auto_toggle": "Auto-toggle chlorinator by calendar"
+          "chlorination_type": "Chlorination",
+          "ph_target": "pH target",
+          "ph_range_min": "pH, lowest acceptable",
+          "ph_range_max": "pH, highest acceptable",
+          "has_ph_dosing": "A pH dosing pump that works only with water flowing",
+          "ph_calibration_interval_days": "Calibrate the pH probe every",
+          "free_chlorine_target": "Free chlorine target",
+          "free_chlorine_range_min": "Free chlorine, lowest",
+          "free_chlorine_range_max": "Free chlorine, highest"
+        },
+        "data_description": {
+          "has_ph_dosing": "When the pH is too high, the pump is run for a while so the doser can work."
         }
       },
-      "lighting": {
-        "title": "Lighting & Auxiliary",
+      "chlorinator_model": {
+        "title": "Salt chlorinator",
+        "description": "Pick your chlorinator to fill in its figures, or enter them yourself.",
         "data": {
-          "pool_cleaner_type": "Pool cleaner robot type",
-          "robot_entity": "Robot entity",
-          "robot_cycle_hours": "Robot cycle duration (hours)"
+          "chlorinator_model": "Model"
         }
       },
-      "connect_core": {
-        "title": "Core Equipment",
-        "description": "Connect the switch that controls your pump. This is the only required entity.",
+      "chlorinator": {
+        "title": "Salt chlorinator",
         "data": {
-          "pump_switch": "Pump switch"
+          "chlorinator_nominal_production": "Production at 100 %",
+          "chlorinator_production_default": "Production it is set to",
+          "chlorinator_self_regulating": "Regulates itself (ORP or chlorine probe)",
+          "chlorinator_controllable": "Its production can be set from Home Assistant",
+          "chlorinator_active_months": "Months it is used",
+          "chlorinator_auto_toggle": "Switch it on and off with the calendar",
+          "chlorinator_min_water_temp": "Coldest water it may run in",
+          "salt_target": "Salt target",
+          "salt_range_min": "Salt, lowest",
+          "salt_range_max": "Salt, highest"
+        },
+        "data_description": {
+          "chlorinator_auto_toggle": "Otherwise HomePool only tells you when the season starts and ends."
         }
       },
-      "connect_pump_monitoring": {
-        "title": "Pump Monitoring",
-        "description": "Optional sensors for pump power monitoring and anomaly detection.",
-        "data": {
-          "pump_power_sensor": "Pump power sensor (W)",
-          "pump_energy_sensor": "Pump energy sensor (kWh)"
+      "connections": {
+        "title": "Your entities",
+        "description": "Only the pump switch is required. Each sensor you add unlocks something; leave the rest empty.",
+        "sections": {
+          "pump": {
+            "name": "Pump",
+            "data": {
+              "pump_switch": "Pump switch",
+              "pump_power_sensor": "Pump power",
+              "pump_energy_sensor": "Pump energy",
+              "hands_off_entity": "Hands-off flag"
+            },
+            "data_description": {
+              "hands_off_entity": "While this is on, HomePool never switches the pump, on or off. It keeps counting."
+            }
+          },
+          "water": {
+            "name": "Water",
+            "data": {
+              "water_temperature_sensor": "Water temperature",
+              "air_temperature_sensor": "Outdoor temperature",
+              "ph_sensor": "pH",
+              "ph_dosing_entity": "pH doser asking for flow",
+              "orp_sensor": "ORP (redox)",
+              "salinity_sensor": "Salinity",
+              "free_chlorine_sensor": "Free chlorine"
+            },
+            "data_description": {
+              "air_temperature_sensor": "Used to estimate the water temperature when there is no probe in the water."
+            }
+          },
+          "equipment_room": {
+            "name": "Equipment room",
+            "data": {
+              "filter_pressure_sensor": "Filter pressure",
+              "equipment_room_temperature_sensor": "Room temperature",
+              "equipment_room_humidity_sensor": "Room humidity",
+              "flood_sensor": "Flood sensor"
+            }
+          },
+          "chlorinator": {
+            "name": "Salt chlorinator",
+            "data": {
+              "chlorinator_switch": "Chlorinator switch, separate from the pump",
+              "chlorinator_production_entity": "Production setting"
+            }
+          },
+          "solar": {
+            "name": "Solar",
+            "data": {
+              "solar_excess_sensor": "Grid or surplus power",
+              "solar_excess_sign": "What that sensor reports",
+              "solar_import_tolerance": "Import tolerated while running on sun"
+            },
+            "data_description": {
+              "solar_excess_sensor": "Enables the two solar modes. A grid meter is best: HomePool adds the pump's own draw back while it runs.",
+              "solar_import_tolerance": "Short peaks of house consumption up to this much do not stop the pump."
+            }
+          },
+          "weather": {
+            "name": "Weather",
+            "data": {
+              "weather_entity": "Weather forecast",
+              "uv_sensor": "UV index",
+              "rain_sensor": "Rain in the last 24 h"
+            }
+          }
         }
       },
-      "connect_water_chemistry": {
-        "title": "Water Chemistry",
-        "description": "Connect water quality sensors for monitoring and alerts.",
+      "control": {
+        "title": "Control",
         "data": {
-          "ph_sensor": "pH sensor",
-          "water_temperature_sensor": "Water temperature sensor",
-          "salinity_sensor": "Salinity sensor",
-          "orp_sensor": "ORP/Redox sensor",
-          "free_chlorine_sensor": "Free chlorine sensor"
-        }
-      },
-      "connect_filter": {
-        "title": "Filter Monitoring",
-        "description": "Connect a pressure sensor for automatic backwash detection.",
-        "data": {
-          "filter_pressure_sensor": "Filter pressure sensor"
-        }
-      },
-      "connect_equipment_room": {
-        "title": "Equipment Room",
-        "description": "Sensors for equipment room safety monitoring.",
-        "data": {
-          "equipment_room_temperature_sensor": "Room temperature sensor",
-          "equipment_room_humidity_sensor": "Room humidity sensor",
-          "flood_sensor": "Flood sensor"
-        }
-      },
-      "connect_chlorinator": {
-        "title": "Salt Chlorinator Control",
-        "description": "Connect your chlorinator for independent management.",
-        "data": {
-          "chlorinator_switch": "Chlorinator switch (independent from pump)",
-          "chlorinator_production_entity": "Production level control"
-        }
-      },
-      "connect_solar": {
-        "title": "Solar Integration",
-        "description": "Connect solar sensors to enable solar operation modes.",
-        "data": {
-          "solar_excess_sensor": "Solar excess power sensor (W)",
-          "solar_forecast_entity": "Solar forecast sensor"
-        }
-      },
-      "connect_weather": {
-        "title": "Weather Integration",
-        "description": "Connect weather data for intelligent filtration adjustment.",
-        "data": {
-          "weather_entity": "Weather entity",
-          "uv_sensor": "UV index sensor"
+          "timer_slots": "Timer mode slots",
+          "manual_override_minutes": "Respect a hand-switched pump for",
+          "freeze_protection": "Run the pump when the water is near freezing",
+          "freeze_threshold": "Freezing threshold",
+          "ph_correction_minutes": "pH correction window",
+          "ph_correction_max_daily": "pH correction, most per day",
+          "equipment_room_max_temp": "Room too hot above",
+          "filter_pressure_critical": "Filter pressure that stops the pump",
+          "energy_price": "Energy price per kWh",
+          "energy_price_entity": "Energy price entity",
+          "light_entities": "Pool lights",
+          "pool_cleaner_type": "Pool cleaner",
+          "robot_entity": "Robot entity"
+        },
+        "data_description": {
+          "timer_slots": "For example 08:00-12:00, 18:00-20:00",
+          "energy_price_entity": "Takes precedence over the fixed price."
         }
       },
       "notifications": {
         "title": "Notifications",
-        "description": "Optionally enable built-in notifications. You can always create your own automations using HomePool sensors and events.",
+        "description": "HomePool always fires events and keeps alert sensors for your own automations. This is only for a ready-made message.",
         "data": {
-          "enable_builtin_notifications": "Enable built-in notifications",
-          "notification_service": "Notification service",
-          "notification_severity_min": "Minimum severity to notify",
-          "notification_quiet_hours_start": "Quiet hours start",
-          "notification_quiet_hours_end": "Quiet hours end"
+          "enable_builtin_notifications": "Send notifications",
+          "notification_service": "Notify service",
+          "notification_severity_min": "From this severity up",
+          "notification_quiet_hours_start": "Quiet from",
+          "notification_quiet_hours_end": "Quiet until",
+          "critical_ignore_quiet_hours": "Critical alerts ignore the quiet hours"
         }
-      },
-      "review": {
-        "title": "Review & Finish",
-        "description": "Your pool is configured. The operation mode will start as **Off** (monitor only). You can change it anytime from the integration settings."
       }
     },
+    "error": {
+      "depth_order": "The deepest depth cannot be less than the shallowest.",
+      "cover_entity_required": "An automatic cover needs its entity.",
+      "pressure_order": "The high pressure must be above the low one.",
+      "ph_order": "The target must be inside the acceptable range.",
+      "no_months": "Pick at least one month.",
+      "same_switch": "The chlorinator switch must be a different entity from the pump switch. If the cell is wired with the pump, leave it empty.",
+      "bad_slots": "Write the slots as HH:MM-HH:MM, separated by commas.",
+      "service_required": "Pick a notify service, or switch notifications off."
+    },
     "abort": {
-      "already_configured": "This pool is already configured"
+      "already_configured": "This pool is already set up."
     }
   },
   "options": {
     "step": {
+      "identity": {
+        "title": "Your pool",
+        "description": "A name, and where the pool is. The location sets the hemisphere and the seasons; it defaults to your home.",
+        "data": {
+          "name": "Name",
+          "latitude": "Latitude",
+          "longitude": "Longitude"
+        }
+      },
+      "shape": {
+        "title": "Shape",
+        "data": {
+          "shape": "Shape of the pool"
+        }
+      },
+      "dimensions": {
+        "title": "Dimensions",
+        "description": "Inside measurements of the water, in metres. If the depth is the same everywhere, give it twice.",
+        "data": {
+          "side": "Side",
+          "length": "Length",
+          "width": "Width",
+          "diameter": "Diameter",
+          "length_1": "Length, first part",
+          "width_1": "Width, first part",
+          "length_2": "Length, second part",
+          "width_2": "Width, second part",
+          "depth_min": "Shallowest depth",
+          "depth_max": "Deepest depth",
+          "layout_variant": "Steps, islands and the like"
+        }
+      },
+      "layout_orientation": {
+        "title": "Where they are",
+        "data": {
+          "layout_orientation": "Position"
+        }
+      },
+      "volume": {
+        "title": "Volume",
+        "description": "From those measurements the pool holds about **{volume} m³**. If you know the real figure, from the builder or from filling it, enter it here; otherwise leave it empty.",
+        "data": {
+          "volume_override": "Real volume"
+        }
+      },
+      "construction": {
+        "title": "Construction",
+        "data": {
+          "construction_type": "Type",
+          "has_cover": "Cover",
+          "cover_entity": "Cover entity",
+          "is_covered_by_roof": "Under a fixed roof or porch",
+          "heating_type": "Heating",
+          "liner_type": "Finish",
+          "liner_color": "Colour of the finish",
+          "orientation": "Orientation"
+        },
+        "data_description": {
+          "cover_entity": "Only for an automatic cover: closed means covered.",
+          "is_covered_by_roof": "Sun and rain then no longer change the filtration time."
+        }
+      },
+      "pump": {
+        "title": "Pump",
+        "description": "Pick your pump to fill in its figures, or enter them yourself.",
+        "data": {
+          "pump_model": "Model"
+        }
+      },
+      "filtration": {
+        "title": "Filtration",
+        "data": {
+          "pump_nominal_flow_rate": "Pump flow rate",
+          "pump_nominal_power": "Pump power",
+          "pump_speed_type": "Speed",
+          "filter_type": "Filter",
+          "skimmers_count": "Skimmers",
+          "returns_count": "Returns",
+          "has_autofill_skimmer": "Has an auto-fill skimmer",
+          "filter_pressure_normal_min": "Normal filter pressure, low",
+          "filter_pressure_normal_max": "Normal filter pressure, high",
+          "backwash_interval_days": "Backwash or clean every"
+        },
+        "data_description": {
+          "pump_nominal_flow_rate": "The one figure the daily target cannot do without.",
+          "pump_nominal_power": "Used to tell a solar surplus from the pump's own draw when there is no power meter on it."
+        }
+      },
+      "water": {
+        "title": "Water treatment",
+        "data": {
+          "chlorination_type": "Chlorination",
+          "ph_target": "pH target",
+          "ph_range_min": "pH, lowest acceptable",
+          "ph_range_max": "pH, highest acceptable",
+          "has_ph_dosing": "A pH dosing pump that works only with water flowing",
+          "ph_calibration_interval_days": "Calibrate the pH probe every",
+          "free_chlorine_target": "Free chlorine target",
+          "free_chlorine_range_min": "Free chlorine, lowest",
+          "free_chlorine_range_max": "Free chlorine, highest"
+        },
+        "data_description": {
+          "has_ph_dosing": "When the pH is too high, the pump is run for a while so the doser can work."
+        }
+      },
+      "chlorinator_model": {
+        "title": "Salt chlorinator",
+        "description": "Pick your chlorinator to fill in its figures, or enter them yourself.",
+        "data": {
+          "chlorinator_model": "Model"
+        }
+      },
+      "chlorinator": {
+        "title": "Salt chlorinator",
+        "data": {
+          "chlorinator_nominal_production": "Production at 100 %",
+          "chlorinator_production_default": "Production it is set to",
+          "chlorinator_self_regulating": "Regulates itself (ORP or chlorine probe)",
+          "chlorinator_controllable": "Its production can be set from Home Assistant",
+          "chlorinator_active_months": "Months it is used",
+          "chlorinator_auto_toggle": "Switch it on and off with the calendar",
+          "chlorinator_min_water_temp": "Coldest water it may run in",
+          "salt_target": "Salt target",
+          "salt_range_min": "Salt, lowest",
+          "salt_range_max": "Salt, highest"
+        },
+        "data_description": {
+          "chlorinator_auto_toggle": "Otherwise HomePool only tells you when the season starts and ends."
+        }
+      },
+      "connections": {
+        "title": "Your entities",
+        "description": "Only the pump switch is required. Each sensor you add unlocks something; leave the rest empty.",
+        "sections": {
+          "pump": {
+            "name": "Pump",
+            "data": {
+              "pump_switch": "Pump switch",
+              "pump_power_sensor": "Pump power",
+              "pump_energy_sensor": "Pump energy",
+              "hands_off_entity": "Hands-off flag"
+            },
+            "data_description": {
+              "hands_off_entity": "While this is on, HomePool never switches the pump, on or off. It keeps counting."
+            }
+          },
+          "water": {
+            "name": "Water",
+            "data": {
+              "water_temperature_sensor": "Water temperature",
+              "air_temperature_sensor": "Outdoor temperature",
+              "ph_sensor": "pH",
+              "ph_dosing_entity": "pH doser asking for flow",
+              "orp_sensor": "ORP (redox)",
+              "salinity_sensor": "Salinity",
+              "free_chlorine_sensor": "Free chlorine"
+            },
+            "data_description": {
+              "air_temperature_sensor": "Used to estimate the water temperature when there is no probe in the water."
+            }
+          },
+          "equipment_room": {
+            "name": "Equipment room",
+            "data": {
+              "filter_pressure_sensor": "Filter pressure",
+              "equipment_room_temperature_sensor": "Room temperature",
+              "equipment_room_humidity_sensor": "Room humidity",
+              "flood_sensor": "Flood sensor"
+            }
+          },
+          "chlorinator": {
+            "name": "Salt chlorinator",
+            "data": {
+              "chlorinator_switch": "Chlorinator switch, separate from the pump",
+              "chlorinator_production_entity": "Production setting"
+            }
+          },
+          "solar": {
+            "name": "Solar",
+            "data": {
+              "solar_excess_sensor": "Grid or surplus power",
+              "solar_excess_sign": "What that sensor reports",
+              "solar_import_tolerance": "Import tolerated while running on sun"
+            },
+            "data_description": {
+              "solar_excess_sensor": "Enables the two solar modes. A grid meter is best: HomePool adds the pump's own draw back while it runs.",
+              "solar_import_tolerance": "Short peaks of house consumption up to this much do not stop the pump."
+            }
+          },
+          "weather": {
+            "name": "Weather",
+            "data": {
+              "weather_entity": "Weather forecast",
+              "uv_sensor": "UV index",
+              "rain_sensor": "Rain in the last 24 h"
+            }
+          }
+        }
+      },
+      "control": {
+        "title": "Control",
+        "data": {
+          "timer_slots": "Timer mode slots",
+          "manual_override_minutes": "Respect a hand-switched pump for",
+          "freeze_protection": "Run the pump when the water is near freezing",
+          "freeze_threshold": "Freezing threshold",
+          "ph_correction_minutes": "pH correction window",
+          "ph_correction_max_daily": "pH correction, most per day",
+          "equipment_room_max_temp": "Room too hot above",
+          "filter_pressure_critical": "Filter pressure that stops the pump",
+          "energy_price": "Energy price per kWh",
+          "energy_price_entity": "Energy price entity",
+          "light_entities": "Pool lights",
+          "pool_cleaner_type": "Pool cleaner",
+          "robot_entity": "Robot entity"
+        },
+        "data_description": {
+          "timer_slots": "For example 08:00-12:00, 18:00-20:00",
+          "energy_price_entity": "Takes precedence over the fixed price."
+        }
+      },
+      "notifications": {
+        "title": "Notifications",
+        "description": "HomePool always fires events and keeps alert sensors for your own automations. This is only for a ready-made message.",
+        "data": {
+          "enable_builtin_notifications": "Send notifications",
+          "notification_service": "Notify service",
+          "notification_severity_min": "From this severity up",
+          "notification_quiet_hours_start": "Quiet from",
+          "notification_quiet_hours_end": "Quiet until",
+          "critical_ignore_quiet_hours": "Critical alerts ignore the quiet hours"
+        }
+      },
       "init": {
-        "title": "HomePool Settings",
-        "description": "Modify your pool configuration."
+        "title": "Change the pool",
+        "description": "Pick what to change.",
+        "menu_options": {
+          "identity": "Name and location",
+          "shape": "Shape and size",
+          "construction": "Construction",
+          "pump": "Pump and filter",
+          "water": "Water treatment",
+          "chlorinator_model": "Salt chlorinator",
+          "connections": "Entities",
+          "control": "Control",
+          "notifications": "Notifications"
+        }
+      }
+    },
+    "error": {
+      "depth_order": "The deepest depth cannot be less than the shallowest.",
+      "cover_entity_required": "An automatic cover needs its entity.",
+      "pressure_order": "The high pressure must be above the low one.",
+      "ph_order": "The target must be inside the acceptable range.",
+      "no_months": "Pick at least one month.",
+      "same_switch": "The chlorinator switch must be a different entity from the pump switch. If the cell is wired with the pump, leave it empty.",
+      "bad_slots": "Write the slots as HH:MM-HH:MM, separated by commas.",
+      "service_required": "Pick a notify service, or switch notifications off."
+    }
+  },
+  "selector": {
+    "shape": {
+      "options": {
+        "square": "Square",
+        "rectangular": "Rectangular",
+        "oval": "Oval",
+        "round": "Round",
+        "kidney": "Kidney",
+        "l_shape": "L-shaped"
+      }
+    },
+    "layout_orientation": {
+      "options": {
+        "top_left": "Top left",
+        "top_right": "Top right",
+        "bottom_left": "Bottom left",
+        "bottom_right": "Bottom right",
+        "top": "Top",
+        "bottom": "Bottom",
+        "left": "Left",
+        "right": "Right"
+      }
+    },
+    "construction_type": {
+      "options": {
+        "built_in": "Built in",
+        "prefab": "Prefabricated",
+        "above_ground": "Above ground"
+      }
+    },
+    "has_cover": {
+      "options": {
+        "none": "None",
+        "manual": "Manual",
+        "automatic": "Automatic"
+      }
+    },
+    "heating_type": {
+      "options": {
+        "none": "None",
+        "heat_pump": "Heat pump",
+        "heat_exchanger": "Heat exchanger",
+        "solar_thermal": "Solar thermal",
+        "electric": "Electric",
+        "other": "Other"
+      }
+    },
+    "liner_type": {
+      "options": {
+        "not_specified": "Not specified",
+        "tile": "Tile",
+        "polyester": "Polyester",
+        "liner": "Liner",
+        "painted_concrete": "Painted concrete",
+        "natural_stone": "Natural stone",
+        "fiberglass": "Fibreglass"
+      }
+    },
+    "liner_color": {
+      "options": {
+        "white": "White",
+        "light_blue": "Light blue",
+        "blue": "Blue",
+        "dark_blue": "Dark blue",
+        "green": "Green",
+        "sand": "Sand",
+        "grey": "Grey",
+        "black": "Black"
+      }
+    },
+    "orientation": {
+      "options": {
+        "not_specified": "Not specified",
+        "north": "North",
+        "northeast": "Northeast",
+        "east": "East",
+        "southeast": "Southeast",
+        "south": "South",
+        "southwest": "Southwest",
+        "west": "West",
+        "northwest": "Northwest"
+      }
+    },
+    "catalog_model": {
+      "options": {
+        "custom": "Not listed — enter the figures myself"
+      }
+    },
+    "pump_speed_type": {
+      "options": {
+        "fixed": "Single speed",
+        "variable": "Variable speed"
+      }
+    },
+    "filter_type": {
+      "options": {
+        "sand": "Sand",
+        "glass": "Glass",
+        "cartridge": "Cartridge",
+        "diatomaceous_earth": "Diatomaceous earth",
+        "other": "Other"
+      }
+    },
+    "chlorination_type": {
+      "options": {
+        "salt": "Salt chlorinator",
+        "tablets": "Tablets",
+        "liquid": "Liquid chlorine",
+        "other": "Other"
+      }
+    },
+    "month": {
+      "options": {
+        "1": "January",
+        "2": "February",
+        "3": "March",
+        "4": "April",
+        "5": "May",
+        "6": "June",
+        "7": "July",
+        "8": "August",
+        "9": "September",
+        "10": "October",
+        "11": "November",
+        "12": "December"
+      }
+    },
+    "solar_excess_sign": {
+      "options": {
+        "export_positive": "Grid meter: export positive, import negative",
+        "import_positive": "Grid meter: import positive, export negative",
+        "surplus": "Surplus (production minus consumption)"
+      }
+    },
+    "pool_cleaner_type": {
+      "options": {
+        "none": "None",
+        "cable_electric": "Robot with cable",
+        "battery": "Robot with battery",
+        "hydraulic": "Hydraulic"
+      }
+    },
+    "severity": {
+      "options": {
+        "info": "Information",
+        "warning": "Warning",
+        "critical": "Critical"
+      }
+    },
+    "action_type": {
+      "options": {
+        "backwash": "Backwash",
+        "filter_cleaned": "Filter cleaned",
+        "salt_added": "Salt added",
+        "ph_calibrated": "pH probe calibrated",
+        "chlorine_added": "Chlorine added",
+        "ph_adjusted": "pH adjusted by hand",
+        "water_added": "Water added",
+        "cell_cleaned": "Cell cleaned",
+        "other": "Other"
       }
     }
   },
   "entity": {
     "sensor": {
-      "daily_filtration_target": { "name": "Daily filtration target" },
-      "target_filtration_component": { "name": "Filtration demand" },
-      "target_chlorine_component": { "name": "Chlorine demand" },
-      "filtration_elapsed_today": { "name": "Filtration elapsed today" },
-      "filtration_remaining_today": { "name": "Filtration remaining today" },
-      "cycle_duration": { "name": "Full cycle duration" },
-      "days_since_last_backwash": { "name": "Days since last backwash" },
-      "days_since_ph_calibration": { "name": "Days since pH calibration" },
-      "next_manual_task": { "name": "Next manual task" },
-      "overall_status": { "name": "Overall status" },
-      "ph_current": { "name": "pH" },
-      "ph_trend": { "name": "pH trend" },
-      "water_temperature": { "name": "Water temperature" },
-      "chlorine_production_elapsed_today": { "name": "Chlorine production today" },
-      "chlorine_production_remaining_today": { "name": "Chlorine production remaining" },
-      "recommended_chlorinator_production": { "name": "Recommended production %" },
-      "chlorination_mode": { "name": "Chlorination mode" }
+      "daily_filtration_target": {
+        "name": "Daily filtration target"
+      },
+      "target_filtration_component": {
+        "name": "Target, filtration part"
+      },
+      "target_chlorine_component": {
+        "name": "Target, chlorine part"
+      },
+      "filtration_elapsed_today": {
+        "name": "Filtration today"
+      },
+      "filtration_remaining_today": {
+        "name": "Filtration left today"
+      },
+      "cycle_duration": {
+        "name": "One turnover"
+      },
+      "pool_volume": {
+        "name": "Volume"
+      },
+      "pump_control": {
+        "name": "Pump control",
+        "state": {
+          "hands_off": "Hands off",
+          "maintenance_lock": "Maintenance lock",
+          "safety": "Safety shutoff",
+          "freeze_protection": "Freeze protection",
+          "ph_correction": "pH correction",
+          "manual_cycle": "Manual cycle",
+          "manual_override": "Switched by hand",
+          "mode": "Operation mode",
+          "unavailable": "Pump unavailable"
+        }
+      },
+      "chlorine_production_elapsed_today": {
+        "name": "Chlorine production today"
+      },
+      "chlorine_production_remaining_today": {
+        "name": "Chlorine production left today"
+      },
+      "recommended_chlorinator_production": {
+        "name": "Recommended chlorinator production"
+      },
+      "chlorination_mode": {
+        "name": "Chlorination",
+        "state": {
+          "salt": "Salt",
+          "tablets": "Tablets",
+          "off": "Off"
+        }
+      },
+      "days_since_last_backwash": {
+        "name": "Days since the filter was cleaned"
+      },
+      "days_since_ph_calibration": {
+        "name": "Days since pH calibration"
+      },
+      "next_manual_task": {
+        "name": "Next manual task",
+        "state": {
+          "none": "None",
+          "backwash": "Backwash",
+          "filter_cleaning": "Clean the filter",
+          "ph_calibration": "Calibrate the pH probe"
+        }
+      },
+      "overall_status": {
+        "name": "Status",
+        "state": {
+          "ok": "OK",
+          "attention": "Needs attention",
+          "action_required": "Action required"
+        }
+      },
+      "ph_trend": {
+        "name": "pH trend",
+        "state": {
+          "rising": "Rising",
+          "stable": "Stable",
+          "falling": "Falling"
+        }
+      },
+      "salinity": {
+        "name": "Salinity"
+      },
+      "free_chlorine": {
+        "name": "Free chlorine"
+      },
+      "pump_energy_today": {
+        "name": "Pump energy today"
+      },
+      "pump_cost_today": {
+        "name": "Pump cost today"
+      }
     },
     "binary_sensor": {
-      "daily_target_reached": { "name": "Daily target reached" },
-      "pump_running": { "name": "Pump running" },
-      "chlorine_target_reached": { "name": "Chlorine target reached" },
-      "backwash_needed": { "name": "Backwash needed" },
-      "ph_out_of_range": { "name": "pH out of range" },
-      "ph_correction_active": { "name": "pH correction active" },
-      "safety_shutoff_active": { "name": "Safety shutoff active" },
-      "manual_action_pending": { "name": "Manual action pending" },
-      "chlorinator_in_season": { "name": "Chlorinator in season" }
+      "daily_target_reached": {
+        "name": "Daily target reached"
+      },
+      "pump_running": {
+        "name": "Pump running"
+      },
+      "chlorine_target_reached": {
+        "name": "Chlorine target reached"
+      },
+      "backwash_needed": {
+        "name": "Filter needs cleaning"
+      },
+      "ph_out_of_range": {
+        "name": "pH out of range"
+      },
+      "ph_correction_active": {
+        "name": "pH correction"
+      },
+      "critical_water_temperature": {
+        "name": "Critical water temperature"
+      },
+      "pump_anomaly": {
+        "name": "Pump power anomaly"
+      },
+      "equipment_room_flood": {
+        "name": "Equipment room flood"
+      },
+      "equipment_room_overheat": {
+        "name": "Equipment room overheat"
+      },
+      "manual_action_pending": {
+        "name": "Manual task due"
+      },
+      "safety_shutoff_active": {
+        "name": "Safety shutoff"
+      },
+      "freeze_protection_active": {
+        "name": "Freeze protection"
+      },
+      "chlorinator_in_season": {
+        "name": "Chlorinator in season"
+      }
     },
     "switch": {
-      "pump": { "name": "Pump" },
-      "maintenance_lock": { "name": "Maintenance lock" },
-      "salt_chlorinator_enabled": { "name": "Salt chlorinator" }
+      "pump": {
+        "name": "Pump"
+      },
+      "maintenance_lock": {
+        "name": "Maintenance lock"
+      },
+      "salt_chlorinator_enabled": {
+        "name": "Salt chlorinator"
+      }
     },
     "select": {
-      "operation_mode": { "name": "Operation mode" }
+      "operation_mode": {
+        "name": "Operation mode",
+        "state": {
+          "off": "Off",
+          "timer": "Timer",
+          "smart": "Smart",
+          "solar": "Solar",
+          "smart_solar": "Smart + solar"
+        }
+      }
     },
     "number": {
-      "user_multiplier": { "name": "Filtration multiplier" },
-      "chlorinator_production": { "name": "Chlorinator production" },
-      "solar_excess_threshold": { "name": "Solar excess threshold" }
+      "user_multiplier": {
+        "name": "Filtration multiplier"
+      },
+      "ph_target": {
+        "name": "pH target"
+      },
+      "chlorinator_production": {
+        "name": "Chlorinator production"
+      },
+      "solar_excess_threshold": {
+        "name": "Solar surplus threshold"
+      }
     },
     "button": {
-      "start_cycle": { "name": "Start filtration cycle" },
-      "stop_cycle": { "name": "Stop filtration" },
-      "mark_backwash_done": { "name": "Mark backwash done" },
-      "mark_salt_added": { "name": "Mark salt added" },
-      "mark_ph_calibrated": { "name": "Mark pH calibrated" },
-      "mark_filter_cleaned": { "name": "Mark filter cleaned" }
+      "start_cycle": {
+        "name": "Start cycle"
+      },
+      "stop_cycle": {
+        "name": "Stop cycle"
+      },
+      "mark_backwash_done": {
+        "name": "Backwash done"
+      },
+      "mark_filter_cleaned": {
+        "name": "Filter cleaned"
+      },
+      "mark_salt_added": {
+        "name": "Salt added"
+      },
+      "mark_ph_calibrated": {
+        "name": "pH probe calibrated"
+      },
+      "recalculate_target": {
+        "name": "Recalculate target"
+      }
+    }
+  },
+  "services": {
+    "start_cycle": {
+      "name": "Start cycle",
+      "description": "Runs the pump for a while, above the operation mode. Lock and safety still win.",
+      "fields": {
+        "duration": {
+          "name": "Duration",
+          "description": "Minutes. One full turnover if left out."
+        }
+      }
+    },
+    "stop_cycle": {
+      "name": "Stop cycle",
+      "description": "Stops a manual cycle and holds the pump off for the override time.",
+      "fields": {}
+    },
+    "record_manual_action": {
+      "name": "Record manual action",
+      "description": "Logs a job done by hand, and resets its reminder where there is one.",
+      "fields": {
+        "action_type": {
+          "name": "Action",
+          "description": "What was done."
+        },
+        "value": {
+          "name": "Value",
+          "description": "An amount, if it has one."
+        },
+        "notes": {
+          "name": "Notes",
+          "description": "Anything worth remembering."
+        }
+      }
+    },
+    "record_salt_level": {
+      "name": "Record salt level",
+      "description": "A salt reading taken by hand. Used until a newer one, or a salinity sensor.",
+      "fields": {
+        "value": {
+          "name": "Salt",
+          "description": "Grams per litre."
+        }
+      }
+    },
+    "record_free_chlorine": {
+      "name": "Record free chlorine",
+      "description": "A free chlorine reading taken by hand.",
+      "fields": {
+        "value": {
+          "name": "Free chlorine",
+          "description": "Parts per million."
+        }
+      }
+    },
+    "recalculate_schedule": {
+      "name": "Recalculate target",
+      "description": "Works out today's target again now. Unlike the hourly update, it may also lower it.",
+      "fields": {}
+    },
+    "force_ph_correction_window": {
+      "name": "Force pH correction window",
+      "description": "Runs the pump so the pH doser can work.",
+      "fields": {
+        "duration": {
+          "name": "Duration",
+          "description": "Minutes. The configured window if left out."
+        }
+      }
+    },
+    "reset_daily_counters": {
+      "name": "Reset today's counters",
+      "description": "Starts today's filtration count from zero.",
+      "fields": {}
+    }
+  },
+  "exceptions": {
+    "no_pool_targeted": {
+      "message": "That target matches no HomePool pool."
     }
   }
 }

@@ -1,307 +1,978 @@
-"""Config flow for HomePool integration.
+"""Config and options flow for HomePool.
 
-Multi-step config flow with conditional branching.
-All fields are also available in the options flow after setup.
+The same steps serve both. Setting a pool up walks them in order; the options
+flow opens a menu and lets each group be edited on its own, so changing the
+pump does not mean answering the geometry again.
+
+Only the pump switch is required. Everything else has a default or can be left
+empty, and the integration does what it can with what it gets: that is the
+"progressive capabilities" idea from the design document.
 """
 
 from __future__ import annotations
 
-import logging
 from typing import Any
 
 import voluptuous as vol
 
-from homeassistant import config_entries
-from homeassistant.core import callback
-from homeassistant.data_entry_flow import FlowResult
+from homeassistant.config_entries import ConfigEntry, ConfigFlow, ConfigFlowResult, OptionsFlow
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.data_entry_flow import section
+from homeassistant.helpers import selector as sel
 
-from .const import DOMAIN, CONF_POOL_NAME
+from .const import (
+    CONF_AIR_TEMPERATURE_SENSOR,
+    CONF_BACKWASH_INTERVAL_DAYS,
+    CONF_CHLORINATION_TYPE,
+    CONF_CHLORINATOR_ACTIVE_MONTHS,
+    CONF_CHLORINATOR_AUTO_TOGGLE,
+    CONF_CHLORINATOR_CONTROLLABLE,
+    CONF_CHLORINATOR_MIN_WATER_TEMP,
+    CONF_CHLORINATOR_MODEL,
+    CONF_CHLORINATOR_NOMINAL_PRODUCTION,
+    CONF_CHLORINATOR_PRODUCTION_DEFAULT,
+    CONF_CHLORINATOR_PRODUCTION_ENTITY,
+    CONF_CHLORINATOR_SELF_REGULATING,
+    CONF_CHLORINATOR_SWITCH,
+    CONF_CONSTRUCTION_TYPE,
+    CONF_COVER_ENTITY,
+    CONF_CRITICAL_IGNORE_QUIET_HOURS,
+    CONF_DEPTH_MAX,
+    CONF_DEPTH_MIN,
+    CONF_ENABLE_BUILTIN_NOTIFICATIONS,
+    CONF_ENERGY_PRICE,
+    CONF_ENERGY_PRICE_ENTITY,
+    CONF_EQUIPMENT_ROOM_HUMIDITY_SENSOR,
+    CONF_EQUIPMENT_ROOM_MAX_TEMP,
+    CONF_EQUIPMENT_ROOM_TEMPERATURE_SENSOR,
+    CONF_FILTER_PRESSURE_CRITICAL,
+    CONF_FILTER_PRESSURE_NORMAL_MAX,
+    CONF_FILTER_PRESSURE_NORMAL_MIN,
+    CONF_FILTER_PRESSURE_SENSOR,
+    CONF_FILTER_TYPE,
+    CONF_FLOOD_SENSOR,
+    CONF_FREE_CHLORINE_RANGE_MAX,
+    CONF_FREE_CHLORINE_RANGE_MIN,
+    CONF_FREE_CHLORINE_SENSOR,
+    CONF_FREE_CHLORINE_TARGET,
+    CONF_FREEZE_PROTECTION,
+    CONF_FREEZE_THRESHOLD,
+    CONF_HANDS_OFF_ENTITY,
+    CONF_HAS_AUTOFILL_SKIMMER,
+    CONF_HAS_COVER,
+    CONF_HAS_PH_DOSING,
+    CONF_HEATING_TYPE,
+    CONF_IS_COVERED_BY_ROOF,
+    CONF_LATITUDE,
+    CONF_LAYOUT_ORIENTATION,
+    CONF_LAYOUT_VARIANT,
+    CONF_LIGHT_ENTITIES,
+    CONF_LINER_COLOR,
+    CONF_LINER_TYPE,
+    CONF_LONGITUDE,
+    CONF_MANUAL_OVERRIDE_MINUTES,
+    CONF_NOTIFICATION_QUIET_HOURS_END,
+    CONF_NOTIFICATION_QUIET_HOURS_START,
+    CONF_NOTIFICATION_SERVICE,
+    CONF_NOTIFICATION_SEVERITY_MIN,
+    CONF_ORIENTATION,
+    CONF_ORP_SENSOR,
+    CONF_PH_CALIBRATION_INTERVAL_DAYS,
+    CONF_PH_CORRECTION_MAX_DAILY,
+    CONF_PH_CORRECTION_MINUTES,
+    CONF_PH_DOSING_ENTITY,
+    CONF_PH_RANGE_MAX,
+    CONF_PH_RANGE_MIN,
+    CONF_PH_SENSOR,
+    CONF_PH_TARGET,
+    CONF_POOL_CLEANER_TYPE,
+    CONF_POOL_NAME,
+    CONF_PUMP_ENERGY_SENSOR,
+    CONF_PUMP_MODEL,
+    CONF_PUMP_NOMINAL_FLOW_RATE,
+    CONF_PUMP_NOMINAL_POWER,
+    CONF_PUMP_POWER_SENSOR,
+    CONF_PUMP_SPEED_TYPE,
+    CONF_PUMP_SWITCH,
+    CONF_RAIN_SENSOR,
+    CONF_RETURNS_COUNT,
+    CONF_ROBOT_ENTITY,
+    CONF_SALINITY_SENSOR,
+    CONF_SALT_RANGE_MAX,
+    CONF_SALT_RANGE_MIN,
+    CONF_SALT_TARGET,
+    CONF_SHAPE,
+    CONF_SKIMMERS_COUNT,
+    CONF_SOLAR_EXCESS_SENSOR,
+    CONF_SOLAR_EXCESS_SIGN,
+    CONF_SOLAR_IMPORT_TOLERANCE,
+    CONF_TIMER_SLOTS,
+    CONF_UV_SENSOR,
+    CONF_VOLUME,
+    CONF_VOLUME_OVERRIDE,
+    CONF_WATER_TEMPERATURE_SENSOR,
+    CONF_WEATHER_ENTITY,
+    CONFIG_VERSION,
+    DEFAULT_BACKWASH_INTERVAL_DAYS,
+    DEFAULT_CHLORINATOR_ACTIVE_MONTHS_NORTH,
+    DEFAULT_CHLORINATOR_ACTIVE_MONTHS_SOUTH,
+    DEFAULT_CHLORINATOR_MIN_WATER_TEMP,
+    DEFAULT_CHLORINATOR_PRODUCTION_PCT,
+    DEFAULT_EQUIPMENT_ROOM_MAX_TEMP,
+    DEFAULT_FILTER_PRESSURE_CRITICAL,
+    DEFAULT_FILTER_PRESSURE_NORMAL_MAX,
+    DEFAULT_FILTER_PRESSURE_NORMAL_MIN,
+    DEFAULT_FREE_CHLORINE_RANGE_MAX,
+    DEFAULT_FREE_CHLORINE_RANGE_MIN,
+    DEFAULT_FREE_CHLORINE_TARGET,
+    DEFAULT_FREEZE_THRESHOLD,
+    DEFAULT_MANUAL_OVERRIDE_MINUTES,
+    DEFAULT_NAME,
+    DEFAULT_NOTIFICATION_SEVERITY,
+    DEFAULT_PH_CALIBRATION_INTERVAL_DAYS,
+    DEFAULT_PH_CORRECTION_MAX_DAILY,
+    DEFAULT_PH_CORRECTION_MINUTES,
+    DEFAULT_PH_RANGE_MAX,
+    DEFAULT_PH_RANGE_MIN,
+    DEFAULT_PH_TARGET,
+    DEFAULT_RETURNS_COUNT,
+    DEFAULT_SALT_RANGE_MAX,
+    DEFAULT_SALT_RANGE_MIN,
+    DEFAULT_SALT_TARGET,
+    DEFAULT_SKIMMERS_COUNT,
+    DEFAULT_SOLAR_IMPORT_TOLERANCE_W,
+    DIMENSION_KEYS,
+    DOMAIN,
+    ChlorinationType,
+    ConstructionType,
+    CoverType,
+    ExcessSign,
+    FilterType,
+    HeatingType,
+    LinerColor,
+    LinerType,
+    Orientation,
+    PoolCleanerType,
+    PoolShape,
+    PumpSpeedType,
+    Severity,
+)
+from .pool.geometry import PoolDimensions, calculate_volume
+from .pool.hardware import find, load_hardware
+from .pool.layouts import LayoutCatalog, get_orientation_options, load_catalog
 
-_LOGGER = logging.getLogger(__name__)
+CUSTOM = "custom"
+CATALOG_CACHE = f"{DOMAIN}_catalogs"
 
 
-class HomePoolConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
-    """Handle a config flow for HomePool."""
+async def _catalogs(hass: HomeAssistant) -> tuple[LayoutCatalog, dict[str, Any]]:
+    """Both catalogues, read once and off the event loop."""
+    cached = hass.data.get(CATALOG_CACHE)
+    if cached is None:
+        layouts = await hass.async_add_executor_job(load_catalog)
+        hardware = await hass.async_add_executor_job(load_hardware)
+        cached = hass.data[CATALOG_CACHE] = (layouts, hardware)
+    return cached
 
-    VERSION = 1
+
+# ── selector helpers ──
+
+
+def _select(options: list[str], key: str, multiple: bool = False) -> sel.SelectSelector:
+    return sel.SelectSelector(
+        sel.SelectSelectorConfig(
+            options=options,
+            translation_key=key,
+            mode=sel.SelectSelectorMode.DROPDOWN,
+            multiple=multiple,
+        )
+    )
+
+
+def _number(
+    minimum: float, maximum: float, step: float | str, unit: str | None = None, box: bool = True
+) -> sel.NumberSelector:
+    config: dict[str, Any] = {
+        "min": minimum,
+        "max": maximum,
+        "step": step,
+        "mode": sel.NumberSelectorMode.BOX if box else sel.NumberSelectorMode.SLIDER,
+    }
+    if unit:
+        config["unit_of_measurement"] = unit
+    return sel.NumberSelector(sel.NumberSelectorConfig(**config))
+
+
+def _entity(
+    domains: list[str], device_class: str | list[str] | None = None, multiple: bool = False
+) -> sel.EntitySelector:
+    config: dict[str, Any] = {"domain": domains, "multiple": multiple}
+    if device_class:
+        config["device_class"] = device_class
+    return sel.EntitySelector(sel.EntitySelectorConfig(**config))
+
+
+def _values(enum) -> list[str]:
+    return [e.value for e in enum]
+
+
+MONTHS = [str(m) for m in range(1, 13)]
+
+
+def _flatten(user_input: dict[str, Any]) -> dict[str, Any]:
+    """Sections arrive nested, one dict per section. Store them flat."""
+    flat: dict[str, Any] = {}
+    for key, value in user_input.items():
+        if isinstance(value, dict):
+            flat.update(value)
+        else:
+            flat[key] = value
+    return flat
+
+
+def _schema_keys(schema: vol.Schema) -> list[str]:
+    keys: list[str] = []
+    for marker, value in schema.schema.items():
+        if isinstance(value, section):
+            keys.extend(_schema_keys(value.schema))
+        else:
+            keys.append(str(marker))
+    return keys
+
+
+class _Wizard:
+    """Steps shared by the config flow and the options flow.
+
+    ``self._data`` holds the values so far. Each step shows them as suggested
+    values, so an optional field left empty really is empty: Home Assistant
+    drops it from the input, and ``_store`` writes that back as None.
+    """
+
+    _data: dict[str, Any]
+    hass: HomeAssistant
+
+    def _sv(self, key: str, default: Any = None) -> dict[str, Any]:
+        value = self._data.get(key, default)
+        return {"suggested_value": value} if value is not None else {}
+
+    def _store(self, schema: vol.Schema, user_input: dict[str, Any]) -> None:
+        flat = _flatten(user_input)
+        for key in _schema_keys(schema):
+            value = flat.get(key)
+            if isinstance(value, str) and value.strip() == "":
+                value = None
+            self._data[key] = value
+
+    async def _after(self, step: str) -> ConfigFlowResult:
+        """Where to go once ``step`` is done. Overridden by each flow."""
+        raise NotImplementedError
+
+    def _form(
+        self, step_id: str, schema: vol.Schema, errors: dict[str, str] | None = None, **placeholders
+    ) -> ConfigFlowResult:
+        return self.async_show_form(  # type: ignore[attr-defined]
+            step_id=step_id,
+            data_schema=schema,
+            errors=errors or {},
+            description_placeholders={k: str(v) for k, v in placeholders.items()} or None,
+        )
+
+    # ── identity ──
+
+    def _identity_schema(self) -> vol.Schema:
+        return vol.Schema(
+            {
+                vol.Required(CONF_POOL_NAME, default=self._data.get(CONF_POOL_NAME, DEFAULT_NAME)): str,
+                vol.Required(
+                    CONF_LATITUDE, default=self._data.get(CONF_LATITUDE, self.hass.config.latitude)
+                ): _number(-90, 90, "any"),
+                vol.Required(
+                    CONF_LONGITUDE,
+                    default=self._data.get(CONF_LONGITUDE, self.hass.config.longitude),
+                ): _number(-180, 180, "any"),
+            }
+        )
+
+    async def async_step_identity(self, user_input: dict[str, Any] | None = None):
+        schema = self._identity_schema()
+        if user_input is not None:
+            self._store(schema, user_input)
+            return await self._after("identity")
+        return self._form("identity", schema)
+
+    # ── geometry ──
+
+    async def async_step_shape(self, user_input: dict[str, Any] | None = None):
+        schema = vol.Schema(
+            {
+                vol.Required(
+                    CONF_SHAPE, default=self._data.get(CONF_SHAPE, PoolShape.RECTANGULAR)
+                ): _select(_values(PoolShape), "shape"),
+            }
+        )
+        if user_input is not None:
+            if user_input[CONF_SHAPE] != self._data.get(CONF_SHAPE):
+                self._data[CONF_LAYOUT_VARIANT] = "plain"
+                self._data[CONF_LAYOUT_ORIENTATION] = None
+            self._store(schema, user_input)
+            return await self.async_step_dimensions()
+        return self._form("shape", schema)
+
+    async def async_step_dimensions(self, user_input: dict[str, Any] | None = None):
+        layouts, _ = await _catalogs(self.hass)
+        shape = self._data.get(CONF_SHAPE, PoolShape.RECTANGULAR)
+        fields: dict[Any, Any] = {}
+        for key in DIMENSION_KEYS[shape]:
+            fields[vol.Required(key, description=self._sv(key))] = _number(0.5, 50, 0.05, "m")
+        fields[vol.Required(CONF_DEPTH_MIN, description=self._sv(CONF_DEPTH_MIN, 1.0))] = _number(
+            0.3, 5, 0.05, "m"
+        )
+        fields[vol.Required(CONF_DEPTH_MAX, description=self._sv(CONF_DEPTH_MAX, 1.8))] = _number(
+            0.3, 5, 0.05, "m"
+        )
+        variants = layouts.get_variants_for_shape(shape)
+        fields[
+            vol.Required(
+                CONF_LAYOUT_VARIANT,
+                default=self._data.get(CONF_LAYOUT_VARIANT) or "plain",
+            )
+        ] = sel.SelectSelector(
+            sel.SelectSelectorConfig(
+                options=[sel.SelectOptionDict(value=v.id, label=v.name) for v in variants],
+                mode=sel.SelectSelectorMode.DROPDOWN,
+            )
+        )
+        schema = vol.Schema(fields)
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            if user_input[CONF_DEPTH_MAX] < user_input[CONF_DEPTH_MIN]:
+                errors[CONF_DEPTH_MAX] = "depth_order"
+            else:
+                self._store(schema, user_input)
+                variant = layouts.get_variant(shape, self._data[CONF_LAYOUT_VARIANT])
+                if get_orientation_options(variant.requires_orientation):
+                    return await self.async_step_layout_orientation()
+                self._data[CONF_LAYOUT_ORIENTATION] = None
+                return await self.async_step_volume()
+        return self._form("dimensions", schema, errors)
+
+    async def async_step_layout_orientation(self, user_input: dict[str, Any] | None = None):
+        layouts, _ = await _catalogs(self.hass)
+        variant = layouts.get_variant(self._data[CONF_SHAPE], self._data[CONF_LAYOUT_VARIANT])
+        options = get_orientation_options(variant.requires_orientation)
+        current = self._data.get(CONF_LAYOUT_ORIENTATION)
+        schema = vol.Schema(
+            {
+                vol.Required(
+                    CONF_LAYOUT_ORIENTATION, default=current if current in options else options[0]
+                ): _select(options, "layout_orientation"),
+            }
+        )
+        if user_input is not None:
+            self._store(schema, user_input)
+            return await self.async_step_volume()
+        return self._form("layout_orientation", schema)
+
+    def _computed_volume(self, layouts: LayoutCatalog) -> float:
+        shape = self._data[CONF_SHAPE]
+        variant = layouts.get_variant(shape, self._data.get(CONF_LAYOUT_VARIANT) or "plain")
+        dims = PoolDimensions(
+            shape=shape,
+            depth_min=float(self._data[CONF_DEPTH_MIN]),
+            depth_max=float(self._data[CONF_DEPTH_MAX]),
+            volume_adjustment=variant.volume_adjustment,
+            **{k: float(self._data[k]) for k in DIMENSION_KEYS[shape]},
+        )
+        return calculate_volume(dims)
+
+    async def async_step_volume(self, user_input: dict[str, Any] | None = None):
+        """Show the computed volume and let it be corrected."""
+        layouts, _ = await _catalogs(self.hass)
+        computed = self._computed_volume(layouts)
+        override = self._data.get(CONF_VOLUME_OVERRIDE)
+        schema = vol.Schema(
+            {
+                vol.Optional(
+                    CONF_VOLUME_OVERRIDE, description={"suggested_value": override}
+                    if override else {}
+                ): _number(1, 2000, 0.1, "m³"),
+            }
+        )
+        if user_input is not None:
+            self._store(schema, user_input)
+            override = self._data.get(CONF_VOLUME_OVERRIDE)
+            self._data[CONF_VOLUME] = round(float(override), 1) if override else computed
+            return await self._after("geometry")
+        return self._form("volume", schema, volume=computed)
+
+    # ── construction ──
+
+    async def async_step_construction(self, user_input: dict[str, Any] | None = None):
+        schema = vol.Schema(
+            {
+                vol.Required(
+                    CONF_CONSTRUCTION_TYPE,
+                    default=self._data.get(CONF_CONSTRUCTION_TYPE, ConstructionType.BUILT_IN),
+                ): _select(_values(ConstructionType), "construction_type"),
+                vol.Required(
+                    CONF_HAS_COVER, default=self._data.get(CONF_HAS_COVER, CoverType.NONE)
+                ): _select(_values(CoverType), "has_cover"),
+                vol.Optional(CONF_COVER_ENTITY, description=self._sv(CONF_COVER_ENTITY)): _entity(
+                    ["cover", "binary_sensor", "input_boolean"]
+                ),
+                vol.Required(
+                    CONF_IS_COVERED_BY_ROOF, default=self._data.get(CONF_IS_COVERED_BY_ROOF, False)
+                ): bool,
+                vol.Required(
+                    CONF_HEATING_TYPE, default=self._data.get(CONF_HEATING_TYPE, HeatingType.NONE)
+                ): _select(_values(HeatingType), "heating_type"),
+                vol.Required(
+                    CONF_LINER_TYPE, default=self._data.get(CONF_LINER_TYPE, LinerType.NOT_SPECIFIED)
+                ): _select(_values(LinerType), "liner_type"),
+                vol.Required(
+                    CONF_LINER_COLOR, default=self._data.get(CONF_LINER_COLOR, LinerColor.LIGHT_BLUE)
+                ): _select(_values(LinerColor), "liner_color"),
+                vol.Required(
+                    CONF_ORIENTATION,
+                    default=self._data.get(CONF_ORIENTATION, Orientation.NOT_SPECIFIED),
+                ): _select(_values(Orientation), "orientation"),
+            }
+        )
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            if user_input[CONF_HAS_COVER] == CoverType.AUTOMATIC and not user_input.get(
+                CONF_COVER_ENTITY
+            ):
+                errors[CONF_COVER_ENTITY] = "cover_entity_required"
+            else:
+                self._store(schema, user_input)
+                return await self._after("construction")
+        return self._form("construction", schema, errors)
+
+    # ── filtration ──
+
+    async def async_step_pump(self, user_input: dict[str, Any] | None = None):
+        _, hardware = await _catalogs(self.hass)
+        options = [CUSTOM, *[p["key"] for p in hardware["pumps"]]]
+        schema = vol.Schema(
+            {
+                vol.Required(
+                    CONF_PUMP_MODEL, default=self._data.get(CONF_PUMP_MODEL) or CUSTOM
+                ): sel.SelectSelector(
+                    sel.SelectSelectorConfig(
+                        options=options,
+                        translation_key="catalog_model",
+                        mode=sel.SelectSelectorMode.DROPDOWN,
+                        custom_value=False,
+                    )
+                ),
+            }
+        )
+        if user_input is not None:
+            model = user_input[CONF_PUMP_MODEL]
+            item = find(hardware, "pumps", model)
+            if item and model != self._data.get(CONF_PUMP_MODEL):
+                self._data[CONF_PUMP_NOMINAL_FLOW_RATE] = item.get("nominal_flow_rate")
+                self._data[CONF_PUMP_NOMINAL_POWER] = item.get("nominal_power")
+                self._data[CONF_PUMP_SPEED_TYPE] = item.get("type", PumpSpeedType.FIXED)
+            self._data[CONF_PUMP_MODEL] = None if model == CUSTOM else model
+            return await self.async_step_filtration()
+        return self._form("pump", schema)
+
+    async def async_step_filtration(self, user_input: dict[str, Any] | None = None):
+        schema = vol.Schema(
+            {
+                vol.Required(
+                    CONF_PUMP_NOMINAL_FLOW_RATE, description=self._sv(CONF_PUMP_NOMINAL_FLOW_RATE)
+                ): _number(1, 100, 0.1, "m³/h"),
+                vol.Optional(
+                    CONF_PUMP_NOMINAL_POWER, description=self._sv(CONF_PUMP_NOMINAL_POWER)
+                ): _number(50, 5000, 10, "W"),
+                vol.Required(
+                    CONF_PUMP_SPEED_TYPE,
+                    default=self._data.get(CONF_PUMP_SPEED_TYPE) or PumpSpeedType.FIXED,
+                ): _select(_values(PumpSpeedType), "pump_speed_type"),
+                vol.Required(
+                    CONF_FILTER_TYPE, default=self._data.get(CONF_FILTER_TYPE, FilterType.SAND)
+                ): _select(_values(FilterType), "filter_type"),
+                vol.Required(
+                    CONF_SKIMMERS_COUNT,
+                    default=self._data.get(CONF_SKIMMERS_COUNT, DEFAULT_SKIMMERS_COUNT),
+                ): _number(0, 8, 1),
+                vol.Required(
+                    CONF_RETURNS_COUNT,
+                    default=self._data.get(CONF_RETURNS_COUNT, DEFAULT_RETURNS_COUNT),
+                ): _number(0, 12, 1),
+                vol.Required(
+                    CONF_HAS_AUTOFILL_SKIMMER,
+                    default=self._data.get(CONF_HAS_AUTOFILL_SKIMMER, False),
+                ): bool,
+                vol.Required(
+                    CONF_FILTER_PRESSURE_NORMAL_MIN,
+                    default=self._data.get(
+                        CONF_FILTER_PRESSURE_NORMAL_MIN, DEFAULT_FILTER_PRESSURE_NORMAL_MIN
+                    ),
+                ): _number(0, 5, 0.05, "bar"),
+                vol.Required(
+                    CONF_FILTER_PRESSURE_NORMAL_MAX,
+                    default=self._data.get(
+                        CONF_FILTER_PRESSURE_NORMAL_MAX, DEFAULT_FILTER_PRESSURE_NORMAL_MAX
+                    ),
+                ): _number(0, 5, 0.05, "bar"),
+                vol.Required(
+                    CONF_BACKWASH_INTERVAL_DAYS,
+                    default=self._data.get(
+                        CONF_BACKWASH_INTERVAL_DAYS, DEFAULT_BACKWASH_INTERVAL_DAYS
+                    ),
+                ): _number(1, 120, 1, "d"),
+            }
+        )
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            if user_input[CONF_FILTER_PRESSURE_NORMAL_MAX] <= user_input[
+                CONF_FILTER_PRESSURE_NORMAL_MIN
+            ]:
+                errors[CONF_FILTER_PRESSURE_NORMAL_MAX] = "pressure_order"
+            else:
+                self._store(schema, user_input)
+                for key in (CONF_SKIMMERS_COUNT, CONF_RETURNS_COUNT, CONF_BACKWASH_INTERVAL_DAYS):
+                    self._data[key] = int(self._data[key])
+                return await self._after("filtration")
+        return self._form("filtration", schema, errors)
+
+    # ── water treatment ──
+
+    async def async_step_water(self, user_input: dict[str, Any] | None = None):
+        d = self._data
+        schema = vol.Schema(
+            {
+                vol.Required(
+                    CONF_CHLORINATION_TYPE,
+                    default=d.get(CONF_CHLORINATION_TYPE, ChlorinationType.SALT),
+                ): _select(_values(ChlorinationType), "chlorination_type"),
+                vol.Required(CONF_PH_TARGET, default=d.get(CONF_PH_TARGET, DEFAULT_PH_TARGET)): _number(
+                    6.8, 8.0, 0.1
+                ),
+                vol.Required(
+                    CONF_PH_RANGE_MIN, default=d.get(CONF_PH_RANGE_MIN, DEFAULT_PH_RANGE_MIN)
+                ): _number(6.5, 8.0, 0.1),
+                vol.Required(
+                    CONF_PH_RANGE_MAX, default=d.get(CONF_PH_RANGE_MAX, DEFAULT_PH_RANGE_MAX)
+                ): _number(6.8, 8.5, 0.1),
+                vol.Required(CONF_HAS_PH_DOSING, default=d.get(CONF_HAS_PH_DOSING, False)): bool,
+                vol.Required(
+                    CONF_PH_CALIBRATION_INTERVAL_DAYS,
+                    default=d.get(
+                        CONF_PH_CALIBRATION_INTERVAL_DAYS, DEFAULT_PH_CALIBRATION_INTERVAL_DAYS
+                    ),
+                ): _number(7, 365, 1, "d"),
+                vol.Required(
+                    CONF_FREE_CHLORINE_TARGET,
+                    default=d.get(CONF_FREE_CHLORINE_TARGET, DEFAULT_FREE_CHLORINE_TARGET),
+                ): _number(0, 10, 0.1, "ppm"),
+                vol.Required(
+                    CONF_FREE_CHLORINE_RANGE_MIN,
+                    default=d.get(CONF_FREE_CHLORINE_RANGE_MIN, DEFAULT_FREE_CHLORINE_RANGE_MIN),
+                ): _number(0, 10, 0.1, "ppm"),
+                vol.Required(
+                    CONF_FREE_CHLORINE_RANGE_MAX,
+                    default=d.get(CONF_FREE_CHLORINE_RANGE_MAX, DEFAULT_FREE_CHLORINE_RANGE_MAX),
+                ): _number(0, 10, 0.1, "ppm"),
+            }
+        )
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            if not (
+                user_input[CONF_PH_RANGE_MIN]
+                <= user_input[CONF_PH_TARGET]
+                <= user_input[CONF_PH_RANGE_MAX]
+            ):
+                errors[CONF_PH_TARGET] = "ph_order"
+            else:
+                self._store(schema, user_input)
+                self._data[CONF_PH_CALIBRATION_INTERVAL_DAYS] = int(
+                    self._data[CONF_PH_CALIBRATION_INTERVAL_DAYS]
+                )
+                return await self._after("water")
+        return self._form("water", schema, errors)
+
+    async def async_step_chlorinator_model(self, user_input: dict[str, Any] | None = None):
+        _, hardware = await _catalogs(self.hass)
+        options = [CUSTOM, *[p["key"] for p in hardware["salt_chlorinators"]]]
+        schema = vol.Schema(
+            {
+                vol.Required(
+                    CONF_CHLORINATOR_MODEL, default=self._data.get(CONF_CHLORINATOR_MODEL) or CUSTOM
+                ): sel.SelectSelector(
+                    sel.SelectSelectorConfig(
+                        options=options,
+                        translation_key="catalog_model",
+                        mode=sel.SelectSelectorMode.DROPDOWN,
+                    )
+                ),
+            }
+        )
+        if user_input is not None:
+            model = user_input[CONF_CHLORINATOR_MODEL]
+            item = find(hardware, "salt_chlorinators", model)
+            if item and model != self._data.get(CONF_CHLORINATOR_MODEL):
+                self._data[CONF_CHLORINATOR_NOMINAL_PRODUCTION] = item.get("nominal_production_g_h")
+                self._data[CONF_CHLORINATOR_SELF_REGULATING] = bool(item.get("self_regulating"))
+                if item.get("min_water_temp_c") is not None:
+                    self._data[CONF_CHLORINATOR_MIN_WATER_TEMP] = item["min_water_temp_c"]
+                if item.get("salt_ideal_g_l") is not None:
+                    self._data[CONF_SALT_TARGET] = item["salt_ideal_g_l"]
+            self._data[CONF_CHLORINATOR_MODEL] = None if model == CUSTOM else model
+            return await self.async_step_chlorinator()
+        return self._form("chlorinator_model", schema)
+
+    async def async_step_chlorinator(self, user_input: dict[str, Any] | None = None):
+        d = self._data
+        south = float(d.get(CONF_LATITUDE, self.hass.config.latitude) or 0) < 0
+        default_months = (
+            DEFAULT_CHLORINATOR_ACTIVE_MONTHS_SOUTH if south else DEFAULT_CHLORINATOR_ACTIVE_MONTHS_NORTH
+        )
+        months = [str(m) for m in (d.get(CONF_CHLORINATOR_ACTIVE_MONTHS) or default_months)]
+        schema = vol.Schema(
+            {
+                vol.Required(
+                    CONF_CHLORINATOR_NOMINAL_PRODUCTION,
+                    description=self._sv(CONF_CHLORINATOR_NOMINAL_PRODUCTION),
+                ): _number(1, 200, 1, "g/h"),
+                vol.Required(
+                    CONF_CHLORINATOR_PRODUCTION_DEFAULT,
+                    default=d.get(
+                        CONF_CHLORINATOR_PRODUCTION_DEFAULT, DEFAULT_CHLORINATOR_PRODUCTION_PCT
+                    ),
+                ): _number(0, 100, 5, "%", box=False),
+                vol.Required(
+                    CONF_CHLORINATOR_SELF_REGULATING,
+                    default=d.get(CONF_CHLORINATOR_SELF_REGULATING, False),
+                ): bool,
+                vol.Required(
+                    CONF_CHLORINATOR_CONTROLLABLE,
+                    default=d.get(CONF_CHLORINATOR_CONTROLLABLE, False),
+                ): bool,
+                vol.Required(CONF_CHLORINATOR_ACTIVE_MONTHS, default=months): _select(
+                    MONTHS, "month", multiple=True
+                ),
+                vol.Required(
+                    CONF_CHLORINATOR_AUTO_TOGGLE, default=d.get(CONF_CHLORINATOR_AUTO_TOGGLE, True)
+                ): bool,
+                vol.Required(
+                    CONF_CHLORINATOR_MIN_WATER_TEMP,
+                    default=d.get(CONF_CHLORINATOR_MIN_WATER_TEMP, DEFAULT_CHLORINATOR_MIN_WATER_TEMP),
+                ): _number(0, 30, 1, "°C"),
+                vol.Required(CONF_SALT_TARGET, default=d.get(CONF_SALT_TARGET, DEFAULT_SALT_TARGET)): _number(
+                    1, 10, 0.1, "g/L"
+                ),
+                vol.Required(
+                    CONF_SALT_RANGE_MIN, default=d.get(CONF_SALT_RANGE_MIN, DEFAULT_SALT_RANGE_MIN)
+                ): _number(1, 10, 0.1, "g/L"),
+                vol.Required(
+                    CONF_SALT_RANGE_MAX, default=d.get(CONF_SALT_RANGE_MAX, DEFAULT_SALT_RANGE_MAX)
+                ): _number(1, 12, 0.1, "g/L"),
+            }
+        )
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            if not user_input.get(CONF_CHLORINATOR_ACTIVE_MONTHS):
+                errors[CONF_CHLORINATOR_ACTIVE_MONTHS] = "no_months"
+            else:
+                self._store(schema, user_input)
+                self._data[CONF_CHLORINATOR_ACTIVE_MONTHS] = sorted(
+                    int(m) for m in self._data[CONF_CHLORINATOR_ACTIVE_MONTHS]
+                )
+                return await self._after("chlorinator")
+        return self._form("chlorinator", schema, errors)
+
+    # ── connections ──
+
+    def _connections_schema(self) -> vol.Schema:
+        sv = self._sv
+        pump = {
+            vol.Required(CONF_PUMP_SWITCH, description=sv(CONF_PUMP_SWITCH)): _entity(
+                ["switch", "input_boolean", "light"]
+            ),
+            vol.Optional(CONF_PUMP_POWER_SENSOR, description=sv(CONF_PUMP_POWER_SENSOR)): _entity(
+                ["sensor"], "power"
+            ),
+            vol.Optional(CONF_PUMP_ENERGY_SENSOR, description=sv(CONF_PUMP_ENERGY_SENSOR)): _entity(
+                ["sensor"], "energy"
+            ),
+            vol.Optional(CONF_HANDS_OFF_ENTITY, description=sv(CONF_HANDS_OFF_ENTITY)): _entity(
+                ["input_boolean", "switch", "binary_sensor"]
+            ),
+        }
+        water = {
+            vol.Optional(
+                CONF_WATER_TEMPERATURE_SENSOR, description=sv(CONF_WATER_TEMPERATURE_SENSOR)
+            ): _entity(["sensor"], "temperature"),
+            vol.Optional(
+                CONF_AIR_TEMPERATURE_SENSOR, description=sv(CONF_AIR_TEMPERATURE_SENSOR)
+            ): _entity(["sensor"], "temperature"),
+            vol.Optional(CONF_PH_SENSOR, description=sv(CONF_PH_SENSOR)): _entity(["sensor"]),
+            vol.Optional(CONF_PH_DOSING_ENTITY, description=sv(CONF_PH_DOSING_ENTITY)): _entity(
+                ["binary_sensor", "switch", "input_boolean"]
+            ),
+            vol.Optional(CONF_ORP_SENSOR, description=sv(CONF_ORP_SENSOR)): _entity(["sensor"]),
+            vol.Optional(CONF_SALINITY_SENSOR, description=sv(CONF_SALINITY_SENSOR)): _entity(
+                ["sensor"]
+            ),
+            vol.Optional(
+                CONF_FREE_CHLORINE_SENSOR, description=sv(CONF_FREE_CHLORINE_SENSOR)
+            ): _entity(["sensor"]),
+        }
+        room = {
+            vol.Optional(
+                CONF_FILTER_PRESSURE_SENSOR, description=sv(CONF_FILTER_PRESSURE_SENSOR)
+            ): _entity(["sensor"]),
+            vol.Optional(
+                CONF_EQUIPMENT_ROOM_TEMPERATURE_SENSOR,
+                description=sv(CONF_EQUIPMENT_ROOM_TEMPERATURE_SENSOR),
+            ): _entity(["sensor"], "temperature"),
+            vol.Optional(
+                CONF_EQUIPMENT_ROOM_HUMIDITY_SENSOR,
+                description=sv(CONF_EQUIPMENT_ROOM_HUMIDITY_SENSOR),
+            ): _entity(["sensor"], "humidity"),
+            vol.Optional(CONF_FLOOD_SENSOR, description=sv(CONF_FLOOD_SENSOR)): _entity(
+                ["binary_sensor"]
+            ),
+        }
+        solar = {
+            vol.Optional(
+                CONF_SOLAR_EXCESS_SENSOR, description=sv(CONF_SOLAR_EXCESS_SENSOR)
+            ): _entity(["sensor"], "power"),
+            vol.Required(
+                CONF_SOLAR_EXCESS_SIGN,
+                default=self._data.get(CONF_SOLAR_EXCESS_SIGN) or ExcessSign.EXPORT_POSITIVE,
+            ): _select(_values(ExcessSign), "solar_excess_sign"),
+            vol.Required(
+                CONF_SOLAR_IMPORT_TOLERANCE,
+                default=self._data.get(CONF_SOLAR_IMPORT_TOLERANCE, DEFAULT_SOLAR_IMPORT_TOLERANCE_W),
+            ): _number(0, 3000, 50, "W"),
+        }
+        weather = {
+            vol.Optional(CONF_WEATHER_ENTITY, description=sv(CONF_WEATHER_ENTITY)): _entity(
+                ["weather"]
+            ),
+            vol.Optional(CONF_UV_SENSOR, description=sv(CONF_UV_SENSOR)): _entity(["sensor"]),
+            vol.Optional(CONF_RAIN_SENSOR, description=sv(CONF_RAIN_SENSOR)): _entity(["sensor"]),
+        }
+        fields: dict[Any, Any] = {
+            vol.Required("pump"): section(vol.Schema(pump), {"collapsed": False}),
+            vol.Required("water"): section(vol.Schema(water), {"collapsed": False}),
+            vol.Required("equipment_room"): section(vol.Schema(room), {"collapsed": True}),
+        }
+        if self._data.get(CONF_CHLORINATION_TYPE) == ChlorinationType.SALT:
+            chlorinator = {
+                vol.Optional(
+                    CONF_CHLORINATOR_SWITCH, description=sv(CONF_CHLORINATOR_SWITCH)
+                ): _entity(["switch", "input_boolean"]),
+                vol.Optional(
+                    CONF_CHLORINATOR_PRODUCTION_ENTITY,
+                    description=sv(CONF_CHLORINATOR_PRODUCTION_ENTITY),
+                ): _entity(["number", "input_number", "select", "input_select"]),
+            }
+            fields[vol.Required("chlorinator")] = section(
+                vol.Schema(chlorinator), {"collapsed": False}
+            )
+        fields[vol.Required("solar")] = section(vol.Schema(solar), {"collapsed": True})
+        fields[vol.Required("weather")] = section(vol.Schema(weather), {"collapsed": True})
+        return vol.Schema(fields)
+
+    async def async_step_connections(self, user_input: dict[str, Any] | None = None):
+        schema = self._connections_schema()
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            flat = _flatten(user_input)
+            if flat.get(CONF_CHLORINATOR_SWITCH) and flat.get(CONF_CHLORINATOR_SWITCH) == flat.get(
+                CONF_PUMP_SWITCH
+            ):
+                errors["base"] = "same_switch"
+            else:
+                self._store(schema, user_input)
+                return await self._after("connections")
+        return self._form("connections", schema, errors)
+
+    # ── control ──
+
+    async def async_step_control(self, user_input: dict[str, Any] | None = None):
+        d = self._data
+        sv = self._sv
+        schema = vol.Schema(
+            {
+                vol.Optional(CONF_TIMER_SLOTS, description=sv(CONF_TIMER_SLOTS)): str,
+                vol.Required(
+                    CONF_MANUAL_OVERRIDE_MINUTES,
+                    default=d.get(CONF_MANUAL_OVERRIDE_MINUTES, DEFAULT_MANUAL_OVERRIDE_MINUTES),
+                ): _number(5, 1440, 5, "min"),
+                vol.Required(
+                    CONF_FREEZE_PROTECTION, default=d.get(CONF_FREEZE_PROTECTION, True)
+                ): bool,
+                vol.Required(
+                    CONF_FREEZE_THRESHOLD, default=d.get(CONF_FREEZE_THRESHOLD, DEFAULT_FREEZE_THRESHOLD)
+                ): _number(0, 10, 0.5, "°C"),
+                vol.Required(
+                    CONF_PH_CORRECTION_MINUTES,
+                    default=d.get(CONF_PH_CORRECTION_MINUTES, DEFAULT_PH_CORRECTION_MINUTES),
+                ): _number(5, 240, 5, "min"),
+                vol.Required(
+                    CONF_PH_CORRECTION_MAX_DAILY,
+                    default=d.get(CONF_PH_CORRECTION_MAX_DAILY, DEFAULT_PH_CORRECTION_MAX_DAILY),
+                ): _number(0, 720, 10, "min"),
+                vol.Required(
+                    CONF_EQUIPMENT_ROOM_MAX_TEMP,
+                    default=d.get(CONF_EQUIPMENT_ROOM_MAX_TEMP, DEFAULT_EQUIPMENT_ROOM_MAX_TEMP),
+                ): _number(30, 80, 1, "°C"),
+                vol.Required(
+                    CONF_FILTER_PRESSURE_CRITICAL,
+                    default=d.get(CONF_FILTER_PRESSURE_CRITICAL, DEFAULT_FILTER_PRESSURE_CRITICAL),
+                ): _number(0.5, 5, 0.1, "bar"),
+                vol.Optional(CONF_ENERGY_PRICE, description=sv(CONF_ENERGY_PRICE)): _number(
+                    0, 5, 0.001
+                ),
+                vol.Optional(
+                    CONF_ENERGY_PRICE_ENTITY, description=sv(CONF_ENERGY_PRICE_ENTITY)
+                ): _entity(["sensor", "input_number"]),
+                vol.Optional(CONF_LIGHT_ENTITIES, description=sv(CONF_LIGHT_ENTITIES)): _entity(
+                    ["light", "switch"], multiple=True
+                ),
+                vol.Required(
+                    CONF_POOL_CLEANER_TYPE,
+                    default=d.get(CONF_POOL_CLEANER_TYPE, PoolCleanerType.NONE),
+                ): _select(_values(PoolCleanerType), "pool_cleaner_type"),
+                vol.Optional(CONF_ROBOT_ENTITY, description=sv(CONF_ROBOT_ENTITY)): _entity(
+                    ["switch", "vacuum", "input_boolean"]
+                ),
+            }
+        )
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            from .coordinator import parse_timer_slots
+
+            slots_text = user_input.get(CONF_TIMER_SLOTS)
+            if slots_text and not parse_timer_slots(slots_text):
+                errors[CONF_TIMER_SLOTS] = "bad_slots"
+            else:
+                self._store(schema, user_input)
+                return await self._after("control")
+        return self._form("control", schema, errors)
+
+    # ── notifications ──
+
+    async def async_step_notifications(self, user_input: dict[str, Any] | None = None):
+        d = self._data
+        services = sorted(
+            f"notify.{name}" for name in self.hass.services.async_services_for_domain("notify")
+        )
+        schema = vol.Schema(
+            {
+                vol.Required(
+                    CONF_ENABLE_BUILTIN_NOTIFICATIONS,
+                    default=d.get(CONF_ENABLE_BUILTIN_NOTIFICATIONS, False),
+                ): bool,
+                vol.Optional(
+                    CONF_NOTIFICATION_SERVICE, description=self._sv(CONF_NOTIFICATION_SERVICE)
+                ): sel.SelectSelector(
+                    sel.SelectSelectorConfig(
+                        options=services, custom_value=True, mode=sel.SelectSelectorMode.DROPDOWN
+                    )
+                ),
+                vol.Required(
+                    CONF_NOTIFICATION_SEVERITY_MIN,
+                    default=d.get(CONF_NOTIFICATION_SEVERITY_MIN, DEFAULT_NOTIFICATION_SEVERITY),
+                ): _select(_values(Severity), "severity"),
+                vol.Optional(
+                    CONF_NOTIFICATION_QUIET_HOURS_START,
+                    description=self._sv(CONF_NOTIFICATION_QUIET_HOURS_START),
+                ): sel.TimeSelector(),
+                vol.Optional(
+                    CONF_NOTIFICATION_QUIET_HOURS_END,
+                    description=self._sv(CONF_NOTIFICATION_QUIET_HOURS_END),
+                ): sel.TimeSelector(),
+                vol.Required(
+                    CONF_CRITICAL_IGNORE_QUIET_HOURS,
+                    default=d.get(CONF_CRITICAL_IGNORE_QUIET_HOURS, True),
+                ): bool,
+            }
+        )
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            if user_input[CONF_ENABLE_BUILTIN_NOTIFICATIONS] and not user_input.get(
+                CONF_NOTIFICATION_SERVICE
+            ):
+                errors[CONF_NOTIFICATION_SERVICE] = "service_required"
+            else:
+                self._store(schema, user_input)
+                return await self._after("notifications")
+        return self._form("notifications", schema, errors)
+
+
+class HomePoolConfigFlow(_Wizard, ConfigFlow, domain=DOMAIN):
+    """Set up a pool, one group of questions at a time."""
+
+    VERSION = CONFIG_VERSION
+
+    ORDER = (
+        "identity",
+        "geometry",
+        "construction",
+        "filtration",
+        "water",
+        "chlorinator",
+        "connections",
+        "control",
+        "notifications",
+    )
 
     def __init__(self) -> None:
-        """Initialize the config flow."""
-        self._data: dict[str, Any] = {}
+        self._data = {}
 
-    async def async_step_user(
-        self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
-        """Step 1 — Identity."""
-        errors: dict[str, str] = {}
+    async def async_step_user(self, user_input: dict[str, Any] | None = None):
+        return await self.async_step_identity(user_input)
 
-        if user_input is not None:
-            self._data.update(user_input)
-            return await self.async_step_location()
-
-        return self.async_show_form(
-            step_id="user",
-            data_schema=vol.Schema({
-                vol.Required(CONF_POOL_NAME, default="Pool"): str,
-            }),
-            errors=errors,
-        )
-
-    async def async_step_location(
-        self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
-        """Step 2 — Location."""
-        # TODO: Implement LocationSelector + manual coordinates
-        if user_input is not None:
-            self._data.update(user_input)
-            return await self.async_step_geometry()
-
-        return self.async_show_form(
-            step_id="location",
-            data_schema=vol.Schema({}),  # TODO: Add location fields
-        )
-
-    async def async_step_geometry(
-        self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
-        """Step 3 — Geometry (shape, dimensions, layout)."""
-        # TODO: Implement shape selection, dimensions, layout variant
-        if user_input is not None:
-            self._data.update(user_input)
-            return await self.async_step_geometry_confirm()
-
-        return self.async_show_form(
-            step_id="geometry",
-            data_schema=vol.Schema({}),  # TODO: Add geometry fields
-        )
-
-    async def async_step_geometry_confirm(
-        self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
-        """Step 3b — Confirm calculated volume."""
-        # TODO: Show calculated volume, allow override
-        if user_input is not None:
-            self._data.update(user_input)
-            return await self.async_step_construction()
-
-        return self.async_show_form(
-            step_id="geometry_confirm",
-            data_schema=vol.Schema({}),  # TODO: Volume confirmation
-        )
-
-    async def async_step_construction(
-        self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
-        """Step 4 — Construction & Environment."""
-        if user_input is not None:
-            self._data.update(user_input)
-            return await self.async_step_filtration()
-
-        return self.async_show_form(
-            step_id="construction",
-            data_schema=vol.Schema({}),  # TODO: Add fields
-        )
-
-    async def async_step_filtration(
-        self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
-        """Step 5 — Filtration System."""
-        if user_input is not None:
-            self._data.update(user_input)
-            return await self.async_step_water_treatment()
-
-        return self.async_show_form(
-            step_id="filtration",
-            data_schema=vol.Schema({}),  # TODO: Add fields
-        )
-
-    async def async_step_water_treatment(
-        self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
-        """Step 6 — Water Treatment."""
-        if user_input is not None:
-            self._data.update(user_input)
-            return await self.async_step_lighting()
-
-        return self.async_show_form(
-            step_id="water_treatment",
-            data_schema=vol.Schema({}),  # TODO: Add fields
-        )
-
-    async def async_step_lighting(
-        self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
-        """Step 7 — Lighting & Auxiliary Elements."""
-        if user_input is not None:
-            self._data.update(user_input)
-            return await self.async_step_connect_core()
-
-        return self.async_show_form(
-            step_id="lighting",
-            data_schema=vol.Schema({}),  # TODO: Add fields
-        )
-
-    # --- Step 8 sub-steps: Entity connections ---
-
-    async def async_step_connect_core(
-        self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
-        """Step 8a — Core equipment (pump switch, required)."""
-        if user_input is not None:
-            self._data.update(user_input)
-            return await self.async_step_connect_pump_monitoring()
-
-        return self.async_show_form(
-            step_id="connect_core",
-            data_schema=vol.Schema({}),  # TODO: pump_switch EntitySelector
-        )
-
-    async def async_step_connect_pump_monitoring(
-        self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
-        """Step 8b — Pump monitoring (optional)."""
-        if user_input is not None:
-            self._data.update(user_input)
-            return await self.async_step_connect_water_chemistry()
-
-        return self.async_show_form(
-            step_id="connect_pump_monitoring",
-            data_schema=vol.Schema({}),  # TODO: Add fields
-        )
-
-    async def async_step_connect_water_chemistry(
-        self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
-        """Step 8c — Water chemistry sensors (optional)."""
-        if user_input is not None:
-            self._data.update(user_input)
-            return await self.async_step_connect_filter()
-
-        return self.async_show_form(
-            step_id="connect_water_chemistry",
-            data_schema=vol.Schema({}),  # TODO: Add fields
-        )
-
-    async def async_step_connect_filter(
-        self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
-        """Step 8d — Filter monitoring (optional)."""
-        if user_input is not None:
-            self._data.update(user_input)
-            return await self.async_step_connect_equipment_room()
-
-        return self.async_show_form(
-            step_id="connect_filter",
-            data_schema=vol.Schema({}),  # TODO: Add fields
-        )
-
-    async def async_step_connect_equipment_room(
-        self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
-        """Step 8e — Equipment room sensors (optional)."""
-        if user_input is not None:
-            self._data.update(user_input)
-            # Skip chlorinator step if not salt
-            if self._data.get("chlorination_type") == "salt":
-                return await self.async_step_connect_chlorinator()
-            return await self.async_step_connect_solar()
-
-        return self.async_show_form(
-            step_id="connect_equipment_room",
-            data_schema=vol.Schema({}),  # TODO: Add fields
-        )
-
-    async def async_step_connect_chlorinator(
-        self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
-        """Step 8f — Salt chlorinator control (only if salt)."""
-        if user_input is not None:
-            self._data.update(user_input)
-            return await self.async_step_connect_solar()
-
-        return self.async_show_form(
-            step_id="connect_chlorinator",
-            data_schema=vol.Schema({}),  # TODO: Add fields
-        )
-
-    async def async_step_connect_solar(
-        self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
-        """Step 8g — Solar integration (optional)."""
-        if user_input is not None:
-            self._data.update(user_input)
-            return await self.async_step_connect_weather()
-
-        return self.async_show_form(
-            step_id="connect_solar",
-            data_schema=vol.Schema({}),  # TODO: Add fields
-        )
-
-    async def async_step_connect_weather(
-        self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
-        """Step 8h — Weather integration (optional)."""
-        if user_input is not None:
-            self._data.update(user_input)
-            return await self.async_step_notifications()
-
-        return self.async_show_form(
-            step_id="connect_weather",
-            data_schema=vol.Schema({}),  # TODO: Add fields
-        )
-
-    async def async_step_notifications(
-        self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
-        """Step 10 — Notifications (optional)."""
-        if user_input is not None:
-            self._data.update(user_input)
-            return await self.async_step_review()
-
-        return self.async_show_form(
-            step_id="notifications",
-            data_schema=vol.Schema({}),  # TODO: Add fields
-        )
-
-    async def async_step_review(
-        self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
-        """Step 9 — Review & Finish."""
-        if user_input is not None:
-            return self.async_create_entry(
-                title=self._data.get(CONF_POOL_NAME, "Pool"),
-                data=self._data,
-            )
-
-        return self.async_show_form(
-            step_id="review",
-            data_schema=vol.Schema({}),  # TODO: Show summary
-        )
+    async def _after(self, step: str) -> ConfigFlowResult:
+        nxt = self.ORDER[self.ORDER.index(step) + 1] if step != self.ORDER[-1] else None
+        if nxt == "chlorinator" and self._data.get(CONF_CHLORINATION_TYPE) != ChlorinationType.SALT:
+            nxt = "connections"
+        if nxt is None:
+            return self.async_create_entry(title=self._data[CONF_POOL_NAME], data=self._data)
+        return await {
+            "geometry": self.async_step_shape,
+            "construction": self.async_step_construction,
+            "filtration": self.async_step_pump,
+            "water": self.async_step_water,
+            "chlorinator": self.async_step_chlorinator_model,
+            "connections": self.async_step_connections,
+            "control": self.async_step_control,
+            "notifications": self.async_step_notifications,
+        }[nxt]()
 
     @staticmethod
     @callback
-    def async_get_options_flow(
-        config_entry: config_entries.ConfigEntry,
-    ) -> HomePoolOptionsFlow:
-        """Get the options flow handler."""
-        return HomePoolOptionsFlow(config_entry)
+    def async_get_options_flow(entry: ConfigEntry) -> OptionsFlow:
+        return HomePoolOptionsFlow()
 
 
-class HomePoolOptionsFlow(config_entries.OptionsFlow):
-    """Handle HomePool options — all config fields editable post-setup."""
+class HomePoolOptionsFlow(_Wizard, OptionsFlow):
+    """Edit one group at a time from a menu."""
 
-    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
-        self.config_entry = config_entry
+    def __init__(self) -> None:
+        self._data = {}
 
-    async def async_step_init(
-        self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
-        """Options flow entry point."""
-        # TODO: Present all configurable options organized by category
-        if user_input is not None:
-            return self.async_create_entry(title="", data=user_input)
+    async def async_step_init(self, user_input: dict[str, Any] | None = None):
+        self._data = {**self.config_entry.data, **self.config_entry.options}
+        menu = ["identity", "shape", "construction", "pump", "water"]
+        if self._data.get(CONF_CHLORINATION_TYPE) == ChlorinationType.SALT:
+            menu.append("chlorinator_model")
+        menu += ["connections", "control", "notifications"]
+        return self.async_show_menu(step_id="init", menu_options=menu)
 
-        return self.async_show_form(
-            step_id="init",
-            data_schema=vol.Schema({}),  # TODO: All editable options
-        )
+    async def _after(self, step: str) -> ConfigFlowResult:
+        if step == "water" and self._data.get(CONF_CHLORINATION_TYPE) == ChlorinationType.SALT and (
+            not self._data.get(CONF_CHLORINATOR_NOMINAL_PRODUCTION)
+        ):
+            # Switched to salt just now: the chlorinator needs describing too.
+            return await self.async_step_chlorinator_model()
+        return self.async_create_entry(data=self._data)

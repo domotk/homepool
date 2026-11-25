@@ -43,14 +43,15 @@ def evaluate_safety(
     pump_power_w: float | None = None,
     pump_nominal_power_w: float | None = None,
     pump_power_anomaly_factor: float = 1.5,
-    # Water temperature (freeze protection)
-    water_temperature_c: float | None = None,
-    water_freeze_threshold_c: float = 2.0,
 ) -> SafetyEvaluation:
     """Evaluate all safety conditions.
 
     Returns a SafetyEvaluation indicating whether the pump should be
     forced off and which conditions triggered.
+
+    Freezing water is deliberately not here. It calls for the opposite —
+    running the pump so the water in the pipes keeps moving — and is handled
+    as freeze protection by the scheduler.
     """
     conditions: list[SafetyCondition] = []
 
@@ -95,17 +96,6 @@ def evaluate_safety(
             triggered=pump_power_w > threshold,
             value=pump_power_w,
             threshold=threshold,
-            sensor_available=True,
-        ))
-
-    # Freeze protection (ambiguous: sometimes pump should stay ON)
-    if water_temperature_c is not None:
-        conditions.append(SafetyCondition(
-            id="freeze_risk",
-            name="Water freeze risk",
-            triggered=water_temperature_c < water_freeze_threshold_c,
-            value=water_temperature_c,
-            threshold=water_freeze_threshold_c,
             sensor_available=True,
         ))
 

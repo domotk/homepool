@@ -1,74 +1,28 @@
-"""Smart mode — optimal distribution ignoring solar."""
-from .base import OperationMode, PoolContext, PumpDecision, PumpAction
+"""Smart: one block a day, centred on solar noon.
+
+The middle of the day is when the water is warmest and the sun is working
+hardest against the chlorine, so that is where filtration does most good. The
+block is as long as what is left of the target. If the day starts late — the
+pump was off for maintenance, or the target rose in the afternoon — it simply
+runs from now, and it always finishes before midnight: a target carried past
+the end of the day is lost, because the counter starts again at zero.
+"""
+
+from __future__ import annotations
+
+from .base import OperationMode, PoolContext, PumpDecision, turn_off, turn_on
 
 
 class SmartMode(OperationMode):
-    """Distributes the daily target in optimal time blocks.
-
-    Default strategy for v1: run during central daylight hours
-    (11:00 - 17:00 first, then expand outward if needed).
-    """
-
-    PREFERRED_START_HOUR = 11
-    PREFERRED_END_HOUR = 17
-
-    @property
-    def mode_id(self) -> str:
-        return "smart"
-
-    @property
-    def guarantees_target(self) -> bool:
-        return True
+    mode_id = "smart"
+    guarantees_target = True
 
     def evaluate(self, context: PoolContext) -> PumpDecision:
         if context.target_reached:
-            if context.pump_is_on:
-                return PumpDecision(
-                    action=PumpAction.TURN_OFF,
-                    reason="Smart mode: daily target reached",
-                )
-            return PumpDecision(
-                action=PumpAction.NO_CHANGE,
-                reason="Smart mode: daily target already reached",
-            )
-
-        hour = context.current_hour
-        remaining_h = context.remaining_minutes / 60
-        hours_left_today = context.minutes_until_midnight / 60
-
-        # If we're running out of daylight and still have remaining,
-        # force pump on regardless of preferred window
-        if remaining_h >= hours_left_today * 0.9:
-            if not context.pump_is_on:
-                return PumpDecision(
-                    action=PumpAction.TURN_ON,
-                    reason="Smart mode: must run now to reach target today",
-                )
-            return PumpDecision(
-                action=PumpAction.NO_CHANGE,
-                reason="Smart mode: running to reach target",
-            )
-
-        # Within preferred window
-        if self.PREFERRED_START_HOUR <= hour < self.PREFERRED_END_HOUR:
-            if not context.pump_is_on:
-                return PumpDecision(
-                    action=PumpAction.TURN_ON,
-                    reason="Smart mode: within optimal filtration window",
-                )
-            return PumpDecision(
-                action=PumpAction.NO_CHANGE,
-                reason="Smart mode: running in optimal window",
-            )
-
-        # Outside preferred window but pump is on
-        if context.pump_is_on and not context.target_reached:
-            return PumpDecision(
-                action=PumpAction.NO_CHANGE,
-                reason="Smart mode: continuing to reach target",
-            )
-
-        return PumpDecision(
-            action=PumpAction.NO_CHANGE,
-            reason="Smart mode: waiting for optimal window",
-        )
+            return turn_off("Smart mode: today's target is reached")
+        if context.must_run_now:
+            return turn_on("Smart mode: only just enough day left to reach the target")
+        window_start = context.solar_noon_minute - context.target_minutes // 2
+        if context.minute_of_day >= window_start:
+            return turn_on("Smart mode: inside the block centred on solar noon")
+        return turn_off("Smart mode: waiting for the block centred on solar noon")

@@ -1,0 +1,13 @@
+# The integration has no runtime dependencies: it declares `requirements: []`.
+# The only third-party code in the pipeline is the GitHub Actions used to
+# validate each change, so that is what gets watched. The test harness is
+# unpinned on purpose: it follows the current Home Assistant.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "ci"

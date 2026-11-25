@@ -1,12 +1,17 @@
 {
   "domain": "homepool",
   "name": "HomePool",
-  "codeowners": ["@rubenbrieva"],
+  "after_dependencies": [
+    "weather"
+  ],
+  "codeowners": [
+    "@rubenbrieva"
+  ],
   "config_flow": true,
-  "dependencies": [],
   "documentation": "https://github.com/domotk/homepool",
-  "iot_class": "local_polling",
+  "integration_type": "device",
+  "iot_class": "calculated",
   "issue_tracker": "https://github.com/domotk/homepool/issues",
-  "requirements": ["pyyaml>=6.0"],
+  "requirements": [],
   "version": "0.1.0"
 }

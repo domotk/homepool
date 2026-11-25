@@ -531,7 +531,7 @@ El pH **no añade horas al target**. Se gestiona como restricción temporal del 
 
 ### 5.9 Tabla de validación — Piscina de referencia
 
-Piscina de 30 m³, bomba Astralpool Sena 12.8 m³/h, clorador SEL-55 35 g/h al 70%, Pobla de Vallbona (Valencia). Calendario clorador: Junio-Septiembre.
+Piscina de 30 m³, bomba Astralpool Sena 12.8 m³/h, clorador SEL-55 35 g/h al 70%, costa mediterránea (~39.6°N). Calendario clorador: Junio-Septiembre.
 
 | Mes | Temp agua | UV | Clorador | Target filtr. | Target cloro | **Target final** |
 |---|---|---|---|---|---|---|
@@ -1037,7 +1037,7 @@ Instalación de referencia usada para calibración y validación:
 | Clorador salino | Astralpool SEL-E4 modelo 55 | 35 g/h, 70W, sal ideal 4g/L, no operar <15°C, no autorregulado |
 | Dosificadora pH | Astralpool BASIC OPK PH cod 66162 | 1.1 l/h, 1.5 bar, 9W, peristáltica |
 | Piscina | Obra, rectangular, 6.5×2.5×1.7m | ~30 m³, isla con escaleras en extremo |
-| Ubicación | Pobla de Vallbona, Valencia | Lat ~39.6°N, clima mediterráneo |
+| Ubicación | Costa mediterránea española | Lat ~39.6°N, clima mediterráneo |
 
 ---
 
@@ -1053,3 +1053,44 @@ Instalación de referencia usada para calibración y validación:
 ---
 
 *Fin del documento de diseño v1 — revisión 3.*
+
+---
+
+## 18. Cambios en la implementación v0.1 (noviembre de 2026)
+
+Decisiones tomadas al implementar, con datos reales de una instalación y de su
+historial de cinco días soleados de noviembre:
+
+1. **Protección antiheladas en lugar de parada.** El agua cerca de 0 °C ya no es
+   una condición de parada de seguridad: fuerza la bomba **encendida**, como hacen
+   los controladores comerciales, porque el agua en movimiento no se congela en
+   las tuberías. Sin sonda en el agua se usa el aire por debajo de 0 °C.
+2. **"Manos fuera"** (`hands_off_entity`): una entidad externa que, mientras está
+   encendida, impide que HomePool toque la bomba en ningún sentido. Va por encima
+   del bloqueo de mantenimiento. Responde a instalaciones con un indicador manual
+   propio y automatizaciones que no se deben tocar.
+3. **Excedente, no producción.** El modo solar mira la exportación a red y le suma
+   el consumo de la propia bomba mientras funciona. Arranca tras 5 min por encima
+   del umbral, tolera picos de consumo de la casa hasta 400 W y para tras 10 min
+   por debajo. La bomba funciona al menos 20 min y descansa al menos 10.
+4. **El objetivo solo sube durante el día.** Se recalcula cada hora, pero no baja
+   hasta el día siguiente o hasta que se pide con el servicio. Un objetivo que
+   baja a media tarde es lo que paraba la bomba a medio camino.
+5. **Sin dependencia de un servicio meteorológico.** La temperatura sale, por este
+   orden, de la sonda del agua, de la máxima prevista para el día o de la máxima
+   observada por un sensor exterior.
+6. **El día termina a medianoche.** Los modos que garantizan el objetivo terminan
+   antes de las 00:00; el relleno con red empieza lo más tarde posible.
+7. **Reintentos de órdenes.** Un relé que ignora una orden la recibe de nuevo a
+   los 20 s, hasta tres veces, y después se emite una alerta.
+8. **Lo que HomePool enciende, HomePool lo apaga.** Si la bomba se encendió por
+   pH, heladas o un ciclo manual y ese motivo termina sin que el modo la quiera
+   en marcha, se apaga.
+9. **Sin sensores espejo.** pH, temperaturas, presión y potencia no se copian en
+   entidades nuevas: sus ids están en los atributos del sensor de objetivo para
+   la tarjeta. Sí hay sensores para salinidad y cloro libre, porque admiten
+   lecturas manuales.
+10. **La tarjeta vive en su propio repositorio** (`domotk/homepool-card`): HACS
+    admite una sola categoría por repositorio.
+11. **El mediodía solar se calcula con la longitud de la piscina**, no con la
+    ubicación de Home Assistant.

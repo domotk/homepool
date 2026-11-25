@@ -1,43 +1,34 @@
-"""Timer mode — fixed schedule, no intelligence."""
-from .base import OperationMode, PoolContext, PumpDecision, PumpAction
+"""Timer: fixed time slots, whatever the target says.
+
+Rigid on purpose. It is for people who want the old mechanical timer back,
+with the counting and the warnings on top.
+"""
+
+from __future__ import annotations
+
+from .base import OperationMode, PoolContext, PumpDecision, no_change, turn_off, turn_on
+
+
+def in_slot(minute: int, slots: list[tuple[int, int]]) -> bool:
+    """Is this minute of the day inside any slot? Slots may cross midnight."""
+    for start, end in slots:
+        if start == end:
+            continue
+        if start < end:
+            if start <= minute < end:
+                return True
+        elif minute >= start or minute < end:
+            return True
+    return False
 
 
 class TimerMode(OperationMode):
-    @property
-    def mode_id(self) -> str:
-        return "timer"
-
-    @property
-    def guarantees_target(self) -> bool:
-        return False
+    mode_id = "timer"
+    guarantees_target = False
 
     def evaluate(self, context: PoolContext) -> PumpDecision:
         if not context.timer_slots:
-            return PumpDecision(
-                action=PumpAction.NO_CHANGE,
-                reason="Timer mode: no slots configured",
-            )
-
-        now = context.current_hour * 60 + context.current_minute
-        in_slot = False
-        for start_h, start_m, end_h, end_m in context.timer_slots:
-            slot_start = start_h * 60 + start_m
-            slot_end = end_h * 60 + end_m
-            if slot_start <= now < slot_end:
-                in_slot = True
-                break
-
-        if in_slot and not context.pump_is_on:
-            return PumpDecision(
-                action=PumpAction.TURN_ON,
-                reason="Timer mode: within scheduled slot",
-            )
-        if not in_slot and context.pump_is_on:
-            return PumpDecision(
-                action=PumpAction.TURN_OFF,
-                reason="Timer mode: outside scheduled slots",
-            )
-        return PumpDecision(
-            action=PumpAction.NO_CHANGE,
-            reason="Timer mode: state matches schedule",
-        )
+            return no_change("Timer mode: no time slots configured")
+        if in_slot(context.minute_of_day, context.timer_slots):
+            return turn_on("Timer mode: inside a scheduled slot")
+        return turn_off("Timer mode: outside the scheduled slots")

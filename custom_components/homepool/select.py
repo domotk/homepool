@@ -1,24 +1,34 @@
-"""HomePool select platform.
+"""HomePool select: the operation mode."""
 
-TODO: Implement entity definitions for select.
-See design document section 9 for the complete list of entities.
-"""
 from __future__ import annotations
 
-import logging
-
-from homeassistant.config_entries import ConfigEntry
+from homeassistant.components.select import SelectEntity
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-_LOGGER = logging.getLogger(__name__)
+from .coordinator import PoolCoordinator
+from .entity import PoolEntity
 
 
 async def async_setup_entry(
-    hass: HomeAssistant,
-    entry: ConfigEntry,
-    async_add_entities: AddEntitiesCallback,
+    hass: HomeAssistant, entry, async_add_entities: AddEntitiesCallback
 ) -> None:
-    """Set up HomePool select entities."""
-    # TODO: Create entities based on config and connected sensors
-    pass
+    async_add_entities([OperationModeSelect(entry.runtime_data)])
+
+
+class OperationModeSelect(PoolEntity, SelectEntity):
+    """off, timer, smart — and the two solar modes when there is a surplus sensor."""
+
+    _attr_icon = "mdi:pool"
+
+    def __init__(self, coordinator: PoolCoordinator) -> None:
+        super().__init__(coordinator, "operation_mode")
+        self._attr_options = coordinator.available_modes()
+
+    @property
+    def current_option(self) -> str:
+        mode = self.coordinator.mode
+        return mode if mode in self._attr_options else "off"
+
+    async def async_select_option(self, option: str) -> None:
+        await self.coordinator.async_set_setting("mode", option)
