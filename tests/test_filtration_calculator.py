@@ -138,9 +138,10 @@ class TestFullYearSimulation:
 
     YEAR_SCENARIOS = [
         # (month, water_temp, uv, expected_min_h, expected_max_h, description)
-        # At 12 °C the floor is half a turnover, so winter may go below 2 h.
-        (1, 12.0, 1, 1.5, 3.0, "January hibernation"),
-        (2, 12.0, 2, 1.5, 3.0, "February hibernation"),
+        # Cold water needs little: at 12 °C the factor is about half and the
+        # floor is half a turnover, so winter lands between one and two hours.
+        (1, 12.0, 1, 1.0, 2.5, "January hibernation"),
+        (2, 12.0, 2, 1.0, 2.5, "February hibernation"),
         (3, 14.0, 3, 2.0, 3.5, "March cold"),
         (4, 17.0, 4, 3.0, 4.5, "April warming"),
         (5, 20.0, 5, 4.0, 6.0, "May neutral"),
@@ -149,8 +150,8 @@ class TestFullYearSimulation:
         (8, 28.0, 9, 12.0, 14.0, "August peak"),
         (9, 23.0, 5, 5.5, 7.5, "September end season"),
         (10, 18.0, 3, 3.0, 4.5, "October cooling"),
-        (11, 14.0, 2, 2.0, 3.5, "November cold"),
-        (12, 12.0, 1, 1.5, 3.0, "December hibernation"),
+        (11, 14.0, 2, 1.75, 3.5, "November cold"),
+        (12, 12.0, 1, 1.0, 2.5, "December hibernation"),
     ]
 
     @pytest.mark.parametrize(

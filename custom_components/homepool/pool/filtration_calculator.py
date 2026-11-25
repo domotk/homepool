@@ -40,9 +40,15 @@ SEASONAL_TABLE_NORTH = [
     (12, 0.50),
 ]
 
+# From 18 °C up this is calibrated against a manufacturer's table (8 h at
+# 24 °C, 10 h at 26 °C, 13 h above 28 °C). Below 15 °C it falls faster:
+# algae and bacteria barely grow in cold water, and the first real install
+# showed a November target far above what the pool needed.
 TEMPERATURE_TABLE = [
-    (10, 0.70),
-    (15, 0.80),
+    (8, 0.45),
+    (10, 0.48),
+    (12, 0.52),
+    (15, 0.70),
     (18, 0.90),
     (20, 1.00),   # neutral
     (22, 1.15),

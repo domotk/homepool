@@ -43,9 +43,11 @@ made, with the reason written on a sensor.
 Two turnovers of the pool's volume is the base. That is multiplied by factors
 for the season, the water temperature, the UV index, rain in the last and next
 24 hours, the cover and your own calibration knob, and kept between one and
-seven turnovers. In cold water the floor eases off: from one turnover at 15 °C
-to half of one at 12 °C and below, where the water barely needs moving. The temperature curve is calibrated against a manufacturer's
-table: 8 h at 24 °C, 10 h at 26 °C, 13 h above 28 °C.
+seven turnovers in warm water. From 18 °C up the temperature curve is calibrated against a
+manufacturer's table: 8 h at 24 °C, 10 h at 26 °C, 13 h above 28 °C. Below
+15 °C it falls faster, and the floor eases from one turnover to half of one at
+12 °C and below: cold water barely needs moving, and a winter day of a typical
+pool lands between one and two hours.
 
 With a salt chlorinator there is a second demand: the hours the cell needs to
 produce the chlorine the water uses, which depends on temperature, salt level
