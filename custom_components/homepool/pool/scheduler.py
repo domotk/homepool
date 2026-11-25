@@ -1,0 +1,223 @@
+"""Who gets to decide what the pump does, and the surplus debouncer.
+
+Pure Python, no Home Assistant. The coordinator gathers the facts, this module
+decides, and the coordinator carries the decision out. Keeping the decision
+here is what lets the tests drive a whole simulated day minute by minute.
+
+Authority over the pump, highest first:
+
+1. **Hands off** — an external entity says nobody touches the pump. HomePool
+   neither switches it on nor off, it only keeps counting.
+2. **Maintenance lock** — forces it off.
+3. **Safety shutoff** — flood, overheat, filter pressure, a pump drawing far
+   more than it should. Forces it off.
+4. **Freeze protection** — water near freezing. Forces it *on*: moving water
+   does not freeze in the pipes, still water does.
+5. **pH correction** — the dosing pump only works with water flowing, so a pH
+   that needs correcting forces the pump on for a while, capped per day so a
+   faulty probe cannot run it all night.
+6. **Manual cycle** — a cycle started from HomePool (button or service).
+7. **Manual override** — someone switched the pump by hand, outside HomePool.
+   Respected for a while instead of being undone on the next tick.
+8. **The operation mode.**
+
+The last two are also subject to minimum on and off times: the motor and the
+relay both last longer when they are not cycled every few minutes.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from datetime import datetime, timedelta
+
+from ..modes.base import PumpAction, PumpDecision
+
+
+@dataclass
+class ControlInputs:
+    """Everything the arbiter needs, already reduced to booleans and minutes."""
+
+    pump_available: bool
+    pump_is_on: bool
+    # Minutes since the pump last changed state, None if unknown.
+    minutes_in_state: float | None
+
+    hands_off: bool = False
+    maintenance_lock: bool = False
+    safety_shutoff: bool = False
+    safety_reason: str | None = None
+    freeze_risk: bool = False
+
+    ph_correction: bool = False
+
+    manual_cycle: bool = False
+    # The state a person chose by hand, while that choice is still respected.
+    manual_override: bool | None = None
+
+    mode_decision: PumpDecision | None = None
+
+    min_on_minutes: float = 20
+    min_off_minutes: float = 10
+
+
+@dataclass
+class ControlDecision:
+    """What to do with the pump. ``pump`` None means leave it as it is."""
+
+    pump: bool | None
+    source: str
+    reason: str
+
+
+def arbitrate(inp: ControlInputs) -> ControlDecision:
+    """Apply the authority ladder and return the one decision that wins."""
+    if not inp.pump_available:
+        return ControlDecision(None, "unavailable", "The pump switch is unavailable")
+    if inp.hands_off:
+        return ControlDecision(None, "hands_off", "Hands off: the pump is being run by hand")
+    if inp.maintenance_lock:
+        return ControlDecision(False, "maintenance_lock", "Maintenance lock is on")
+    if inp.safety_shutoff:
+        return ControlDecision(
+            False, "safety", f"Safety shutoff: {inp.safety_reason or 'a safety condition'}"
+        )
+    if inp.freeze_risk:
+        return ControlDecision(True, "freeze_protection", "Freeze protection: water near 0 °C")
+    if inp.ph_correction:
+        return ControlDecision(True, "ph_correction", "pH correction needs water flowing")
+    if inp.manual_cycle:
+        return ControlDecision(True, "manual_cycle", "Manual cycle in progress")
+    if inp.manual_override is not None:
+        state = "on" if inp.manual_override else "off"
+        return ControlDecision(
+            inp.manual_override, "manual_override", f"Switched {state} by hand; respected for now"
+        )
+
+    decision = inp.mode_decision
+    if decision is None or decision.action == PumpAction.NO_CHANGE:
+        return ControlDecision(None, "mode", decision.reason if decision else "No mode")
+
+    want_on = decision.action == PumpAction.TURN_ON
+    if want_on == inp.pump_is_on:
+        return ControlDecision(want_on, "mode", decision.reason)
+
+    # A change the mode wants: hold it back until the current state has lasted
+    # long enough. Only the mode is held back like this; everything above it
+    # acts at once.
+    if inp.minutes_in_state is not None:
+        needed = inp.min_on_minutes if inp.pump_is_on else inp.min_off_minutes
+        if inp.minutes_in_state < needed:
+            wait = needed - inp.minutes_in_state
+            return ControlDecision(
+                None,
+                "mode",
+                f"{decision.reason} (waiting {wait:.0f} min: minimum "
+                f"{'run' if inp.pump_is_on else 'rest'} time)",
+            )
+    return ControlDecision(want_on, "mode", decision.reason)
+
+
+@dataclass
+class ChlorinatorInputs:
+    """Facts for the salt cell, which may only ever run with water flowing."""
+
+    has_switch: bool
+    pump_is_on: bool
+    pump_on_seconds: float | None
+    enabled: bool
+    in_season: bool
+    target_reached: bool
+    blocked: bool  # lock or safety
+    water_temperature_c: float | None
+    min_water_temperature_c: float
+    flow_delay_s: float = 120
+
+
+def chlorinator_wanted(inp: ChlorinatorInputs) -> tuple[bool, str]:
+    """Should the cell be on? The interlock with the pump is checked first."""
+    if not inp.pump_is_on:
+        return False, "No water flowing: the pump is off"
+    if inp.pump_on_seconds is None or inp.pump_on_seconds < inp.flow_delay_s:
+        return False, "Waiting for the flow to settle after the pump started"
+    if inp.blocked:
+        return False, "Blocked by the maintenance lock or a safety condition"
+    if not inp.enabled:
+        return False, "The chlorinator is disabled"
+    if not inp.in_season:
+        return False, "Out of the chlorinator's season"
+    if (
+        inp.water_temperature_c is not None
+        and inp.water_temperature_c < inp.min_water_temperature_c
+    ):
+        return False, "Water too cold for the cell"
+    if inp.target_reached:
+        return False, "Today's chlorine production is done"
+    return True, "Producing chlorine"
+
+
+def surplus_watts(
+    reading_w: float | None,
+    sign: str,
+    pump_is_on: bool,
+    pump_power_w: float | None,
+) -> float | None:
+    """The surplus there would be with the pump off.
+
+    A grid meter sees the pump's own draw. Without adding it back, the surplus
+    drops by the pump's consumption the moment it starts, and a pump that
+    started on surplus would immediately see none and stop: the oscillation
+    every naive solar automation has.
+    """
+    if reading_w is None:
+        return None
+    value = -reading_w if sign == "import_positive" else reading_w
+    # A surplus sensor (production minus consumption) nets the pump out the
+    # same way a grid meter does, so it gets the same correction.
+    if pump_is_on and pump_power_w:
+        value += pump_power_w
+    return value
+
+
+class SolarDebouncer:
+    """Turns a noisy surplus into a steady yes or no.
+
+    It takes ``start_delay`` minutes above the threshold to say yes, and
+    ``stop_delay`` minutes below ``threshold - tolerance`` to say no again. The
+    tolerance lets a running pump ride out short peaks of house consumption
+    without stopping.
+    """
+
+    def __init__(self, start_delay_min: float = 5, stop_delay_min: float = 10) -> None:
+        self.start_delay = timedelta(minutes=start_delay_min)
+        self.stop_delay = timedelta(minutes=stop_delay_min)
+        self.available: bool | None = None
+        self._since: datetime | None = None
+
+    def update(
+        self,
+        now: datetime,
+        surplus_w: float | None,
+        threshold_w: float,
+        tolerance_w: float,
+    ) -> bool | None:
+        if surplus_w is None:
+            self.available = None
+            self._since = None
+            return None
+        if self.available is None:
+            self.available = False
+        if self.available:
+            crossing = surplus_w < threshold_w - tolerance_w
+            delay = self.stop_delay
+        else:
+            crossing = surplus_w >= threshold_w
+            delay = self.start_delay
+        if not crossing:
+            self._since = None
+            return self.available
+        if self._since is None:
+            self._since = now
+        if now - self._since >= delay:
+            self.available = not self.available
+            self._since = None
+        return self.available

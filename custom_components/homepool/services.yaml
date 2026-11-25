@@ -1,0 +1,105 @@
+# Only the shape of each service lives here. Names and descriptions are in
+# strings.json, where Home Assistant expects them and where they are translated.
+start_cycle:
+  target:
+    entity:
+      integration: homepool
+  fields:
+    duration:
+      selector:
+        number:
+          min: 1
+          max: 1440
+          step: 1
+          unit_of_measurement: min
+          mode: box
+
+stop_cycle:
+  target:
+    entity:
+      integration: homepool
+
+record_manual_action:
+  target:
+    entity:
+      integration: homepool
+  fields:
+    action_type:
+      required: true
+      selector:
+        select:
+          translation_key: action_type
+          options:
+            - backwash
+            - filter_cleaned
+            - salt_added
+            - ph_calibrated
+            - chlorine_added
+            - ph_adjusted
+            - water_added
+            - cell_cleaned
+            - other
+    value:
+      selector:
+        number:
+          min: 0
+          max: 100000
+          step: any
+          mode: box
+    notes:
+      selector:
+        text:
+
+record_salt_level:
+  target:
+    entity:
+      integration: homepool
+  fields:
+    value:
+      required: true
+      selector:
+        number:
+          min: 0
+          max: 15
+          step: 0.1
+          unit_of_measurement: g/L
+          mode: box
+
+record_free_chlorine:
+  target:
+    entity:
+      integration: homepool
+  fields:
+    value:
+      required: true
+      selector:
+        number:
+          min: 0
+          max: 20
+          step: 0.1
+          unit_of_measurement: ppm
+          mode: box
+
+recalculate_schedule:
+  target:
+    entity:
+      integration: homepool
+
+force_ph_correction_window:
+  target:
+    entity:
+      integration: homepool
+  fields:
+    duration:
+      selector:
+        number:
+          min: 1
+          max: 240
+          step: 1
+          unit_of_measurement: min
+          mode: box
+
+reset_daily_counters:
+  target:
+    entity:
+      integration: homepool

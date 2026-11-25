@@ -1,7 +1,13 @@
 """Base class for operation modes.
 
-Each mode determines *when* to run the pump to cover the daily target.
-The target itself is calculated by the filtration/chlorine calculators.
+A mode answers one question: *when* should the pump run to cover today's
+target? It does not know about locks, safety or manual actions. Those have
+more authority than any mode and are applied around it by ``pool.scheduler``.
+Keeping them out of here means each mode stays small enough to read whole.
+
+Everything a mode sees is in minutes of the local day, already computed by
+the coordinator with Home Assistant's clock and time zone. That keeps DST and
+the length of the day out of the modes entirely.
 """
 
 from __future__ import annotations
@@ -12,7 +18,7 @@ from enum import StrEnum
 
 
 class PumpAction(StrEnum):
-    """Action the mode wants to take on the pump."""
+    """What a mode wants the pump to do."""
 
     TURN_ON = "turn_on"
     TURN_OFF = "turn_off"
@@ -21,76 +27,80 @@ class PumpAction(StrEnum):
 
 @dataclass
 class PoolContext:
-    """Runtime context passed to the mode for evaluation."""
+    """Runtime context passed to a mode."""
 
-    # Target
+    # Today's target and progress
     target_minutes: int
     elapsed_minutes: int
-    remaining_minutes: int
-    target_reached: bool
 
-    # Pump state
+    # Pump
     pump_is_on: bool
 
-    # Time
-    current_hour: int
-    current_minute: int
-    minutes_until_midnight: int
+    # Clock, in minutes of the local day
+    minute_of_day: int
+    minutes_until_day_end: int
+    solar_noon_minute: int = 13 * 60 + 30
 
-    # Solar (optional)
-    solar_excess_w: float | None = None
-    solar_excess_threshold_w: float = 500.0
-    solar_forecast_today_wh: float | None = None
+    # Solar: True/False once the debounced surplus has an opinion, None when
+    # there is no surplus sensor or it is not reporting.
+    solar_available: bool | None = None
 
-    # Timer config (for timer mode)
-    timer_slots: list[tuple[int, int, int, int]] | None = None  # [(start_h, start_m, end_h, end_m)]
+    # Timer slots, as (start_minute, end_minute) of the day. A slot whose end
+    # is before its start crosses midnight.
+    timer_slots: list[tuple[int, int]] | None = None
 
-    # Chlorine
-    chlorine_target_reached: bool = False
+    # A guaranteed mode must have finished this long before the day ends.
+    end_of_day_margin: int = 10
 
-    # Safety / lock
-    maintenance_lock: bool = False
-    safety_shutoff: bool = False
-    ph_correction_active: bool = False
+    @property
+    def remaining_minutes(self) -> int:
+        return max(0, self.target_minutes - self.elapsed_minutes)
+
+    @property
+    def target_reached(self) -> bool:
+        return self.elapsed_minutes >= self.target_minutes
+
+    @property
+    def must_run_now(self) -> bool:
+        """Is there only just enough day left to finish the target?
+
+        The pump has to be on from now until the margin before midnight. A
+        target that is still unmet at midnight is a day lost: the counter starts
+        again, and nothing carries the shortfall over.
+        """
+        if self.target_reached:
+            return False
+        latest_start = self.minutes_until_day_end - self.end_of_day_margin - self.remaining_minutes
+        return latest_start <= 0
 
 
 @dataclass
 class PumpDecision:
-    """Decision made by a mode."""
+    """A mode's decision, with the reason shown on the control sensor."""
 
     action: PumpAction
     reason: str
-    duration_minutes: int | None = None  # for how long (if applicable)
+
+
+def turn_on(reason: str) -> PumpDecision:
+    return PumpDecision(PumpAction.TURN_ON, reason)
+
+
+def turn_off(reason: str) -> PumpDecision:
+    return PumpDecision(PumpAction.TURN_OFF, reason)
+
+
+def no_change(reason: str) -> PumpDecision:
+    return PumpDecision(PumpAction.NO_CHANGE, reason)
 
 
 class OperationMode(ABC):
-    """Abstract base class for pump operation modes."""
+    """A pump operation mode."""
 
-    @property
-    @abstractmethod
-    def mode_id(self) -> str:
-        """Return the mode identifier (matches OperationMode enum)."""
-
-    @property
-    @abstractmethod
-    def guarantees_target(self) -> bool:
-        """Whether this mode guarantees reaching the daily target."""
+    mode_id: str = ""
+    guarantees_target: bool = False
+    needs_solar: bool = False
 
     @abstractmethod
     def evaluate(self, context: PoolContext) -> PumpDecision:
-        """Evaluate current conditions and decide pump action.
-
-        This is called periodically (every few minutes) by the coordinator.
-
-        Args:
-            context: Current pool state and conditions.
-
-        Returns:
-            PumpDecision indicating what to do.
-        """
-
-    def on_pump_state_change(self, was_on: bool, is_on: bool) -> None:
-        """Called when the pump state changes (from any source)."""
-
-    def on_target_change(self, old_target: int, new_target: int) -> None:
-        """Called when the daily target is recalculated."""
+        """Decide what the pump should be doing right now."""

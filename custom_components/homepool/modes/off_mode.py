@@ -1,18 +1,13 @@
-"""Off mode — no automation, monitor only."""
-from .base import OperationMode, PoolContext, PumpDecision, PumpAction
+"""Off: no automation. HomePool counts and warns, and never switches the pump."""
+
+from __future__ import annotations
+
+from .base import OperationMode, PoolContext, PumpDecision, no_change
 
 
 class OffMode(OperationMode):
-    @property
-    def mode_id(self) -> str:
-        return "off"
-
-    @property
-    def guarantees_target(self) -> bool:
-        return False
+    mode_id = "off"
+    guarantees_target = False
 
     def evaluate(self, context: PoolContext) -> PumpDecision:
-        return PumpDecision(
-            action=PumpAction.NO_CHANGE,
-            reason="Off mode: pump control is manual",
-        )
+        return no_change("Off mode: the pump is controlled by hand")

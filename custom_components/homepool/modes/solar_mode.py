@@ -1,56 +1,24 @@
-"""Solar mode — run on solar excess only, no guarantee."""
-from .base import OperationMode, PoolContext, PumpDecision, PumpAction
+"""Solar: run on surplus only. Opportunistic, and it does not promise the target.
+
+On a cloudy day it can end the day short, and says so. Use Smart+Solar for a
+mode that tops up from the grid.
+"""
+
+from __future__ import annotations
+
+from .base import OperationMode, PoolContext, PumpDecision, turn_off, turn_on
 
 
 class SolarMode(OperationMode):
-    """Runs pump only when solar excess is above threshold.
-
-    Does NOT guarantee reaching the daily target. If the sun
-    doesn't provide enough, the day ends with a deficit.
-    """
-
-    @property
-    def mode_id(self) -> str:
-        return "solar"
-
-    @property
-    def guarantees_target(self) -> bool:
-        return False
+    mode_id = "solar"
+    guarantees_target = False
+    needs_solar = True
 
     def evaluate(self, context: PoolContext) -> PumpDecision:
         if context.target_reached:
-            if context.pump_is_on:
-                return PumpDecision(
-                    action=PumpAction.TURN_OFF,
-                    reason="Solar mode: daily target reached",
-                )
-            return PumpDecision(
-                action=PumpAction.NO_CHANGE,
-                reason="Solar mode: daily target already reached",
-            )
-
-        if context.solar_excess_w is None:
-            return PumpDecision(
-                action=PumpAction.NO_CHANGE,
-                reason="Solar mode: no solar data available",
-            )
-
-        has_excess = context.solar_excess_w >= context.solar_excess_threshold_w
-
-        if has_excess and not context.pump_is_on:
-            return PumpDecision(
-                action=PumpAction.TURN_ON,
-                reason=f"Solar mode: excess {context.solar_excess_w:.0f}W "
-                       f">= threshold {context.solar_excess_threshold_w:.0f}W",
-            )
-        if not has_excess and context.pump_is_on:
-            return PumpDecision(
-                action=PumpAction.TURN_OFF,
-                reason=f"Solar mode: excess {context.solar_excess_w:.0f}W "
-                       f"< threshold {context.solar_excess_threshold_w:.0f}W",
-            )
-
-        return PumpDecision(
-            action=PumpAction.NO_CHANGE,
-            reason="Solar mode: state matches solar conditions",
-        )
+            return turn_off("Solar mode: today's target is reached")
+        if context.solar_available is None:
+            return turn_off("Solar mode: no surplus reading")
+        if context.solar_available:
+            return turn_on("Solar mode: there is enough surplus")
+        return turn_off("Solar mode: not enough surplus")

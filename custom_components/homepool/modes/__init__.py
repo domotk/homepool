@@ -1,11 +1,11 @@
 """Operation modes for HomePool pump control."""
 
-from .base import OperationMode, PoolContext, PumpDecision, PumpAction
+from .base import OperationMode, PoolContext, PumpAction, PumpDecision
 from .off_mode import OffMode
-from .timer_mode import TimerMode
 from .smart_mode import SmartMode
-from .solar_mode import SolarMode
 from .smart_solar_mode import SmartSolarMode
+from .solar_mode import SolarMode
+from .timer_mode import TimerMode, in_slot
 
 MODE_REGISTRY: dict[str, type[OperationMode]] = {
     "off": OffMode,
@@ -16,7 +16,15 @@ MODE_REGISTRY: dict[str, type[OperationMode]] = {
 }
 
 __all__ = [
-    "OperationMode", "PoolContext", "PumpDecision", "PumpAction",
-    "OffMode", "TimerMode", "SmartMode", "SolarMode", "SmartSolarMode",
     "MODE_REGISTRY",
+    "OffMode",
+    "OperationMode",
+    "PoolContext",
+    "PumpAction",
+    "PumpDecision",
+    "SmartMode",
+    "SmartSolarMode",
+    "SolarMode",
+    "TimerMode",
+    "in_slot",
 ]

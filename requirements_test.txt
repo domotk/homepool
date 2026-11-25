@@ -1,0 +1,2 @@
+# Test-only. Pulls in a matching Home Assistant core and pytest plugins.
+pytest-homeassistant-custom-component
