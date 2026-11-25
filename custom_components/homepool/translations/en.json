@@ -1,0 +1,242 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Pool Identity",
+        "description": "Give your pool a name. If you have multiple pools, each will be a separate instance.",
+        "data": {
+          "name": "Pool name"
+        }
+      },
+      "location": {
+        "title": "Pool Location",
+        "description": "Set the geographic location of your pool. Used for solar calculations and weather data.",
+        "data": {
+          "location_source": "Location source",
+          "latitude": "Latitude",
+          "longitude": "Longitude"
+        }
+      },
+      "geometry": {
+        "title": "Pool Geometry",
+        "description": "Define the shape and dimensions of your pool.",
+        "data": {
+          "shape": "Pool shape",
+          "side": "Side length (m)",
+          "length": "Length (m)",
+          "width": "Width (m)",
+          "diameter": "Diameter (m)",
+          "length_1": "Section 1 length (m)",
+          "width_1": "Section 1 width (m)",
+          "length_2": "Section 2 length (m)",
+          "width_2": "Section 2 width (m)",
+          "depth_min": "Minimum depth (m)",
+          "depth_max": "Maximum depth (m)",
+          "layout_variant": "Interior layout",
+          "layout_orientation": "Layout orientation",
+          "volume_override": "Volume override (m³, leave empty to calculate)"
+        }
+      },
+      "geometry_confirm": {
+        "title": "Confirm Pool Volume",
+        "description": "Based on your dimensions, the estimated volume is **{volume} m³**. Is this correct?"
+      },
+      "construction": {
+        "title": "Construction & Environment",
+        "data": {
+          "construction_type": "Construction type",
+          "has_cover": "Pool cover",
+          "cover_entity": "Cover entity (if automatic)",
+          "has_heating": "Has heating system",
+          "heating_type": "Heating type",
+          "is_covered_by_roof": "Covered by fixed roof/porch",
+          "orientation": "Pool orientation",
+          "liner_type": "Interior finish type",
+          "liner_color": "Interior color"
+        }
+      },
+      "filtration": {
+        "title": "Filtration System",
+        "data": {
+          "use_pump_catalog": "Select pump from catalog",
+          "pump_speed_type": "Pump speed type",
+          "pump_nominal_flow_rate": "Nominal flow rate (m³/h)",
+          "pump_nominal_power": "Nominal power (W)",
+          "skimmers_count": "Number of skimmers",
+          "has_autofill_skimmer": "Has autofill skimmer",
+          "returns_count": "Number of return jets",
+          "filter_type": "Filter type"
+        }
+      },
+      "water_treatment": {
+        "title": "Water Treatment",
+        "data": {
+          "chlorination_type": "Chlorination system",
+          "ph_target": "Target pH",
+          "ph_range_min": "Minimum acceptable pH",
+          "ph_range_max": "Maximum acceptable pH",
+          "salt_target": "Target salt level (g/L)",
+          "chlorinator_nominal_production": "Chlorinator production (g/h at 100%)",
+          "chlorinator_production_default": "Current production setting (%)",
+          "chlorinator_controllable": "Chlorinator controllable from HA",
+          "chlorinator_self_regulating": "Chlorinator self-regulates (has ORP sensor)",
+          "chlorinator_active_months": "Months with salt chlorinator active",
+          "chlorinator_auto_toggle": "Auto-toggle chlorinator by calendar"
+        }
+      },
+      "lighting": {
+        "title": "Lighting & Auxiliary",
+        "data": {
+          "pool_cleaner_type": "Pool cleaner robot type",
+          "robot_entity": "Robot entity",
+          "robot_cycle_hours": "Robot cycle duration (hours)"
+        }
+      },
+      "connect_core": {
+        "title": "Core Equipment",
+        "description": "Connect the switch that controls your pump. This is the only required entity.",
+        "data": {
+          "pump_switch": "Pump switch"
+        }
+      },
+      "connect_pump_monitoring": {
+        "title": "Pump Monitoring",
+        "description": "Optional sensors for pump power monitoring and anomaly detection.",
+        "data": {
+          "pump_power_sensor": "Pump power sensor (W)",
+          "pump_energy_sensor": "Pump energy sensor (kWh)"
+        }
+      },
+      "connect_water_chemistry": {
+        "title": "Water Chemistry",
+        "description": "Connect water quality sensors for monitoring and alerts.",
+        "data": {
+          "ph_sensor": "pH sensor",
+          "water_temperature_sensor": "Water temperature sensor",
+          "salinity_sensor": "Salinity sensor",
+          "orp_sensor": "ORP/Redox sensor",
+          "free_chlorine_sensor": "Free chlorine sensor"
+        }
+      },
+      "connect_filter": {
+        "title": "Filter Monitoring",
+        "description": "Connect a pressure sensor for automatic backwash detection.",
+        "data": {
+          "filter_pressure_sensor": "Filter pressure sensor"
+        }
+      },
+      "connect_equipment_room": {
+        "title": "Equipment Room",
+        "description": "Sensors for equipment room safety monitoring.",
+        "data": {
+          "equipment_room_temperature_sensor": "Room temperature sensor",
+          "equipment_room_humidity_sensor": "Room humidity sensor",
+          "flood_sensor": "Flood sensor"
+        }
+      },
+      "connect_chlorinator": {
+        "title": "Salt Chlorinator Control",
+        "description": "Connect your chlorinator for independent management.",
+        "data": {
+          "chlorinator_switch": "Chlorinator switch (independent from pump)",
+          "chlorinator_production_entity": "Production level control"
+        }
+      },
+      "connect_solar": {
+        "title": "Solar Integration",
+        "description": "Connect solar sensors to enable solar operation modes.",
+        "data": {
+          "solar_excess_sensor": "Solar excess power sensor (W)",
+          "solar_forecast_entity": "Solar forecast sensor"
+        }
+      },
+      "connect_weather": {
+        "title": "Weather Integration",
+        "description": "Connect weather data for intelligent filtration adjustment.",
+        "data": {
+          "weather_entity": "Weather entity",
+          "uv_sensor": "UV index sensor"
+        }
+      },
+      "notifications": {
+        "title": "Notifications",
+        "description": "Optionally enable built-in notifications. You can always create your own automations using HomePool sensors and events.",
+        "data": {
+          "enable_builtin_notifications": "Enable built-in notifications",
+          "notification_service": "Notification service",
+          "notification_severity_min": "Minimum severity to notify",
+          "notification_quiet_hours_start": "Quiet hours start",
+          "notification_quiet_hours_end": "Quiet hours end"
+        }
+      },
+      "review": {
+        "title": "Review & Finish",
+        "description": "Your pool is configured. The operation mode will start as **Off** (monitor only). You can change it anytime from the integration settings."
+      }
+    },
+    "abort": {
+      "already_configured": "This pool is already configured"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "HomePool Settings",
+        "description": "Modify your pool configuration."
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "daily_filtration_target": { "name": "Daily filtration target" },
+      "target_filtration_component": { "name": "Filtration demand" },
+      "target_chlorine_component": { "name": "Chlorine demand" },
+      "filtration_elapsed_today": { "name": "Filtration elapsed today" },
+      "filtration_remaining_today": { "name": "Filtration remaining today" },
+      "cycle_duration": { "name": "Full cycle duration" },
+      "days_since_last_backwash": { "name": "Days since last backwash" },
+      "days_since_ph_calibration": { "name": "Days since pH calibration" },
+      "next_manual_task": { "name": "Next manual task" },
+      "overall_status": { "name": "Overall status" },
+      "ph_current": { "name": "pH" },
+      "ph_trend": { "name": "pH trend" },
+      "water_temperature": { "name": "Water temperature" },
+      "chlorine_production_elapsed_today": { "name": "Chlorine production today" },
+      "chlorine_production_remaining_today": { "name": "Chlorine production remaining" },
+      "recommended_chlorinator_production": { "name": "Recommended production %" },
+      "chlorination_mode": { "name": "Chlorination mode" }
+    },
+    "binary_sensor": {
+      "daily_target_reached": { "name": "Daily target reached" },
+      "pump_running": { "name": "Pump running" },
+      "chlorine_target_reached": { "name": "Chlorine target reached" },
+      "backwash_needed": { "name": "Backwash needed" },
+      "ph_out_of_range": { "name": "pH out of range" },
+      "ph_correction_active": { "name": "pH correction active" },
+      "safety_shutoff_active": { "name": "Safety shutoff active" },
+      "manual_action_pending": { "name": "Manual action pending" },
+      "chlorinator_in_season": { "name": "Chlorinator in season" }
+    },
+    "switch": {
+      "pump": { "name": "Pump" },
+      "maintenance_lock": { "name": "Maintenance lock" },
+      "salt_chlorinator_enabled": { "name": "Salt chlorinator" }
+    },
+    "select": {
+      "operation_mode": { "name": "Operation mode" }
+    },
+    "number": {
+      "user_multiplier": { "name": "Filtration multiplier" },
+      "chlorinator_production": { "name": "Chlorinator production" },
+      "solar_excess_threshold": { "name": "Solar excess threshold" }
+    },
+    "button": {
+      "start_cycle": { "name": "Start filtration cycle" },
+      "stop_cycle": { "name": "Stop filtration" },
+      "mark_backwash_done": { "name": "Mark backwash done" },
+      "mark_salt_added": { "name": "Mark salt added" },
+      "mark_ph_calibrated": { "name": "Mark pH calibrated" },
+      "mark_filter_cleaned": { "name": "Mark filter cleaned" }
+    }
+  }
+}

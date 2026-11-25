@@ -1,0 +1,131 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Identidad de la piscina",
+        "description": "Dale un nombre a tu piscina. Si tienes varias, cada una será una instancia independiente.",
+        "data": { "name": "Nombre de la piscina" }
+      },
+      "location": {
+        "title": "Ubicación de la piscina",
+        "description": "Establece la ubicación geográfica. Se usa para cálculos solares y datos meteorológicos.",
+        "data": {
+          "location_source": "Origen de ubicación",
+          "latitude": "Latitud",
+          "longitude": "Longitud"
+        }
+      },
+      "geometry": {
+        "title": "Geometría de la piscina",
+        "description": "Define la forma y dimensiones de tu piscina.",
+        "data": {
+          "shape": "Forma",
+          "side": "Lado (m)",
+          "length": "Largo (m)",
+          "width": "Ancho (m)",
+          "diameter": "Diámetro (m)",
+          "depth_min": "Profundidad mínima (m)",
+          "depth_max": "Profundidad máxima (m)",
+          "layout_variant": "Distribución interior",
+          "layout_orientation": "Orientación",
+          "volume_override": "Volumen manual (m³, dejar vacío para calcular)"
+        }
+      },
+      "geometry_confirm": {
+        "title": "Confirmar volumen",
+        "description": "Según las dimensiones, el volumen estimado es **{volume} m³**. ¿Es correcto?"
+      },
+      "construction": {
+        "title": "Construcción y entorno",
+        "data": {
+          "construction_type": "Tipo de construcción",
+          "has_cover": "Cubierta",
+          "is_covered_by_roof": "Bajo techo/porche fijo",
+          "liner_type": "Tipo de revestimiento",
+          "liner_color": "Color del revestimiento"
+        }
+      },
+      "filtration": {
+        "title": "Sistema de filtrado",
+        "data": {
+          "use_pump_catalog": "Seleccionar bomba del catálogo",
+          "pump_speed_type": "Tipo de velocidad",
+          "pump_nominal_flow_rate": "Caudal nominal (m³/h)",
+          "pump_nominal_power": "Potencia nominal (W)",
+          "skimmers_count": "Número de skimmers",
+          "has_autofill_skimmer": "Tiene skimmer de autollenado",
+          "returns_count": "Número de retornos",
+          "filter_type": "Tipo de filtro"
+        }
+      },
+      "water_treatment": {
+        "title": "Tratamiento del agua",
+        "data": {
+          "chlorination_type": "Sistema de cloración",
+          "ph_target": "pH objetivo",
+          "salt_target": "Nivel de sal objetivo (g/L)",
+          "chlorinator_nominal_production": "Producción del clorador (g/h al 100%)",
+          "chlorinator_production_default": "Producción configurada (%)",
+          "chlorinator_self_regulating": "El clorador se autorregula (tiene sonda ORP)",
+          "chlorinator_active_months": "Meses con clorador salino activo",
+          "chlorinator_auto_toggle": "Encender/apagar clorador por calendario"
+        }
+      },
+      "connect_core": {
+        "title": "Equipo principal",
+        "description": "Conecta el switch que controla tu bomba. Es la única entidad obligatoria.",
+        "data": { "pump_switch": "Switch de la bomba" }
+      },
+      "notifications": {
+        "title": "Notificaciones",
+        "description": "Opcionalmente activa notificaciones integradas.",
+        "data": {
+          "enable_builtin_notifications": "Activar notificaciones integradas",
+          "notification_service": "Servicio de notificaciones"
+        }
+      },
+      "review": {
+        "title": "Revisar y finalizar",
+        "description": "Tu piscina está configurada. El modo de operación arranca en **Apagado** (solo monitorización)."
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "daily_filtration_target": { "name": "Objetivo de filtrado diario" },
+      "target_filtration_component": { "name": "Demanda de filtración" },
+      "target_chlorine_component": { "name": "Demanda de cloro" },
+      "filtration_elapsed_today": { "name": "Filtrado acumulado hoy" },
+      "filtration_remaining_today": { "name": "Filtrado restante hoy" },
+      "cycle_duration": { "name": "Duración de ciclo completo" },
+      "overall_status": { "name": "Estado general" },
+      "ph_current": { "name": "pH" },
+      "water_temperature": { "name": "Temperatura del agua" },
+      "recommended_chlorinator_production": { "name": "Producción recomendada %" },
+      "chlorination_mode": { "name": "Modo de cloración" }
+    },
+    "binary_sensor": {
+      "daily_target_reached": { "name": "Objetivo diario alcanzado" },
+      "pump_running": { "name": "Bomba en marcha" },
+      "backwash_needed": { "name": "Contralavado necesario" },
+      "ph_out_of_range": { "name": "pH fuera de rango" },
+      "safety_shutoff_active": { "name": "Parada de seguridad activa" },
+      "chlorinator_in_season": { "name": "Clorador en temporada" }
+    },
+    "switch": {
+      "pump": { "name": "Bomba" },
+      "maintenance_lock": { "name": "Bloqueo de mantenimiento" },
+      "salt_chlorinator_enabled": { "name": "Clorador salino" }
+    },
+    "select": {
+      "operation_mode": { "name": "Modo de operación" }
+    },
+    "button": {
+      "start_cycle": { "name": "Iniciar ciclo de filtrado" },
+      "stop_cycle": { "name": "Parar filtrado" },
+      "mark_backwash_done": { "name": "Marcar contralavado hecho" },
+      "mark_salt_added": { "name": "Marcar sal añadida" },
+      "mark_ph_calibrated": { "name": "Marcar pH calibrado" }
+    }
+  }
+}

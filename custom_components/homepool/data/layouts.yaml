@@ -1,0 +1,130 @@
+# HomePool Layout Catalog
+#
+# Predefined pool layout variants organized by shape.
+# Each variant describes interior elements (steps, islands, beach entries)
+# and their approximate impact on pool volume.
+#
+# See docs/contributing-layouts.md for how to add layouts.
+#
+# requires_orientation values:
+#   false       - no orientation needed
+#   corner      - top_left, top_right, bottom_left, bottom_right
+#   short_side  - top, bottom
+#   long_side   - left, right
+#   any_side    - top, right, bottom, left
+
+square:
+  - id: plain
+    name: "No interior elements"
+    requires_orientation: false
+    volume_adjustment: 1.0
+
+  - id: corner_steps
+    name: "Built-in corner steps"
+    requires_orientation: corner
+    volume_adjustment: 0.97
+
+  - id: full_side_steps
+    name: "Full-width steps on one side"
+    requires_orientation: any_side
+    volume_adjustment: 0.90
+
+rectangular:
+  - id: plain
+    name: "No interior elements"
+    requires_orientation: false
+    volume_adjustment: 1.0
+
+  - id: corner_steps
+    name: "Built-in corner steps"
+    requires_orientation: corner
+    volume_adjustment: 0.97
+
+  - id: roman_steps_short_side
+    name: "Roman steps on short side"
+    requires_orientation: short_side
+    volume_adjustment: 0.93
+
+  - id: roman_steps_long_side
+    name: "Roman steps on long side"
+    requires_orientation: long_side
+    volume_adjustment: 0.95
+
+  - id: full_side_island
+    name: "Island covering full short side"
+    requires_orientation: short_side
+    volume_adjustment: 0.85
+
+  - id: full_side_island_with_steps
+    name: "Island with integrated steps on short side"
+    requires_orientation: short_side
+    volume_adjustment: 0.82
+
+  - id: beach_entry
+    name: "Beach/gradual entry"
+    requires_orientation: short_side
+    volume_adjustment: 0.88
+
+  - id: small_ladder_only
+    name: "Standard metal ladder only (no built-in elements)"
+    requires_orientation: false
+    volume_adjustment: 1.0
+
+oval:
+  - id: plain
+    name: "No interior elements"
+    requires_orientation: false
+    volume_adjustment: 1.0
+
+  - id: roman_steps
+    name: "Roman steps on one end"
+    requires_orientation: short_side
+    volume_adjustment: 0.93
+
+  - id: beach_entry
+    name: "Beach/gradual entry"
+    requires_orientation: short_side
+    volume_adjustment: 0.88
+
+round:
+  - id: plain
+    name: "No interior elements"
+    requires_orientation: false
+    volume_adjustment: 1.0
+
+  - id: steps_segment
+    name: "Built-in steps on one segment"
+    requires_orientation: any_side
+    volume_adjustment: 0.95
+
+kidney:
+  - id: plain
+    name: "No interior elements"
+    requires_orientation: false
+    volume_adjustment: 1.0
+
+  - id: steps_concave
+    name: "Steps on concave side"
+    requires_orientation: false
+    volume_adjustment: 0.95
+
+  - id: beach_entry
+    name: "Beach entry on shallow end"
+    requires_orientation: short_side
+    volume_adjustment: 0.88
+
+l_shape:
+  - id: plain
+    name: "No interior elements"
+    requires_orientation: false
+    volume_adjustment: 1.0
+
+  - id: corner_steps
+    name: "Built-in steps at junction"
+    requires_orientation: false
+    volume_adjustment: 0.96
+
+  - id: roman_steps
+    name: "Roman steps on one arm"
+    requires_orientation: any_side
+    volume_adjustment: 0.93
