@@ -219,7 +219,8 @@
         },
         "data_description": {
           "timer_slots": "Por ejemplo 08:00-12:00, 18:00-20:00",
-          "energy_price_entity": "Tiene prioridad sobre el precio fijo."
+          "energy_price_entity": "Tiene prioridad sobre el precio fijo.",
+          "freeze_protection": "Enciende la bomba incluso en modo apagado: el agua quieta se congela en las tuberías, la que circula no. Usa la temperatura del agua o, sin sonda de agua, el aire bajo cero."
         }
       },
       "notifications": {
@@ -469,7 +470,8 @@
         },
         "data_description": {
           "timer_slots": "Por ejemplo 08:00-12:00, 18:00-20:00",
-          "energy_price_entity": "Tiene prioridad sobre el precio fijo."
+          "energy_price_entity": "Tiene prioridad sobre el precio fijo.",
+          "freeze_protection": "Enciende la bomba incluso en modo apagado: el agua quieta se congela en las tuberías, la que circula no. Usa la temperatura del agua o, sin sonda de agua, el aire bajo cero."
         }
       },
       "notifications": {
@@ -824,7 +826,7 @@
         "name": "Bloqueo de mantenimiento"
       },
       "salt_chlorinator_enabled": {
-        "name": "Clorador salino"
+        "name": "Clorador en uso"
       }
     },
     "select": {

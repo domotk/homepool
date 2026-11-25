@@ -43,8 +43,11 @@ made, with the reason written on a sensor.
 Two turnovers of the pool's volume is the base. That is multiplied by factors
 for the season, the water temperature, the UV index, rain in the last and next
 24 hours, the cover and your own calibration knob, and kept between one and
-seven turnovers. The temperature curve is calibrated against a manufacturer's
-table: 8 h at 24 °C, 10 h at 26 °C, 13 h above 28 °C.
+seven turnovers in warm water. From 18 °C up the temperature curve is calibrated against a
+manufacturer's table: 8 h at 24 °C, 10 h at 26 °C, 13 h above 28 °C. Below
+15 °C it falls faster, and the floor eases from one turnover to half of one at
+12 °C and below: cold water barely needs moving, and a winter day of a typical
+pool lands between one and two hours.
 
 With a salt chlorinator there is a second demand: the hours the cell needs to
 produce the chlorine the water uses, which depends on temperature, salt level
@@ -58,7 +61,8 @@ why today's figure is what it is.
 Three rules keep the target honest:
 
 - **No sensor is required.** Without a water thermometer, the air temperature
-  (from a sensor or the forecast's daily high) stands in for it. Without any of
+  stands in for it: the highest your own sensor measured today or yesterday,
+  or the forecast's daily high if there is no sensor. Without any of
   them the factor stays neutral and the target is still there.
 - **It is recalculated every hour, and during the day it only goes up.** A day's
   demand does not shrink because a cloud passed. `homepool.recalculate_schedule`
@@ -70,7 +74,7 @@ Three rules keep the target honest:
 
 | Mode | What it does | Meets the target |
 | --- | --- | --- |
-| `off` | Nothing. HomePool counts and warns. **The default** — installing it switches nothing. | No |
+| `off` | Nothing. HomePool counts and warns. **The default** — installing it switches nothing, except freeze protection. | No |
 | `timer` | Fixed slots, like a mechanical timer. | No |
 | `smart` | One block a day, centred on solar noon, finishing before midnight. | Yes |
 | `solar` | Only on solar surplus. A cloudy day ends short, and says so. | No |
@@ -98,7 +102,9 @@ Several things can want the pump on or off at once. One decides, in this order:
    pressure too high, or a pump drawing far more or far less than it should.
    Forces it off.
 4. **Freeze protection** — water near 0 °C (or air below zero if there is no
-   water probe). Forces it **on**: moving water does not freeze in the pipes.
+   water probe). Forces it **on**, in every mode including `off`: moving
+   water does not freeze in the pipes. Switch it off in the options if HomePool
+   must never touch the pump.
 5. **pH correction** — a dosing pump only works with water flowing, so a pH
    that needs correcting runs the pump for a while, capped per day so a faulty
    probe cannot run it all night.
@@ -108,8 +114,9 @@ Several things can want the pump on or off at once. One decides, in this order:
    later.
 8. **The mode.**
 
-`sensor.<pool>_pump_control` says which of these is in charge right now, and its
-`reason` attribute says why.
+`sensor.<pool>_pump_control` says which of these is in charge right now. Its
+`reason` attribute says why, in Home Assistant's language, and `reason_key`
+gives the same as a short code that the history keeps.
 
 A relay that ignores a command — some smart plugs reject the first request
 after a while idle — gets it again after 20 seconds, up to three times, and
@@ -155,10 +162,16 @@ entities exist depends on what you connected.
 | `binary_sensor.<pool>_ph_out_of_range` · `_ph_correction` · `_filter_needs_cleaning` · `_manual_task_due` | |
 | `select.<pool>_operation_mode` | The five modes; the solar ones only with a surplus sensor |
 | `switch.<pool>_pump` | The pump through HomePool: a manual cycle that still respects lock and safety |
-| `switch.<pool>_maintenance_lock` · `switch.<pool>_salt_chlorinator` | |
+| `switch.<pool>_maintenance_lock` | |
+| `switch.<pool>_chlorinator_in_use` | Whether HomePool counts and runs the chlorinator at all. It does not switch the cell by itself |
 | `number.<pool>_filtration_multiplier` | 0.5–2: your calibration knob for the whole target |
 | `number.<pool>_solar_surplus_threshold` · `_ph_target` · `_chlorinator_production` | |
 | `button.<pool>_start_cycle` · `_stop_cycle` · `_backwash_done` · `_filter_cleaned` · `_salt_added` · `_ph_probe_calibrated` · `_recalculate_target` | |
+
+Entity ids follow Home Assistant's language when the pool is added: in
+Spanish the target is `sensor.<pool>_objetivo_de_filtracion_diario`, not
+`sensor.<pool>_daily_filtration_target`. The ids above are the English ones;
+the card and the services find the entities by themselves either way.
 
 HomePool does not copy your sensors into new entities: the pH, temperatures,
 pressure and power stay where they are. Their entity ids are listed in the

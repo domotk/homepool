@@ -80,18 +80,21 @@ class PumpDecision:
 
     action: PumpAction
     reason: str
+    # A short, stable id for the reason: what the recorder keeps and what the
+    # reason is translated from. The English ``reason`` is for logs.
+    key: str = ""
 
 
-def turn_on(reason: str) -> PumpDecision:
-    return PumpDecision(PumpAction.TURN_ON, reason)
+def turn_on(reason: str, key: str = "") -> PumpDecision:
+    return PumpDecision(PumpAction.TURN_ON, reason, key)
 
 
-def turn_off(reason: str) -> PumpDecision:
-    return PumpDecision(PumpAction.TURN_OFF, reason)
+def turn_off(reason: str, key: str = "") -> PumpDecision:
+    return PumpDecision(PumpAction.TURN_OFF, reason, key)
 
 
-def no_change(reason: str) -> PumpDecision:
-    return PumpDecision(PumpAction.NO_CHANGE, reason)
+def no_change(reason: str, key: str = "") -> PumpDecision:
+    return PumpDecision(PumpAction.NO_CHANGE, reason, key)
 
 
 class OperationMode(ABC):

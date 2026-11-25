@@ -16,9 +16,9 @@ class SolarMode(OperationMode):
 
     def evaluate(self, context: PoolContext) -> PumpDecision:
         if context.target_reached:
-            return turn_off("Solar mode: today's target is reached")
+            return turn_off("Solar mode: today's target is reached", "solar_target_reached")
         if context.solar_available is None:
-            return turn_off("Solar mode: no surplus reading")
+            return turn_off("Solar mode: no surplus reading", "solar_no_reading")
         if context.solar_available:
-            return turn_on("Solar mode: there is enough surplus")
-        return turn_off("Solar mode: not enough surplus")
+            return turn_on("Solar mode: there is enough surplus", "solar_surplus")
+        return turn_off("Solar mode: not enough surplus", "solar_no_surplus")

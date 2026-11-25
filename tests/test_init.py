@@ -20,7 +20,7 @@ async def test_setup_creates_entities(hass: HomeAssistant) -> None:
     assert hass.states.get("switch.pool_maintenance_lock").state == "off"
     assert hass.states.get("binary_sensor.pool_daily_target_reached").state == "off"
     # Salt pool: the chlorinator entities exist, the solar ones do not.
-    assert hass.states.get("switch.pool_salt_chlorinator") is not None
+    assert hass.states.get("switch.pool_chlorinator_in_use") is not None
     assert hass.states.get("number.pool_solar_surplus_threshold") is None
     # Off is the default: nothing is switched after installing.
     assert hass.states.get("input_boolean.pump").state == "off"
@@ -28,7 +28,7 @@ async def test_setup_creates_entities(hass: HomeAssistant) -> None:
 
 async def test_optional_entities_follow_config(hass: HomeAssistant) -> None:
     await setup_pool(hass, chlorination_type="tablets", chlorinator_switch=CHLORINATOR)
-    assert hass.states.get("switch.pool_salt_chlorinator") is None
+    assert hass.states.get("switch.pool_chlorinator_in_use") is None
     assert hass.states.get("sensor.pool_salinity") is None
 
 

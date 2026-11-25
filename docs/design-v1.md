@@ -1094,3 +1094,20 @@ historial de cinco días soleados de noviembre:
     admite una sola categoría por repositorio.
 11. **El mediodía solar se calcula con la longitud de la piscina**, no con la
     ubicación de Home Assistant.
+
+## 19. Cambios en la v0.1.1 (noviembre de 2026), tras la primera instalación real
+
+1. **El sensor de aire de la piscina manda sobre la previsión.** Orden: sonda de
+   agua → máxima de aire medida hoy o ayer → máxima prevista. La previsión es
+   de una celda de kilómetros; el sensor está en la piscina.
+2. **Curva de temperatura más baja en agua fría.** Por debajo de 15 °C:
+   0,45 a 8 °C, 0,48 a 10 °C, 0,52 a 12 °C y 0,70 a 15 °C (antes 0,70 a 10 °C y
+   0,80 a 15 °C). Desde 18 °C no cambia. Con la curva anterior, una piscina de
+   45 m³ pedía 3 h 05 en noviembre con 14 °C de aire; ahora, 2 h 11.
+3. **Suelo invernal.** El mínimo baja de una renovación a 15 °C a media a 12 °C
+   o menos. Sin ninguna temperatura se queda en una.
+4. **Motivos en el idioma de Home Assistant**, con un `reason_key` que el
+   historial sí guarda.
+5. **Minutos redondeados**, no truncados.
+6. **«Clorador en uso»** como nombre del interruptor maestro del clorador, que
+   nunca acciona la célula por sí mismo.

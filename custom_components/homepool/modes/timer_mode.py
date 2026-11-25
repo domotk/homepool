@@ -28,7 +28,7 @@ class TimerMode(OperationMode):
 
     def evaluate(self, context: PoolContext) -> PumpDecision:
         if not context.timer_slots:
-            return no_change("Timer mode: no time slots configured")
+            return no_change("Timer mode: no time slots configured", "timer_no_slots")
         if in_slot(context.minute_of_day, context.timer_slots):
-            return turn_on("Timer mode: inside a scheduled slot")
-        return turn_off("Timer mode: outside the scheduled slots")
+            return turn_on("Timer mode: inside a scheduled slot", "timer_in_slot")
+        return turn_off("Timer mode: outside the scheduled slots", "timer_outside_slot")

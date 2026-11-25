@@ -219,7 +219,8 @@
         },
         "data_description": {
           "timer_slots": "For example 08:00-12:00, 18:00-20:00",
-          "energy_price_entity": "Takes precedence over the fixed price."
+          "energy_price_entity": "Takes precedence over the fixed price.",
+          "freeze_protection": "Switches the pump on even in off mode: still water freezes in the pipes, moving water does not. Uses the water temperature, or the air below zero without a water probe."
         }
       },
       "notifications": {
@@ -469,7 +470,8 @@
         },
         "data_description": {
           "timer_slots": "For example 08:00-12:00, 18:00-20:00",
-          "energy_price_entity": "Takes precedence over the fixed price."
+          "energy_price_entity": "Takes precedence over the fixed price.",
+          "freeze_protection": "Switches the pump on even in off mode: still water freezes in the pipes, moving water does not. Uses the water temperature, or the air below zero without a water probe."
         }
       },
       "notifications": {
@@ -824,7 +826,7 @@
         "name": "Maintenance lock"
       },
       "salt_chlorinator_enabled": {
-        "name": "Salt chlorinator"
+        "name": "Chlorinator in use"
       }
     },
     "select": {

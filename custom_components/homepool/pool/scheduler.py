@@ -27,7 +27,7 @@ relay both last longer when they are not cycled every few minutes.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, timezone
 
 from ..modes.base import PumpAction, PumpDecision
@@ -77,43 +77,59 @@ class ControlDecision:
     pump: bool | None
     source: str
     reason: str
+    # Stable id of the reason and the values it is written with, for the
+    # recorder and for translating it into the user's language.
+    key: str = ""
+    args: dict[str, str] = field(default_factory=dict)
 
 
 def arbitrate(inp: ControlInputs) -> ControlDecision:
     """Apply the authority ladder and return the one decision that wins."""
     if not inp.pump_available:
-        return ControlDecision(None, "unavailable", "The pump switch is unavailable")
+        return ControlDecision(None, "unavailable", "The pump switch is unavailable", "unavailable")
     if inp.hands_off:
-        return ControlDecision(None, "hands_off", "Hands off: the pump is being run by hand")
+        return ControlDecision(None, "hands_off", "Hands off: the pump is being run by hand", "hands_off")
     if inp.maintenance_lock:
-        return ControlDecision(False, "maintenance_lock", "Maintenance lock is on")
+        return ControlDecision(False, "maintenance_lock", "Maintenance lock is on", "maintenance_lock")
     if inp.safety_shutoff:
         return ControlDecision(
-            False, "safety", f"Safety shutoff: {inp.safety_reason or 'a safety condition'}"
+            False,
+            "safety",
+            f"Safety shutoff: {inp.safety_reason or 'a safety condition'}",
+            "safety",
+            {"reason": inp.safety_reason or ""},
         )
     if inp.freeze_risk:
-        return ControlDecision(True, "freeze_protection", "Freeze protection: water near 0 °C")
+        return ControlDecision(True, "freeze_protection", "Freeze protection: water near 0 °C", "freeze_protection")
     if inp.ph_correction:
-        return ControlDecision(True, "ph_correction", "pH correction needs water flowing")
+        return ControlDecision(True, "ph_correction", "pH correction needs water flowing", "ph_correction")
     if inp.manual_cycle:
-        return ControlDecision(True, "manual_cycle", "Manual cycle in progress")
+        return ControlDecision(True, "manual_cycle", "Manual cycle in progress", "manual_cycle")
     if inp.manual_override is not None:
         state = "on" if inp.manual_override else "off"
         return ControlDecision(
-            inp.manual_override, "manual_override", f"Switched {state} by hand; respected for now"
+            inp.manual_override,
+            "manual_override",
+            f"Switched {state} by hand; respected for now",
+            f"manual_override_{state}",
         )
 
     decision = inp.mode_decision
     if decision is None or decision.action == PumpAction.NO_CHANGE:
         if inp.pump_is_on and inp.started_by in FORCING_SOURCES:
             return ControlDecision(
-                False, "mode", f"No longer needed for {inp.started_by.replace('_', ' ')}"
+                False,
+                "mode",
+                f"No longer needed for {inp.started_by.replace('_', ' ')}",
+                f"released_{inp.started_by}",
             )
-        return ControlDecision(None, "mode", decision.reason if decision else "No mode")
+        if decision is None:
+            return ControlDecision(None, "mode", "No mode", "no_mode")
+        return ControlDecision(None, "mode", decision.reason, decision.key)
 
     want_on = decision.action == PumpAction.TURN_ON
     if want_on == inp.pump_is_on:
-        return ControlDecision(want_on, "mode", decision.reason)
+        return ControlDecision(want_on, "mode", decision.reason, decision.key)
 
     # A change the mode wants: hold it back until the current state has lasted
     # long enough. Only the mode is held back like this; everything above it
@@ -127,8 +143,10 @@ def arbitrate(inp: ControlInputs) -> ControlDecision:
                 "mode",
                 f"{decision.reason} (waiting {wait:.0f} min: minimum "
                 f"{'run' if inp.pump_is_on else 'rest'} time)",
+                "min_run" if inp.pump_is_on else "min_rest",
+                {"reason_key": decision.key, "minutes": f"{wait:.0f}"},
             )
-    return ControlDecision(want_on, "mode", decision.reason)
+    return ControlDecision(want_on, "mode", decision.reason, decision.key)
 
 
 @dataclass

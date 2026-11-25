@@ -18,9 +18,9 @@ class SmartSolarMode(OperationMode):
 
     def evaluate(self, context: PoolContext) -> PumpDecision:
         if context.target_reached:
-            return turn_off("Smart+Solar: today's target is reached")
+            return turn_off("Smart+Solar: today's target is reached", "smart_solar_target_reached")
         if context.must_run_now:
-            return turn_on("Smart+Solar: finishing from the grid before the day ends")
+            return turn_on("Smart+Solar: finishing from the grid before the day ends", "smart_solar_grid")
         if context.solar_available:
-            return turn_on("Smart+Solar: running on surplus")
-        return turn_off("Smart+Solar: waiting for surplus")
+            return turn_on("Smart+Solar: running on surplus", "smart_solar_surplus")
+        return turn_off("Smart+Solar: waiting for surplus", "smart_solar_waiting")

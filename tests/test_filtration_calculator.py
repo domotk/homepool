@@ -11,6 +11,7 @@ from datetime import date
 from custom_components.homepool.pool.filtration_calculator import (
     FiltrationInputs,
     calculate_filtration_target,
+    minimum_turnovers,
     interpolate,
     calculate_seasonal_factor,
 )
@@ -137,8 +138,10 @@ class TestFullYearSimulation:
 
     YEAR_SCENARIOS = [
         # (month, water_temp, uv, expected_min_h, expected_max_h, description)
-        (1, 12.0, 1, 2.0, 3.0, "January hibernation"),
-        (2, 12.0, 2, 2.0, 3.0, "February hibernation"),
+        # Cold water needs little: at 12 °C the factor is about half and the
+        # floor is half a turnover, so winter lands between one and two hours.
+        (1, 12.0, 1, 1.0, 2.5, "January hibernation"),
+        (2, 12.0, 2, 1.0, 2.5, "February hibernation"),
         (3, 14.0, 3, 2.0, 3.5, "March cold"),
         (4, 17.0, 4, 3.0, 4.5, "April warming"),
         (5, 20.0, 5, 4.0, 6.0, "May neutral"),
@@ -147,8 +150,8 @@ class TestFullYearSimulation:
         (8, 28.0, 9, 12.0, 14.0, "August peak"),
         (9, 23.0, 5, 5.5, 7.5, "September end season"),
         (10, 18.0, 3, 3.0, 4.5, "October cooling"),
-        (11, 14.0, 2, 2.0, 3.5, "November cold"),
-        (12, 12.0, 1, 2.0, 3.0, "December hibernation"),
+        (11, 14.0, 2, 1.75, 3.5, "November cold"),
+        (12, 12.0, 1, 1.0, 2.5, "December hibernation"),
     ]
 
     @pytest.mark.parametrize(
@@ -256,8 +259,8 @@ class TestSpecialConditions:
         ratio = result_high.target_minutes / result_normal.target_minutes
         assert 1.3 <= ratio <= 1.6
 
-    def test_minimum_never_below_one_turnover(self):
-        """Even in winter with cover, target should never go below 1 turnover."""
+    def test_cold_water_floor_is_half_a_turnover(self):
+        """In cold water the target may fall to half a turnover, not below."""
         result = calculate_filtration_target(make_inputs(
             current_date=date(2025, 1, 15),
             water_temperature_c=8.0,
@@ -266,8 +269,37 @@ class TestSpecialConditions:
             cover_currently_on=True,
             user_multiplier=0.5,
         ))
-        one_turnover = round((REF_VOLUME / REF_FLOW_RATE) * 60)
+        half_turnover = (REF_VOLUME / REF_FLOW_RATE) * 60 / 2
+        assert result.target_minutes >= half_turnover
+        assert result.target_minutes == result.min_minutes
+
+    def test_warm_water_floor_is_one_turnover(self):
+        result = calculate_filtration_target(make_inputs(
+            current_date=date(2025, 1, 15),
+            water_temperature_c=16.0,
+            uv_index=0.0,
+            has_cover="automatic",
+            cover_currently_on=True,
+            user_multiplier=0.5,
+        ))
+        one_turnover = (REF_VOLUME / REF_FLOW_RATE) * 60
         assert result.target_minutes >= one_turnover
+
+    @pytest.mark.parametrize(
+        "water,air,expected",
+        [
+            (None, None, 1.0),  # no evidence of cold water: keep one turnover
+            (20.0, None, 1.0),
+            (15.0, None, 1.0),
+            (13.5, None, 0.75),
+            (12.0, None, 0.5),
+            (5.0, None, 0.5),
+            (None, 14.0, 0.5),  # air 14 °C estimates water at 12 °C
+            (None, 17.0, 1.0),
+        ],
+    )
+    def test_minimum_turnovers(self, water, air, expected):
+        assert minimum_turnovers(water, air) == pytest.approx(expected)
 
     def test_result_includes_sources(self):
         result = calculate_filtration_target(make_inputs(

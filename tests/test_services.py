@@ -54,7 +54,7 @@ async def test_readme_entity_ids_exist(hass: HomeAssistant) -> None:
         "select.pool_operation_mode",
         "switch.pool_pump",
         "switch.pool_maintenance_lock",
-        "switch.pool_salt_chlorinator",
+        "switch.pool_chlorinator_in_use",
         "number.pool_filtration_multiplier",
         "number.pool_solar_surplus_threshold",
         "number.pool_ph_target",
