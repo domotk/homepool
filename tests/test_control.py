@@ -361,3 +361,64 @@ async def test_a_stuck_cell_does_not_keep_the_pump_running(
     await tick(hass, freezer, 4)
     assert state(hass, PUMP) == "off"
     assert "chlorinator_not_responding" in [e.data["type"] for e in events]
+
+
+async def test_the_pools_own_air_sensor_beats_the_forecast(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
+) -> None:
+    from homeassistant.core import SupportsResponse
+
+    freezer.move_to(local(2026, 11, 25, 10, 0))
+    hass.states.async_set("sensor.air", "14.1", {"unit_of_measurement": "°C"})
+    hass.states.async_set("weather.home", "sunny")
+
+    async def forecasts(call):
+        return {"weather.home": {"forecast": [{"temperature": 17.7, "precipitation": 0}]}}
+
+    hass.services.async_register(
+        "weather", "get_forecasts", forecasts, supports_response=SupportsResponse.ONLY
+    )
+    SwitchRouter(hass)
+    await setup_pool(
+        hass, air_temperature_sensor="sensor.air", weather_entity="weather.home"
+    )
+    attrs = hass.states.get("sensor.pool_daily_filtration_target").attributes
+    assert attrs["sources"]["temperature"] == "air_temperature_max"
+    assert attrs["inputs"]["air_temperature"] == 14.1
+
+
+async def test_the_reason_is_in_home_assistants_language(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
+) -> None:
+    freezer.move_to(local(2026, 11, 25, 10, 0))
+    SwitchRouter(hass)
+    await setup_pool(hass)
+    # Set after setup so the entity ids stay English; the reasons follow the
+    # language at runtime.
+    hass.config.language = "es"
+    await tick(hass, freezer, 1)
+    attrs = hass.states.get("sensor.pool_pump_control").attributes
+    assert attrs["reason_key"] == "off_mode"
+    assert attrs["reason"] == "Modo apagado: la bomba se maneja a mano"
+
+    await hass.services.async_call(
+        "input_boolean", "turn_on", {"entity_id": PUMP}, blocking=True, context=Context()
+    )
+    await tick(hass, freezer, 1)
+    attrs = hass.states.get("sensor.pool_pump_control").attributes
+    assert attrs["reason_key"] == "manual_override_on"
+    assert attrs["reason"] == "Encendida a mano; se respeta por ahora"
+
+
+async def test_minutes_are_rounded_not_truncated(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
+) -> None:
+    freezer.move_to(local(2026, 11, 25, 10, 0))
+    SwitchRouter(hass)
+    entry = await setup_pool(hass)
+    coordinator = entry.runtime_data
+    # 90 s of running is 2 minutes, not the 1 that truncating gave; 89 s is 1.
+    coordinator.elapsed_s = 90
+    assert coordinator.elapsed_minutes == 2
+    coordinator.elapsed_s = 89
+    assert coordinator.elapsed_minutes == 1

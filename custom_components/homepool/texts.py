@@ -100,3 +100,93 @@ def text(language: str | None, key: str, **values: Any) -> str:
         return template.format(**values)
     except (KeyError, ValueError):
         return template
+
+
+# Why the pump is as it is, keyed by the decision's ``key``. Shown on the
+# control sensor's ``reason`` attribute and on the card.
+REASONS: dict[str, dict[str, str]] = {
+    "en": {
+        "unavailable": "The pump switch is unavailable",
+        "hands_off": "Hands off: the pump is being run by hand",
+        "maintenance_lock": "Maintenance lock is on",
+        "safety": "Safety shutoff: {reason}",
+        "freeze_protection": "Freeze protection: water near 0 °C",
+        "ph_correction": "pH correction needs water flowing",
+        "manual_cycle": "Manual cycle in progress",
+        "manual_override_on": "Switched on by hand; respected for now",
+        "manual_override_off": "Switched off by hand; respected for now",
+        "released_freeze_protection": "No longer needed for freeze protection",
+        "released_ph_correction": "No longer needed for pH correction",
+        "released_manual_cycle": "The manual cycle has ended",
+        "no_mode": "No mode",
+        "min_run": "{reason} (waiting {minutes} min: minimum run time)",
+        "min_rest": "{reason} (waiting {minutes} min: minimum rest time)",
+        "off_mode": "Off mode: the pump is controlled by hand",
+        "timer_no_slots": "Timer mode: no time slots configured",
+        "timer_in_slot": "Timer mode: inside a scheduled slot",
+        "timer_outside_slot": "Timer mode: outside the scheduled slots",
+        "smart_target_reached": "Smart mode: today's target is reached",
+        "smart_must_run": "Smart mode: only just enough day left to reach the target",
+        "smart_in_block": "Smart mode: inside the block centred on solar noon",
+        "smart_waiting_block": "Smart mode: waiting for the block centred on solar noon",
+        "solar_target_reached": "Solar mode: today's target is reached",
+        "solar_no_reading": "Solar mode: no surplus reading",
+        "solar_surplus": "Solar mode: there is enough surplus",
+        "solar_no_surplus": "Solar mode: not enough surplus",
+        "smart_solar_target_reached": "Smart+Solar: today's target is reached",
+        "smart_solar_grid": "Smart+Solar: finishing from the grid before the day ends",
+        "smart_solar_surplus": "Smart+Solar: running on surplus",
+        "smart_solar_waiting": "Smart+Solar: waiting for surplus",
+    },
+    "es": {
+        "unavailable": "El interruptor de la bomba no está disponible",
+        "hands_off": "Manos fuera: la bomba se maneja a mano",
+        "maintenance_lock": "El bloqueo de mantenimiento está activado",
+        "safety": "Parada de seguridad: {reason}",
+        "freeze_protection": "Protección antiheladas: agua cerca de 0 °C",
+        "ph_correction": "La corrección del pH necesita el agua en movimiento",
+        "manual_cycle": "Ciclo manual en marcha",
+        "manual_override_on": "Encendida a mano; se respeta por ahora",
+        "manual_override_off": "Apagada a mano; se respeta por ahora",
+        "released_freeze_protection": "Ya no hace falta para la protección antiheladas",
+        "released_ph_correction": "Ya no hace falta para corregir el pH",
+        "released_manual_cycle": "El ciclo manual ha terminado",
+        "no_mode": "Sin modo",
+        "min_run": "{reason} (esperando {minutes} min: tiempo mínimo en marcha)",
+        "min_rest": "{reason} (esperando {minutes} min: tiempo mínimo de descanso)",
+        "off_mode": "Modo apagado: la bomba se maneja a mano",
+        "timer_no_slots": "Modo temporizador: no hay franjas configuradas",
+        "timer_in_slot": "Modo temporizador: dentro de una franja",
+        "timer_outside_slot": "Modo temporizador: fuera de las franjas",
+        "smart_target_reached": "Modo inteligente: objetivo de hoy cumplido",
+        "smart_must_run": "Modo inteligente: queda el día justo para cumplir el objetivo",
+        "smart_in_block": "Modo inteligente: dentro del bloque centrado en el mediodía solar",
+        "smart_waiting_block": "Modo inteligente: esperando al bloque centrado en el mediodía solar",
+        "solar_target_reached": "Modo solar: objetivo de hoy cumplido",
+        "solar_no_reading": "Modo solar: sin lectura de excedente",
+        "solar_surplus": "Modo solar: hay excedente suficiente",
+        "solar_no_surplus": "Modo solar: no hay excedente suficiente",
+        "smart_solar_target_reached": "Inteligente+Solar: objetivo de hoy cumplido",
+        "smart_solar_grid": "Inteligente+Solar: terminando con la red antes de que acabe el día",
+        "smart_solar_surplus": "Inteligente+Solar: en marcha con excedente",
+        "smart_solar_waiting": "Inteligente+Solar: esperando excedente",
+    },
+}
+
+
+def reason_text(
+    language: str | None, key: str, args: dict[str, str] | None = None, fallback: str = ""
+) -> str:
+    """The reason for ``key`` in ``language``; ``fallback`` if it has no text."""
+    lang = (language or "en").split("-")[0].lower()
+    table = REASONS.get(lang, REASONS["en"])
+    template = table.get(key) or REASONS["en"].get(key)
+    if template is None:
+        return fallback
+    values = dict(args or {})
+    if "reason_key" in values:
+        values["reason"] = reason_text(language, values.pop("reason_key"), None, fallback)
+    try:
+        return template.format(**values)
+    except (KeyError, ValueError):
+        return fallback or template

@@ -19,10 +19,10 @@ class SmartMode(OperationMode):
 
     def evaluate(self, context: PoolContext) -> PumpDecision:
         if context.target_reached:
-            return turn_off("Smart mode: today's target is reached")
+            return turn_off("Smart mode: today's target is reached", "smart_target_reached")
         if context.must_run_now:
-            return turn_on("Smart mode: only just enough day left to reach the target")
+            return turn_on("Smart mode: only just enough day left to reach the target", "smart_must_run")
         window_start = context.solar_noon_minute - context.target_minutes // 2
         if context.minute_of_day >= window_start:
-            return turn_on("Smart mode: inside the block centred on solar noon")
-        return turn_off("Smart mode: waiting for the block centred on solar noon")
+            return turn_on("Smart mode: inside the block centred on solar noon", "smart_in_block")
+        return turn_off("Smart mode: waiting for the block centred on solar noon", "smart_waiting_block")

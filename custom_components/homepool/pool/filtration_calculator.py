@@ -12,6 +12,8 @@ Calibrated against Astralpool manufacturer table:
 
 from __future__ import annotations
 
+import math
+
 from dataclasses import dataclass, field
 from datetime import date
 
@@ -206,6 +208,39 @@ def calculate_seasonal_factor(month: int, latitude: float) -> float:
     return interpolate(SEASONAL_TABLE_NORTH, month)
 
 
+# Below this water temperature one turnover a day is more than the water
+# needs: algae and bacteria barely grow, and the usual advice for a pool left
+# open in winter is one to two hours. The floor eases from one turnover at
+# WINTER_FLOOR_WARM_C to half of one at WINTER_FLOOR_COLD_C.
+WINTER_FLOOR_WARM_C = 15.0
+WINTER_FLOOR_COLD_C = 12.0
+WINTER_FLOOR_TURNOVERS = 0.5
+
+
+def minimum_turnovers(
+    water_temp_c: float | None,
+    air_temp_c: float | None,
+    air_offset: float = -2.0,
+) -> float:
+    """The fewest turnovers a day the target may fall to.
+
+    One turnover, unless the water is known to be cold. Without any
+    temperature the floor stays at one: a cold-water allowance needs evidence.
+    """
+    if water_temp_c is not None:
+        water = water_temp_c
+    elif air_temp_c is not None:
+        water = air_temp_c + air_offset
+    else:
+        return 1.0
+    if water >= WINTER_FLOOR_WARM_C:
+        return 1.0
+    if water <= WINTER_FLOOR_COLD_C:
+        return WINTER_FLOOR_TURNOVERS
+    span = WINTER_FLOOR_WARM_C - WINTER_FLOOR_COLD_C
+    return WINTER_FLOOR_TURNOVERS + (1.0 - WINTER_FLOOR_TURNOVERS) * (water - WINTER_FLOOR_COLD_C) / span
+
+
 def calculate_temperature_factor(
     water_temp_c: float | None,
     air_temp_c: float | None,
@@ -397,7 +432,9 @@ def calculate_filtration_target(inputs: FiltrationInputs) -> FiltrationResult:
     raw_target = round(base_minutes * combined)
 
     # Limits
-    min_minutes = -(-base_minutes // 2)       # 1 turnover (ceiling division)
+    min_minutes = math.ceil(base_minutes / 2 * minimum_turnovers(
+        inputs.water_temperature_c, inputs.air_temperature_c
+    ))
     max_minutes = round(base_minutes * 3.5)  # 7 turnovers
     clamped = max(min_minutes, min(raw_target, max_minutes))
     was_clamped = clamped != raw_target

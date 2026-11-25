@@ -65,6 +65,7 @@ def _target_attrs(c: PoolCoordinator) -> dict[str, Any]:
 def _control_attrs(c: PoolCoordinator) -> dict[str, Any]:
     return {
         "reason": c.decision_reason,
+        "reason_key": c.decision_key or None,
         "operation_mode": c.mode,
         "chlorinator": c.chlorinator_reason or None,
         "surplus_w": round(c.surplus_w) if c.surplus_w is not None else None,

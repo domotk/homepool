@@ -175,7 +175,7 @@ from .pool.scheduler import (
     solar_noon_utc,
     surplus_watts,
 )
-from .texts import text
+from .texts import reason_text, text
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -203,6 +203,11 @@ def parse_timer_slots(text_value: str | None) -> list[tuple[int, int]]:
             continue
         slots.append(((sh * 60 + sm) % 1440, (eh * 60 + em) % 1440))
     return slots
+
+
+def _whole_minutes(seconds: float) -> int:
+    """Seconds to the nearest minute. Truncating left the count a minute behind."""
+    return int(seconds / 60 + 0.5)
 
 
 def _iso(value: datetime | None) -> str | None:
@@ -270,6 +275,7 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # Derived on every run, read by the entities.
         self.decision_source = "mode"
         self.decision_reason = ""
+        self.decision_key = ""
         self.chlorinator_reason = ""
         self.safety_active = False
         self.safety_reasons: list[str] = []
@@ -609,15 +615,15 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     @property
     def elapsed_minutes(self) -> int:
-        return int(self.elapsed_s // 60)
+        return _whole_minutes(self.elapsed_s)
 
     @property
     def chlorine_minutes(self) -> int:
-        return int(self.chlorine_s // 60)
+        return _whole_minutes(self.chlorine_s)
 
     @property
     def ph_correction_minutes(self) -> int:
-        return int(self.ph_correction_s // 60)
+        return _whole_minutes(self.ph_correction_s)
 
     @property
     def target_minutes(self) -> int:
@@ -1092,12 +1098,16 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         water = self.water_temperature
         if water is not None:
             return water, None, "water_temperature_sensor"
-        high = self._forecast.get("high")
-        if isinstance(high, (int, float)):
-            return None, float(high), "forecast_high"
+        # What the pool's own sensor measured beats a forecast for a grid
+        # cell kilometres away. Today's maximum so far, or yesterday's if that
+        # was warmer: early in the morning today's is still the night's low,
+        # and the target only rises as the day warms up.
         observed = [v for v in (self.air_max.get("today"), self.air_max.get("yesterday")) if v is not None]
         if observed:
             return None, max(observed), "air_temperature_max"
+        high = self._forecast.get("high")
+        if isinstance(high, (int, float)):
+            return None, float(high), "forecast_high"
         return None, None, "none"
 
     def _uv(self) -> tuple[float | None, str | None]:
@@ -1431,7 +1441,10 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             )
         )
         self.decision_source = decision.source
-        self.decision_reason = decision.reason
+        self.decision_key = decision.key
+        self.decision_reason = reason_text(
+            self.hass.config.language, decision.key, decision.args, decision.reason
+        )
 
         # The cell first: it must already be off when the pump stops.
         pump_will_be_on = self._pump_was_on if decision.pump is None else decision.pump

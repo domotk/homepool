@@ -40,6 +40,7 @@ async def async_get_config_entry_diagnostics(
         "decision": {
             "source": coordinator.decision_source,
             "reason": coordinator.decision_reason,
+            "reason_key": coordinator.decision_key,
             "chlorinator": coordinator.chlorinator_reason,
         },
         "pump": {
