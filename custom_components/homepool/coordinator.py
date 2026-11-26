@@ -294,6 +294,8 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.pump_on_since: datetime | None = None
         self.started_by: str | None = None
         self.alerts: dict[str, dict[str, Any]] = {}
+        # Which wording each raised alert used, when it has more than one.
+        self._alert_text_keys: dict[str, str] = {}
         self.due_notified: dict[str, str] = {}
         # Reminders held back by the quiet hours, sent when they end.
         self.pending_reminders: list[dict[str, str]] = []
@@ -1308,7 +1310,9 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 "effective_production_g_h": first.effective_production_g_h,
                 "salinity_factor": first.salinity_factor,
                 "cold_water_factor": first.cold_water_factor,
-                "chlorinator_in_season": first.is_chlorinator_active,
+                # The calendar's answer, as before; whether the cell counted
+                # shows in target_chlorine_minutes.
+                "chlorinator_in_season": self.in_season,
             }
 
         target = max(filt.target_minutes, chlorine_minutes or 0)
@@ -1686,12 +1690,14 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         once: bool = False,
         reminder: bool = False,
         text_key: str | None = None,
+        notify: bool = True,
     ) -> None:
         """Raise an alert on its rising edge: event, and notification if enabled.
 
         ``reminder`` marks an alert that asks the owner to do something: it is
         notified whatever the severity floor, after the quiet hours if need be.
-        ``text_key`` picks another wording for the same alert.
+        ``text_key`` picks another wording for the same alert; ``notify``
+        False raises it without a notification.
         """
         if alert in self.alerts and not once:
             return
@@ -1703,8 +1709,8 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 "severity": severity,
                 "message": message,
                 "since": dt_util.utcnow().isoformat(),
-                "text_key": text_key or alert,
             }
+            self._alert_text_keys[alert] = text_key or alert
         payload = {
             "entry_id": self.entry.entry_id,
             "pool": self.pool_name,
@@ -1725,6 +1731,8 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 },
             )
         title = text(self.hass.config.language, "title") + f" · {self.pool_name}"
+        if not notify:
+            return
         if reminder:
             await self._async_remind(title, message)
         elif self.notifier:
@@ -1736,7 +1744,9 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             return
         now = dt_util.now()
         if self.notifier.quiet(now):
-            self.pending_reminders.append({"title": title, "message": message})
+            entry = {"title": title, "message": message}
+            if entry not in self.pending_reminders:
+                self.pending_reminders.append(entry)
             del self.pending_reminders[:-REMINDERS_KEPT]
             return
         await self.notifier.async_send(title, message, Severity.INFO, now, reminder=True)
@@ -1758,6 +1768,7 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     async def _async_clear(self, alert: str) -> None:
         self.alerts.pop(alert, None)
+        self._alert_text_keys.pop(alert, None)
 
     async def _async_set(
         self, alert: str, active: bool, severity: str, values: dict[str, Any] | None = None
@@ -1779,14 +1790,20 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             return
         blocked = self.decision_source in FREEZE_BLOCKERS
         text_key = "freeze_protection_blocked" if blocked else "freeze_protection"
+        values = {"reason": self.decision_reason or ""} if blocked else {}
         current = self.alerts.get("freeze_protection")
-        if current and current.get("text_key", "freeze_protection") != text_key:
+        if current and self._alert_text_keys.get("freeze_protection") != text_key:
+            if not blocked:
+                # Running again: correct the text without another notification.
+                current["message"] = text(
+                    self.hass.config.language, text_key, pool=self.pool_name
+                )
+                self._alert_text_keys["freeze_protection"] = text_key
+                return
+            # Newly kept off in a frost: worth telling whoever is notified.
             await self._async_clear("freeze_protection")
         await self._async_raise(
-            "freeze_protection",
-            Severity.WARNING,
-            {"reason": self.decision_reason or ""},
-            text_key=text_key,
+            "freeze_protection", Severity.WARNING, values, text_key=text_key
         )
 
     async def _async_alerts(self, now: datetime) -> None:
@@ -1840,8 +1857,13 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             name = task["task"]
             alert = f"{name}_due"
             if task["overdue"]:
-                await self._async_raise(alert, Severity.INFO, {}, reminder=True)
-                if self.due_notified.get(name) != today:
+                # Alerts are not kept across restarts: the reminder goes out
+                # once a day, not again after every reload.
+                first_today = self.due_notified.get(name) != today
+                await self._async_raise(
+                    alert, Severity.INFO, {}, reminder=True, notify=first_today
+                )
+                if first_today:
                     self.due_notified[name] = today
                     self.hass.bus.async_fire(
                         EVENT_MANUAL_ACTION_DUE,

@@ -36,6 +36,21 @@ async def test_off_mode_does_not_run_the_pump_for_the_ph(
     assert state(hass, "binary_sensor.pool_ph_out_of_range") == "on"
 
 
+async def test_a_ph_window_asked_for_still_runs_in_off(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
+) -> None:
+    freezer.move_to(local(2026, 7, 15, 6, 0))
+    SwitchRouter(hass)
+    await setup_pool(hass, ph_sensor="sensor.ph", has_ph_dosing=True)
+    await hass.services.async_call(
+        "homepool", "force_ph_correction_window",
+        {"entity_id": "sensor.pool_status", "duration": 30}, blocking=True,
+    )
+    await tick(hass, freezer, 1)
+    assert state(hass, PUMP) == "on"
+    assert state(hass, "sensor.pool_pump_control") == "ph_correction"
+
+
 async def test_switching_to_off_releases_a_ph_window(
     hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
 ) -> None:
@@ -97,7 +112,8 @@ async def test_the_cell_switched_off_adds_no_chlorine_minutes_or_salt_alert(
     await tick(hass, freezer, 1)
     assert "salt_low" not in coordinator.alerts
     assert not coordinator.target.get("target_chlorine_minutes")
-    assert coordinator.target["chlorinator_in_season"] is False
+    # The calendar still says it is the season; the cell just did not count.
+    assert coordinator.target["chlorinator_in_season"] is True
     assert coordinator.target["target_minutes"] == coordinator.target["target_filtration_minutes"]
 
 
@@ -123,6 +139,13 @@ async def test_the_freeze_alert_says_when_the_lock_keeps_the_pump_off(
     assert "cannot keep the pump running" in message
     assert "Maintenance lock" in message
     # Raised again, so whoever is notified hears of the change.
+    assert [e.data["type"] for e in events].count("freeze_protection") == 1
+
+    # Lock off: the pump runs again and the text is corrected, quietly.
+    await coordinator.async_set_setting("maintenance_lock", False)
+    await tick(hass, freezer, 1)
+    assert state(hass, PUMP) == "on"
+    assert "kept running" in coordinator.alerts["freeze_protection"]["message"]
     assert [e.data["type"] for e in events].count("freeze_protection") == 1
 
 
@@ -176,3 +199,21 @@ async def test_a_task_falling_due_is_notified_with_the_default_threshold(
     assert "backwash_due" in coordinator.alerts
     assert coordinator.alerts["backwash_due"]["severity"] == "info"
     assert any("backwash" in c.data["message"] for c in calls)
+
+
+async def test_a_reload_does_not_repeat_a_reminder(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
+) -> None:
+    freezer.move_to(local(2026, 7, 15, 10, 0))
+    SwitchRouter(hass)
+    calls = await _notified(hass)
+    entry = await setup_pool(hass, **NOTIFY, backwash_interval_days=1)
+    await entry.runtime_data.async_record_action("backwash")
+    await tick(hass, freezer, 2 * 24 * 60)
+    sent = len([c for c in calls if "backwash" in c.data["message"]])
+    assert sent == 1
+    await hass.config_entries.async_reload(entry.entry_id)
+    await hass.async_block_till_done()
+    await tick(hass, freezer, 5)
+    assert "backwash_due" in entry.runtime_data.alerts
+    assert len([c for c in calls if "backwash" in c.data["message"]]) == sent

@@ -1153,7 +1153,8 @@ invernaje, producto de invierno, más lecturas) queda para la 0.2.
    al móvil. Ahora son recordatorios: pasan el umbral sin cambiar su
    severidad (que va en el evento y en el aviso), y si caen en las horas de
    silencio (el cambio de temporada es a medianoche) se guardan y se mandan
-   al terminar.
+   al terminar. Una tarea vencida se notifica una vez al día, no otra vez
+   tras cada reinicio. El texto del umbral en las opciones lo dice.
 4. **«Clorador en uso» manda.** Apagado, la célula no suma minutos al
    objetivo (se trata como fuera de temporada) y cambiarlo recalcula el
    objetivo, que puede bajar. `salt_low` solo salta en temporada y con el
@@ -1166,5 +1167,7 @@ invernaje, producto de invierno, más lecturas) queda para la 0.2.
 6. **La temporada se conoce desde el primer día.** `in_season_last` se fijaba
    en la primera medianoche, así que instalar el último día de temporada
    perdía el aviso de fin. Ahora se fija al cargar, sin lanzar nada; las
-   instalaciones que ya lo tienen guardado no cambian.
+   instalaciones que ya lo tienen guardado no cambian. Instalar en noviembre
+   sigue sin avisar de nada hasta junio: decir qué toca en cada momento del
+   año es el estado de temporada de la 0.2.
 
