@@ -24,3 +24,12 @@ def test_severity_floor_and_critical_override() -> None:
     assert notifier.should_send("critical", night)
     silent = NotifyDispatcher(None, "notify.phone", "warning", "22:00", "08:00", False)
     assert not silent.should_send("critical", night)
+
+
+def test_a_reminder_passes_the_floor_but_waits_for_the_quiet_hours() -> None:
+    notifier = NotifyDispatcher(None, "notify.phone", "warning", "22:00", "08:00", True)
+    noon = datetime(2026, 7, 15, 12, 0)
+    night = datetime(2026, 7, 15, 23, 0)
+    assert notifier.should_send("info", noon, reminder=True)
+    assert not notifier.should_send("info", night, reminder=True)
+    assert notifier.quiet(night) and not notifier.quiet(noon)

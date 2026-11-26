@@ -1134,3 +1134,37 @@ historial de cinco días soleados de noviembre:
    dispositivo (hassfest no lo admite en `target`), pero el filtro de entidad
    ya deja elegir el dispositivo de la piscina en el selector, y la llamada
    con `device_id` funciona.
+
+## 21. Cambios en la v0.1.3 (noviembre de 2026), tras revisar el mantenimiento
+
+Una revisión de lo que necesita una piscina particular a lo largo del año
+encontró seis fallos pequeños, corregidos aquí. Lo nuevo (estado de temporada,
+invernaje, producto de invierno, más lecturas) queda para la 0.2.
+
+1. **El pH no fuerza la bomba en `off`**, como ya decía §5.8 y el código no
+   hacía. Una ventana pedida con el servicio `force_ph_correction_window` sí se
+   cumple en `off`, igual que un ciclo manual: la pide una persona.
+2. **Lecturas de pH imposibles.** Una lectura de la sonda fuera de 5-9, o
+   exactamente igual durante 24 h (sonda en su vaso o fuera del agua), no
+   fuerza la bomba. El aviso de pH fuera de rango sigue mostrándola. La
+   cuenta de 24 h no se guarda: tras reiniciar, la sonda tiene otro día.
+3. **Recordatorios que llegan.** Los avisos de tareas (`*_due`) y el cambio
+   de temporada son INFO, y con el umbral por defecto (`warning`) no llegaban
+   al móvil. Ahora son recordatorios: pasan el umbral sin cambiar su
+   severidad (que va en el evento y en el aviso), y si caen en las horas de
+   silencio (el cambio de temporada es a medianoche) se guardan y se mandan
+   al terminar.
+4. **«Clorador en uso» manda.** Apagado, la célula no suma minutos al
+   objetivo (se trata como fuera de temporada) y cambiarlo recalcula el
+   objetivo, que puede bajar. `salt_low` solo salta en temporada y con el
+   clorador en uso: una lectura manual vieja ya no lo deja encendido todo el
+   invierno.
+5. **El aviso de heladas dice la verdad.** Si un escalón por encima de la
+   antiheladas (bloqueo, seguridad, manos fuera, bomba no disponible) tiene
+   la bomba parada, el aviso lo dice y nombra el motivo; si eso cambia en
+   plena helada, el aviso se vuelve a lanzar.
+6. **La temporada se conoce desde el primer día.** `in_season_last` se fijaba
+   en la primera medianoche, así que instalar el último día de temporada
+   perdía el aviso de fin. Ahora se fija al cargar, sin lanzar nada; las
+   instalaciones que ya lo tienen guardado no cambian.
+

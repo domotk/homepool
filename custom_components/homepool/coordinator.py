@@ -225,6 +225,15 @@ EVENT_SCRIPT_STARTED = "script_started"
 
 # Automation and script runs remembered to attribute pump changes.
 RUNNER_CONTEXTS_KEPT = 300
+REMINDERS_KEPT = 20
+# Rungs above freeze protection: with one of them deciding, the pump is not
+# kept running however cold the water is.
+FREEZE_BLOCKERS = ("unavailable", "hands_off", "maintenance_lock", "safety")
+# A pH probe outside this range, or reading exactly the same for this long,
+# is not trusted to run the pump.
+PH_PLAUSIBLE_MIN = 5.0
+PH_PLAUSIBLE_MAX = 9.0
+PH_FROZEN_HOURS = 24
 
 # How far the pool's own air sensor may read above the forecast high.
 MEASURED_AIR_MARGIN_C = 3.0
@@ -286,6 +295,10 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.started_by: str | None = None
         self.alerts: dict[str, dict[str, Any]] = {}
         self.due_notified: dict[str, str] = {}
+        # Reminders held back by the quiet hours, sent when they end.
+        self.pending_reminders: list[dict[str, str]] = []
+        # The probe's last distinct pH reading and when it was first seen.
+        self._ph_seen: tuple[float, datetime] | None = None
         self._closed_days: list[dict[str, Any]] = []
 
         # Derived on every run, read by the entities.
@@ -418,6 +431,11 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.override = data.get("override")
         self.started_by = data.get("started_by")
         self.due_notified = data.get("due_notified") or {}
+        self.pending_reminders = data.get("pending_reminders") or []
+        if self.in_season_last is None and self.is_salt:
+            # Known from the first day, so the first season change after
+            # installing is not missed (it used to be set at the first midnight).
+            self.in_season_last = is_chlorinator_in_season(self.day, self.active_months)
 
         if "chlorinator_enabled" not in self.settings and self.is_salt:
             if self.conf.get(CONF_CHLORINATOR_AUTO_TOGGLE, True):
@@ -539,6 +557,7 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "override": self.override,
             "started_by": self.started_by,
             "due_notified": self.due_notified,
+            "pending_reminders": self.pending_reminders,
         }
 
     def _save(self) -> None:
@@ -949,6 +968,7 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         await self._async_maybe_recalculate(now)
         await self._async_control(now)
         await self._async_alerts(now)
+        await self._async_flush_reminders(now)
         self._save()
         return self.snapshot()
 
@@ -1061,13 +1081,7 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         )
         if self.conf.get(CONF_CHLORINATOR_AUTO_TOGGLE, True):
             self.settings["chlorinator_enabled"] = in_season
-        if self.notifier:
-            await self.notifier.async_send(
-                text(self.hass.config.language, "title"),
-                message,
-                Severity.INFO,
-                dt_util.now(),
-            )
+        await self._async_remind(text(self.hass.config.language, "title"), message)
 
     def _sample_inputs(self, now: datetime) -> None:
         air = self.air_temperature
@@ -1265,7 +1279,11 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 ),
                 "chlorinator_production_pct": self.chlorinator_production,
                 "chlorinator_self_regulating": self.self_regulating,
-                "chlorinator_active_months": self.active_months,
+                # With "Chlorinator in use" off the cell produces nothing, so
+                # it is treated as out of season and adds no minutes.
+                "chlorinator_active_months": (
+                    self.active_months if self.chlorinator_enabled else []
+                ),
                 "water_temperature_c": water,
                 "air_temperature_c": air,
                 "salt_level_g_l": salt,
@@ -1403,6 +1421,11 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         the pump is not already running for another reason; it is extended
         while the need lasts, up to the daily cap, so the pump is not stopped
         and restarted every half hour.
+
+        In ``off`` mode HomePool does not start the pump for the pH: only a
+        window asked for through the service does. A probe reading that cannot
+        be right (outside 5-9, or unchanged for a day: a probe in its cup or
+        out of the water) does not start it either.
         """
         if self.ph_correction_forced:
             if self.ph_window_until and now < self.ph_window_until:
@@ -1410,10 +1433,14 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 return True
             self.ph_correction_forced = False
             self.ph_window_until = None
+        if self.mode == "off":
+            self.ph_correction_active = False
+            self.ph_window_until = None
+            return False
         needed = False
         if self._is_on(CONF_PH_DOSING_ENTITY):
             needed = True
-        elif self.conf.get(CONF_HAS_PH_DOSING) and self.ph is not None:
+        elif self.conf.get(CONF_HAS_PH_DOSING) and self._ph_plausible(now):
             high = float(self.opt(CONF_PH_RANGE_MAX, DEFAULT_PH_RANGE_MAX))
             # Hysteresis: start above the range, stop once back at the target.
             needed = self.ph > high or (self.ph_correction_active and self.ph > self.ph_target)
@@ -1429,6 +1456,19 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             minutes = float(self.opt(CONF_PH_CORRECTION_MINUTES, DEFAULT_PH_CORRECTION_MINUTES))
             self.ph_window_until = now + timedelta(minutes=minutes)
         return True
+
+    def _ph_plausible(self, now: datetime) -> bool:
+        """Is the probe's reading believable enough to run the pump for?"""
+        ph = self.ph
+        if ph is None:
+            self._ph_seen = None
+            return False
+        if self._ph_seen is None or self._ph_seen[0] != ph:
+            # Not kept across restarts: after one, the probe gets a fresh day.
+            self._ph_seen = (ph, now)
+        if not PH_PLAUSIBLE_MIN <= ph <= PH_PLAUSIBLE_MAX:
+            return False
+        return now - self._ph_seen[1] < timedelta(hours=PH_FROZEN_HOURS)
 
     async def _async_control(self, now: datetime) -> None:
         self._evaluate_safety(now)
@@ -1639,17 +1679,31 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     # ── alerts ──
 
     async def _async_raise(
-        self, alert: str, severity: str, values: dict[str, Any], once: bool = False
+        self,
+        alert: str,
+        severity: str,
+        values: dict[str, Any],
+        once: bool = False,
+        reminder: bool = False,
+        text_key: str | None = None,
     ) -> None:
-        """Raise an alert on its rising edge: event, and notification if enabled."""
+        """Raise an alert on its rising edge: event, and notification if enabled.
+
+        ``reminder`` marks an alert that asks the owner to do something: it is
+        notified whatever the severity floor, after the quiet hours if need be.
+        ``text_key`` picks another wording for the same alert.
+        """
         if alert in self.alerts and not once:
             return
-        message = text(self.hass.config.language, alert, pool=self.pool_name, **values)
+        message = text(
+            self.hass.config.language, text_key or alert, pool=self.pool_name, **values
+        )
         if not once:
             self.alerts[alert] = {
                 "severity": severity,
                 "message": message,
                 "since": dt_util.utcnow().isoformat(),
+                "text_key": text_key or alert,
             }
         payload = {
             "entry_id": self.entry.entry_id,
@@ -1670,12 +1724,36 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     "conditions": self.safety_reasons,
                 },
             )
-        if self.notifier:
+        title = text(self.hass.config.language, "title") + f" · {self.pool_name}"
+        if reminder:
+            await self._async_remind(title, message)
+        elif self.notifier:
+            await self.notifier.async_send(title, message, severity, dt_util.now())
+
+    async def _async_remind(self, title: str, message: str) -> None:
+        """Notify a reminder now, or keep it until the quiet hours end."""
+        if not self.notifier or not self.notifier.service:
+            return
+        now = dt_util.now()
+        if self.notifier.quiet(now):
+            self.pending_reminders.append({"title": title, "message": message})
+            del self.pending_reminders[:-REMINDERS_KEPT]
+            return
+        await self.notifier.async_send(title, message, Severity.INFO, now, reminder=True)
+
+    async def _async_flush_reminders(self, now: datetime) -> None:
+        if not self.pending_reminders:
+            return
+        if not self.notifier or not self.notifier.service:
+            self.pending_reminders = []
+            return
+        local = dt_util.as_local(now)
+        if self.notifier.quiet(local):
+            return
+        pending, self.pending_reminders = self.pending_reminders, []
+        for reminder in pending:
             await self.notifier.async_send(
-                text(self.hass.config.language, "title") + f" · {self.pool_name}",
-                message,
-                severity,
-                dt_util.now(),
+                reminder["title"], reminder["message"], Severity.INFO, local, reminder=True
             )
 
     async def _async_clear(self, alert: str) -> None:
@@ -1689,6 +1767,28 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         else:
             await self._async_clear(alert)
 
+    async def _async_freeze_alert(self) -> None:
+        """Freeze risk, worded by whether HomePool can actually run the pump.
+
+        A rung above freeze protection (lock, safety, hands-off, no pump)
+        keeps the pump as it is; the alert then says so instead of claiming
+        the pump is running, and is raised again if that changes mid-frost.
+        """
+        if not self.freeze_active:
+            await self._async_clear("freeze_protection")
+            return
+        blocked = self.decision_source in FREEZE_BLOCKERS
+        text_key = "freeze_protection_blocked" if blocked else "freeze_protection"
+        current = self.alerts.get("freeze_protection")
+        if current and current.get("text_key", "freeze_protection") != text_key:
+            await self._async_clear("freeze_protection")
+        await self._async_raise(
+            "freeze_protection",
+            Severity.WARNING,
+            {"reason": self.decision_reason or ""},
+            text_key=text_key,
+        )
+
     async def _async_alerts(self, now: datetime) -> None:
         await self._async_set(
             "safety_shutoff",
@@ -1696,7 +1796,7 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             Severity.CRITICAL,
             {"reason": ", ".join(self.safety_reasons)},
         )
-        await self._async_set("freeze_protection", self.freeze_active, Severity.WARNING)
+        await self._async_freeze_alert()
         ph = self.ph
         await self._async_set(
             "ph_out_of_range",
@@ -1709,15 +1809,17 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             },
         )
         if self.is_salt:
+            in_season_on = self.in_season and self.chlorinator_enabled
             salt, _ = self.salinity
             low = float(self.opt(CONF_SALT_RANGE_MIN, DEFAULT_SALT_RANGE_MIN))
+            # Salt only matters while the cell is working: out of season an old
+            # manual reading must not keep the alert on all winter.
             await self._async_set(
                 "salt_low",
-                salt is not None and salt < low,
+                in_season_on and salt is not None and salt < low,
                 Severity.WARNING,
                 {"value": salt or 0, "low": low},
             )
-            in_season_on = self.in_season and self.chlorinator_enabled
             water = self.water_temperature
             cold = (
                 in_season_on
@@ -1738,7 +1840,7 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             name = task["task"]
             alert = f"{name}_due"
             if task["overdue"]:
-                await self._async_raise(alert, Severity.INFO, {})
+                await self._async_raise(alert, Severity.INFO, {}, reminder=True)
                 if self.due_notified.get(name) != today:
                     self.due_notified[name] = today
                     self.hass.bus.async_fire(
@@ -1759,7 +1861,7 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     async def async_set_setting(self, key: str, value: Any) -> None:
         self.settings[key] = value
-        if key in ("user_multiplier", "chlorinator_production"):
+        if key in ("user_multiplier", "chlorinator_production", "chlorinator_enabled"):
             await self._async_maybe_recalculate(dt_util.utcnow(), force=True)
         if key == "chlorinator_production":
             await self._async_push_production(value)

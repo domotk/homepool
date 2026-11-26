@@ -307,6 +307,7 @@ async def test_ph_correction_runs_the_pump_within_its_daily_cap(
         hass, ph_sensor="sensor.ph", has_ph_dosing=True,
         ph_correction_minutes=30, ph_correction_max_daily=60,
     )
+    await set_mode(hass, "smart")
     await tick(hass, freezer, 1)
     assert state(hass, PUMP) == "on"
     assert state(hass, "sensor.pool_pump_control") == "ph_correction"

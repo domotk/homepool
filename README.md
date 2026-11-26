@@ -108,10 +108,15 @@ Several things can want the pump on or off at once. One decides, in this order:
 4. **Freeze protection** — water near 0 °C (or air below zero if there is no
    water probe). Forces it **on**, in every mode including `off`: moving
    water does not freeze in the pipes. Switch it off in the options if HomePool
-   must never touch the pump.
+   must never touch the pump. If something above it keeps the pump off (the
+   maintenance lock, say), the freeze alert says so instead of claiming the
+   pump is running.
 5. **pH correction** — a dosing pump only works with water flowing, so a pH
    that needs correcting runs the pump for a while, capped per day so a faulty
-   probe cannot run it all night.
+   probe cannot run it all night. Not in `off` mode, and not on a reading that
+   cannot be right (outside 5–9, or exactly the same for 24 hours, as from a
+   probe left in its cup); a window asked for with `homepool.force_ph_correction_window`
+   still runs.
 6. **Manual cycle** — started from HomePool's button, switch or service.
 7. **Switched from outside** — a person, an automation, a script or the
    device's own button switched the relay. That is respected for two hours
@@ -144,7 +149,9 @@ Three set-ups, three behaviours:
 
 The season is a list of months (June–September by default in the northern
 hemisphere). At its start and end you get an event with what to check, and the
-chlorinator follows the calendar unless you tell it not to.
+chlorinator follows the calendar unless you tell it not to. With *Chlorinator
+in use* off, the cell adds no minutes to the target and low salt is not an
+alert; out of season, neither does it.
 
 ## Entities
 
@@ -205,7 +212,9 @@ entities, an area.
 `homepool_chlorinator_season_start` and `homepool_chlorinator_season_end`. They
 fire whether or not built-in notifications are on, so automations keep working
 either way. The built-in notifications, if you switch them on, go to one
-`notify` service with a severity floor and quiet hours.
+`notify` service with a severity floor and quiet hours. Reminders (a task
+falling due, the season changing) ask you to do something, so they are sent
+whatever the floor; one that falls in the quiet hours is sent when they end.
 
 ## Installation
 
