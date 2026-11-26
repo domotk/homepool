@@ -1,0 +1,26 @@
+name: Feature request
+description: Something your pool needs that HomePool does not do yet.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: need
+    attributes:
+      label: What your pool needs
+      description: The situation, in pool terms (for example "in winter I switch the chlorinator off and use floating tablets"), not the implementation.
+    validations:
+      required: true
+  - type: textarea
+    id: today
+    attributes:
+      label: How you handle it today
+      description: By hand, an automation, another integration…
+  - type: textarea
+    id: idea
+    attributes:
+      label: How HomePool could help
+      description: Optional. Entities, alerts, a mode, a reminder.
+  - type: textarea
+    id: equipment
+    attributes:
+      label: Your equipment
+      description: Pump, filter, chlorinator or dosing, sensors. Helps judge how many pools it applies to.
