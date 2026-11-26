@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: The card (homepool-card)
+    url: https://github.com/domotk/homepool-card/issues
+    about: Problems with the Lovelace card itself go to its own repository.

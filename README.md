@@ -257,6 +257,12 @@ every figure the card shows is an entity you can put on any dashboard.
 
 ## Contributing
 
+HomePool is built to be extended by the people who use it. Start with
+[CONTRIBUTING.md](CONTRIBUTING.md); the code is explained in
+[docs/architecture.md](docs/architecture.md), and [AGENTS.md](AGENTS.md) is the
+short guide that AI coding agents read. To try a version on your own pool,
+see [testing on a real install](docs/testing-on-a-real-install.md).
+
 The hardware catalogue (`data/catalog.yaml`) and the pool layouts
 (`data/layouts.yaml`) take pull requests: see
 [contributing to the catalogue](docs/contributing-catalog.md) and

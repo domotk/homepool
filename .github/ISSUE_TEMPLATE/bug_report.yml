@@ -1,0 +1,43 @@
+name: Bug report
+description: HomePool did something it should not, or did not do something it should.
+labels: [bug]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: HomePool version
+      description: From the integration page or the diagnostics.
+      placeholder: 0.1.2
+    validations:
+      required: true
+  - type: input
+    id: ha_version
+    attributes:
+      label: Home Assistant version
+    validations:
+      required: true
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Operation mode
+      options: ["off", timer, smart, solar, smart_solar]
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what you expected
+      description: Times help. So do the control sensor's reason and reason_key at that moment.
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics
+      description: Device page → Download diagnostics. Attach the file or paste the controller section. The location is redacted; check for anything else personal.
+  - type: textarea
+    id: logs
+    attributes:
+      label: Log lines
+      description: Filtered on homepool.
+      render: text
