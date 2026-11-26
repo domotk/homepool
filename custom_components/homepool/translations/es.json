@@ -229,7 +229,7 @@
         "data": {
           "enable_builtin_notifications": "Enviar notificaciones",
           "notification_service": "Servicio de notificación",
-          "notification_severity_min": "A partir de esta gravedad",
+          "notification_severity_min": "A partir de esta gravedad (los recordatorios se envían siempre)",
           "notification_quiet_hours_start": "Silencio desde",
           "notification_quiet_hours_end": "Silencio hasta",
           "critical_ignore_quiet_hours": "Las alertas críticas ignoran el silencio"
@@ -480,7 +480,7 @@
         "data": {
           "enable_builtin_notifications": "Enviar notificaciones",
           "notification_service": "Servicio de notificación",
-          "notification_severity_min": "A partir de esta gravedad",
+          "notification_severity_min": "A partir de esta gravedad (los recordatorios se envían siempre)",
           "notification_quiet_hours_start": "Silencio desde",
           "notification_quiet_hours_end": "Silencio hasta",
           "critical_ignore_quiet_hours": "Las alertas críticas ignoran el silencio"

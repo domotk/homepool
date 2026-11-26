@@ -197,7 +197,7 @@ steps_fields = {
     "data": {
       "enable_builtin_notifications": T("Send notifications", "Enviar notificaciones"),
       "notification_service": T("Notify service", "Servicio de notificación"),
-      "notification_severity_min": T("From this severity up", "A partir de esta gravedad"),
+      "notification_severity_min": T("From this severity up (reminders are always sent)", "A partir de esta gravedad (los recordatorios se envían siempre)"),
       "notification_quiet_hours_start": T("Quiet from", "Silencio desde"),
       "notification_quiet_hours_end": T("Quiet until", "Silencio hasta"),
       "critical_ignore_quiet_hours": T("Critical alerts ignore the quiet hours", "Las alertas críticas ignoran el silencio"),

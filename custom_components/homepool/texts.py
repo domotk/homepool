@@ -22,6 +22,10 @@ TEXTS: dict[str, dict[str, str]] = {
             "(wanted {state}). The pump was stopped anyway; check the cell."
         ),
         "freeze_protection": "{pool}: water near freezing, the pump is kept running.",
+        "freeze_protection_blocked": (
+            "{pool}: water near freezing, but HomePool cannot keep the pump running "
+            "({reason}). Make sure the pipes are protected."
+        ),
         "ph_out_of_range": "{pool}: pH {value:.2f} is outside {low:.1f}–{high:.1f}.",
         "salt_low": "{pool}: salt at {value:.1f} g/L, below {low:.1f} g/L.",
         "chlorinator_cold": (
@@ -61,6 +65,10 @@ TEXTS: dict[str, dict[str, str]] = {
         ),
         "freeze_protection": (
             "{pool}: el agua está cerca de congelarse, la bomba se mantiene en marcha."
+        ),
+        "freeze_protection_blocked": (
+            "{pool}: el agua está cerca de congelarse, pero HomePool no puede mantener "
+            "la bomba en marcha ({reason}). Asegúrate de que las tuberías están protegidas."
         ),
         "ph_out_of_range": "{pool}: el pH {value:.2f} está fuera de {low:.1f}–{high:.1f}.",
         "salt_low": "{pool}: sal en {value:.1f} g/L, por debajo de {low:.1f} g/L.",

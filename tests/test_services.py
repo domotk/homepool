@@ -72,7 +72,9 @@ async def test_readme_entity_ids_exist(hass: HomeAssistant) -> None:
     assert "smart_solar" in hass.states.get("select.pool_operation_mode").attributes["options"]
 
 
-async def test_manual_records_feed_the_sensors(hass: HomeAssistant) -> None:
+async def test_manual_records_feed_the_sensors(hass: HomeAssistant, freezer) -> None:
+    # In the chlorinator's season: out of it, low salt is not an alert.
+    freezer.move_to("2026-07-15 10:00:00+00:00")
     SwitchRouter(hass)
     await setup_pool(hass)
     await hass.services.async_call(

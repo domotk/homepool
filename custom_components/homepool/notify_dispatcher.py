@@ -55,23 +55,37 @@ class NotifyDispatcher:
         self.quiet_end = _parse_time(quiet_end)
         self.critical_ignore_quiet = critical_ignore_quiet
 
-    def should_send(self, severity: str, now: datetime) -> bool:
-        """Apply the severity floor and the quiet hours."""
+    def should_send(self, severity: str, now: datetime, reminder: bool = False) -> bool:
+        """Apply the severity floor and the quiet hours.
+
+        A reminder (a task falling due, the chlorinator season changing) asks
+        the owner to do something, so it passes the severity floor whatever its
+        severity; it still waits for the quiet hours to end.
+        """
         if not self.service:
             return False
         level = SEVERITY_ORDER.get(Severity(severity), 0)
         floor = SEVERITY_ORDER.get(Severity(self.severity_min), 1)
-        if level < floor:
+        if level < floor and not reminder:
             return False
-        if in_quiet_hours(now.time(), self.quiet_start, self.quiet_end):
+        if self.quiet(now):
             return severity == Severity.CRITICAL and self.critical_ignore_quiet
         return True
 
+    def quiet(self, now: datetime) -> bool:
+        """Is ``now`` inside the quiet hours?"""
+        return in_quiet_hours(now.time(), self.quiet_start, self.quiet_end)
+
     async def async_send(
-        self, title: str, message: str, severity: str, now: datetime
+        self,
+        title: str,
+        message: str,
+        severity: str,
+        now: datetime,
+        reminder: bool = False,
     ) -> None:
         """Send a notification if it passes the filters. Never raises."""
-        if not self.should_send(severity, now):
+        if not self.should_send(severity, now, reminder):
             return
         domain, _, name = (self.service or "").partition(".")
         if not name:
