@@ -254,6 +254,11 @@ The hardware catalogue (`data/catalog.yaml`) and the pool layouts
 [contributing layouts](docs/contributing-layouts.md). The reasoning behind the
 algorithm is in the [design document](docs/design-v1.md) (Spanish).
 
+The interface text — wizard, options, entity names, services — is written in
+`scripts/generate_strings.py`, in English and Spanish, and
+`python scripts/generate_strings.py` writes `strings.json` and the
+translations from it; don't edit those by hand.
+
 To run the tests:
 
 ```bash

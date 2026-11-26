@@ -27,3 +27,10 @@ rectangular:
 - `short_side` — Options: top, bottom
 - `long_side` — Options: left, right
 - `any_side` — Options: top, right, bottom, left
+
+## Translations
+
+The `name` is the English label in the setup wizard. Add the Spanish one to
+`LAYOUT_ES` in `scripts/generate_strings.py`, under the same shape and id, and
+run `python scripts/generate_strings.py` to rewrite the translation files. A
+test fails if a layout has no label in either language.
