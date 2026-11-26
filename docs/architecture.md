@@ -108,7 +108,7 @@ From most to least authority; the first that applies decides:
 | Maintenance lock | `maintenance_lock` | off |
 | Safety shutoff (flood, hot equipment room, filter pressure, pump power anomaly) | `safety` | off |
 | Freeze protection | `freeze_protection` | on, in every mode |
-| pH correction window | `ph_correction` | on, capped per day |
+| pH correction window (not in `off`, not on an implausible probe reading) | `ph_correction` | on, capped per day |
 | Manual cycle | `manual_cycle` | on |
 | Changed from outside, for `manual_override_minutes` | `manual_override` | as it was left |
 | The mode | `mode` | what the mode says |
@@ -206,3 +206,5 @@ Each pool fires these events with its `entry_id` and name:
 
 Alerts are also binary sensors. `notify_dispatcher.py` is optional: it
 forwards alerts to one `notify.*` service, filtered by severity and quiet hours.
+Reminders (tasks falling due, the season changing) pass the severity floor;
+one that falls in the quiet hours waits in `pending_reminders` until they end.

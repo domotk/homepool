@@ -57,8 +57,9 @@ locally without Docker, so read its output on the pull request.
   safety shutoff, freeze protection, pH correction, manual cycle, a change
   made outside HomePool, then the mode. A new feature that moves the pump
   finds its rung there; it never switches the pump from anywhere else.
-- **In `off` mode HomePool never starts the pump**, except for freeze
-  protection, and users rely on that when testing it next to their own
+- **In `off` mode HomePool never starts the pump on its own**, except for
+  freeze protection; only what a person asks for (a manual cycle, a forced pH
+  window) runs it. Users rely on that when testing it next to their own
   automations. Keep it so.
 - **During a day the target only goes up** (`_async_maybe_recalculate`);
   `homepool.recalculate_schedule` is the only way down. A day ends at local
