@@ -57,6 +57,7 @@ def _target_attrs(c: PoolCoordinator) -> dict[str, Any]:
         "min_minutes": t.get("min_minutes"),
         "max_minutes": t.get("max_minutes"),
         "held_at_previous": t.get("held_at_previous", False),
+        "calculated_minutes": t.get("calculated_minutes", t.get("target_minutes")),
         "inputs": t.get("inputs"),
         "sources": t.get("sources"),
         "warnings": t.get("warnings"),
@@ -72,10 +73,16 @@ def _control_attrs(c: PoolCoordinator) -> dict[str, Any]:
         "reason_key": c.decision_key or None,
         "operation_mode": c.mode,
         "chlorinator": c.chlorinator_reason or None,
-        "surplus_w": round(c.surplus_w) if c.surplus_w is not None else None,
+        # To the nearest 100 W: every change of an attribute is a new state
+        # row in the recorder, and a grid meter changes every few seconds.
+        "surplus_w": int(round(c.surplus_w, -2)) if c.surplus_w is not None else None,
         "solar_threshold_w": c.solar_threshold,
         "manual_override_until": (c.override or {}).get("until"),
-        "manual_override_by": (c.override or {}).get("by"),
+        # An override saved by 0.1.1 has no "by": it was a person, as the
+        # control already assumes.
+        "manual_override_by": (
+            ((c.override or {}).get("by") or "user") if c.override else None
+        ),
         "manual_cycle_until": c.cycle_until.isoformat() if c.cycle_until else None,
         "safety_conditions": c.safety_reasons,
     }

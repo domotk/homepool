@@ -69,8 +69,11 @@ Three rules keep the target honest:
   still there. The `min_minutes` and `max_minutes` attributes give the floor
   and ceiling the target is held between.
 - **It is recalculated every hour, and during the day it only goes up.** A day's
-  demand does not shrink because a cloud passed. `homepool.recalculate_schedule`
-  forces a fresh figure, up or down.
+  demand does not shrink because a cloud passed. When the target is held,
+  `held_at_previous` is true and `calculated_minutes` says what the latest
+  calculation asked for. `homepool.recalculate_schedule` forces a fresh
+  figure, up or down. The forecast used is the entry dated today, so just
+  after midnight it is not still yesterday's.
 - **A day ends at midnight.** Guaranteed modes finish before it; whatever is
   missing is reported, not carried over into the night.
 
@@ -196,7 +199,7 @@ target sensor's attributes for the card.
 | --- | --- |
 | `homepool.start_cycle` | Runs the pump for `duration` minutes (one turnover if left out) |
 | `homepool.stop_cycle` | Stops a manual cycle and holds the pump off for the override time |
-| `homepool.record_manual_action` | Logs backwash, salt added, probe calibrated, … and resets its reminder |
+| `homepool.record_manual_action` | Logs backwash, salt added, probe calibrated, … and resets its reminder. A task never logged counts from when HomePool was installed (or updated to 0.1.4), so press its button the next time you do it |
 | `homepool.record_salt_level` · `homepool.record_free_chlorine` | A reading taken by hand, used until a newer one |
 | `homepool.recalculate_schedule` | Today's target again, now — the only way it can go down during the day |
 | `homepool.force_ph_correction_window` | Runs the pump so the pH doser can work |

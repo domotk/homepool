@@ -1171,3 +1171,27 @@ invernaje, producto de invierno, más lecturas) queda para la 0.2.
    sigue sin avisar de nada hasta junio: decir qué toca en cada momento del
    año es el estado de temporada de la 0.2.
 
+## 22. Cambios en la v0.1.4 (noviembre de 2026), tras las pruebas de la 0.1.2 y la 0.1.3
+
+1. **La previsión de hoy, no la de ayer.** `forecast[0]` no siempre es hoy:
+   Open-Meteo fecha cada día a las 00:00 UTC, así que entre las 00:00 y la
+   01:00 en España la primera entrada es el día que acaba de terminar, y como
+   el objetivo solo sube, un día más frío heredaba el valor alto. Se escoge la
+   entrada cuya fecha, tal como la escribe el proveedor, es la de hoy; si
+   ninguna lo es, la primera.
+2. **`manual_override_by` nunca sale vacío con una anulación activa.** Una
+   anulación guardada por la 0.1.1 no tiene `by`; el control ya la trataba
+   como de una persona y ahora el atributo también dice `user`.
+3. **Objetivo mantenido y lo calculado.** Con `held_at_previous`, el objetivo
+   es el de antes y los componentes son los del último cálculo, que pueden ser
+   menores. El atributo nuevo `calculated_minutes` da la cifra calculada para
+   que la diferencia se lea sin adivinar.
+4. **Menos filas en el recorder.** Cada cambio de un atributo es una fila
+   nueva aunque el atributo no se guarde, y el contador de red cambia cada
+   pocos segundos. `surplus_w` va ahora en pasos de 100 W en el sensor de
+   control. Decidir sigue usando el valor exacto.
+5. **Una tarea sin fecha también vence.** Sin `last_done` no vencía nunca, y
+   en una instalación nueva el contralavado no se avisaba jamás. Ahora cuenta
+   desde `tasks_since`, que se fija la primera vez que se carga la 0.1.4 (o al
+   instalar). Pedir la fecha del último en el asistente queda para la 0.2.
+

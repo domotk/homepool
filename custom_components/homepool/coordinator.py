@@ -218,6 +218,22 @@ def _parse_dt(value: str | None) -> datetime | None:
     return dt_util.parse_datetime(value) if value else None
 
 
+def _todays_forecast(days: list[dict[str, Any]], today: date) -> dict[str, Any]:
+    """The daily forecast entry for ``today``.
+
+    Providers date a day differently: Open-Meteo at 00:00 UTC, so in Spain the
+    first entry is still yesterday until 01:00. The date as the provider wrote
+    it is the day it means, whatever the offset; the first entry is the
+    fallback when no entry names today.
+    """
+    for day in days:
+        stamp = day.get("datetime")
+        written = stamp.isoformat() if isinstance(stamp, datetime) else str(stamp or "")
+        if written[:10] == today.isoformat():
+            return day
+    return days[0]
+
+
 # The events automations and scripts fire as they start, named here rather
 # than imported so HomePool does not load either integration.
 EVENT_AUTOMATION_TRIGGERED = "automation_triggered"
@@ -281,6 +297,7 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.target_at: datetime | None = None
         self.settings: dict[str, Any] = {}
         self.tasks: dict[str, str] = {}
+        self.tasks_since: datetime | None = None
         self.manual_readings: dict[str, dict[str, Any]] = {}
         self.actions: list[dict[str, Any]] = []
         self.history: list[dict[str, Any]] = []
@@ -422,6 +439,9 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.target_at = _parse_dt(data.get("target_at"))
         self.settings = data.get("settings") or {}
         self.tasks = data.get("tasks") or {}
+        # When HomePool started keeping tasks: a task never marked as done
+        # counts from here. Set on first load, and on the first load of 0.1.4.
+        self.tasks_since = _parse_dt(data.get("tasks_since")) or dt_util.utcnow()
         self.manual_readings = data.get("manual_readings") or {}
         self.actions = data.get("actions") or []
         self.history = data.get("history") or []
@@ -548,6 +568,7 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "target_at": _iso(self.target_at),
             "settings": self.settings,
             "tasks": self.tasks,
+            "tasks_since": _iso(self.tasks_since),
             "manual_readings": self.manual_readings,
             "actions": self.actions[-ACTIONS_KEPT:],
             "history": self.history[-HISTORY_DAYS:],
@@ -770,7 +791,16 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                       "backwash": ManualAction.BACKWASH,
                       "ph_calibration": ManualAction.PH_CALIBRATED}[task]
         done = _parse_dt(self.tasks.get(stored_key))
-        if done is None:
+        counted_from = None
+        if done is None and self.tasks_since is not None:
+            # Never marked as done: count from when HomePool started keeping
+            # tasks, so a task without a date still falls due one day.
+            counted_from = self.tasks_since
+        if done is None and counted_from is not None:
+            due_date = dt_util.as_local(counted_from).date() + timedelta(days=interval)
+            due = due_date.isoformat()
+            overdue = force or dt_util.now().date() >= due_date
+        elif done is None:
             due = None
             overdue = force
         else:
@@ -781,6 +811,7 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "task": task,
             "last_done": _iso(done),
             "interval_days": interval,
+            "counted_from": _iso(counted_from),
             "due": due,
             "overdue": overdue,
         }
@@ -1149,7 +1180,7 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if not days:
             self._forecast = {}
             return
-        first = days[0]
+        first = _todays_forecast(days, dt_util.as_local(now).date())
         self._forecast = {
             "high": first.get("temperature"),
             "rain_mm": first.get("precipitation"),
@@ -1208,7 +1239,14 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             # During a day the target only ever goes up. A target that drops in
             # the afternoon because a cloud cooled the air is what made the old
             # automations stop half way; the day's demand does not shrink.
-            result = {**result, "target_minutes": old, "held_at_previous": True}
+            # calculated_minutes keeps what today's conditions ask for now,
+            # so the held figure and its components can be told apart.
+            result = {
+                **result,
+                "target_minutes": old,
+                "calculated_minutes": result["target_minutes"],
+                "held_at_previous": True,
+            }
         self.target = result
         self.target_at = now
         if result["target_minutes"] != old:
