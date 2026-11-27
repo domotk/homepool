@@ -980,7 +980,7 @@
         "name": "Free chlorine"
       },
       "ph_manual": {
-        "name": "pH"
+        "name": "Manual pH"
       },
       "combined_chlorine": {
         "name": "Combined chlorine"

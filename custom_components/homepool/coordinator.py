@@ -1103,7 +1103,7 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         ):
             return OverallStatus.ACTION_REQUIRED
         if (
-            self.alerts
+            any(name != "reading_stale" for name in self.alerts)
             or self.manual_action_pending
             or self.ph_out_of_range
             or self.pump_anomaly
@@ -2394,7 +2394,8 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 Severity.WARNING,
                 {"value": value or 0, "range": _range_text(low, high)},
             )
-        stale = [
+        # Nobody measures an emptied pool: no old-reading notice in passive wintering.
+        stale = [] if self.winter_passive else [
             kind
             for kind in KINDS
             if kind in self.manual_readings

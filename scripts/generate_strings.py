@@ -369,7 +369,7 @@ entity = {
   "ph_trend": (T("pH trend", "Tendencia del pH"), {"rising": T("Rising", "Subiendo"), "stable": T("Stable", "Estable"), "falling": T("Falling", "Bajando")}),
   "salinity": T("Salinity", "Salinidad"),
   "free_chlorine": T("Free chlorine", "Cloro libre"),
-  "ph_manual": T("pH", "pH"),
+  "ph_manual": T("Manual pH", "pH manual"),
   "combined_chlorine": T("Combined chlorine", "Cloro combinado"),
   "total_alkalinity": T("Total alkalinity", "Alcalinidad total"),
   "calcium_hardness": T("Calcium hardness", "Dureza cálcica"),

@@ -288,7 +288,7 @@ async def test_a_manual_ph_stands_in_for_a_missing_probe(
     assert coordinator.ph is None
     await _record(hass, "ph", 7.9)
     assert coordinator.ph == 7.9
-    assert float(state(hass, "sensor.pool_ph")) == 7.9
+    assert float(state(hass, "sensor.pool_manual_ph")) == 7.9
     assert coordinator.ph_out_of_range
     await tick(hass, freezer, 1)
     assert "ph_out_of_range" in coordinator.alerts
@@ -308,7 +308,7 @@ async def test_the_probe_wins_over_a_manual_ph_and_has_no_manual_sensor(
     entry = await setup_pool(hass, ph_sensor="sensor.ph")
     await _record(hass, "ph", 7.9)
     assert entry.runtime_data.ph == 7.3
-    assert hass.states.get("sensor.pool_ph") is None
+    assert hass.states.get("sensor.pool_manual_ph") is None
 
 
 async def test_a_manual_ph_never_runs_the_pump_for_the_correction(
@@ -368,3 +368,36 @@ async def test_the_water_step_sets_ranges_and_stale_ages(
     assert coordinator.reading_range("total_alkalinity") == (80, 100)
     assert coordinator.reading_stale_days("salt") == 10
     assert coordinator.reading_stale_days("ph") == 7
+
+
+async def test_reading_stale_does_not_change_the_status(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
+) -> None:
+    freezer.move_to(local(2026, 7, 1, 10, 0))
+    SwitchRouter(hass)
+    entry = await setup_pool(hass)
+    await _record(hass, "total_alkalinity", 100)
+    await next_day(hass, freezer, 31)
+    await entry.runtime_data.async_complete_task("water_test")
+    await entry.runtime_data.async_complete_task("backwash")
+    await entry.runtime_data.async_complete_task("skimmer_baskets")
+    await tick(hass, freezer, 1)
+    assert "reading_stale" in entry.runtime_data.alerts
+    assert set(entry.runtime_data.alerts) == {"reading_stale"}
+    assert not entry.runtime_data.manual_action_pending
+    assert entry.runtime_data.overall_status == "ok"
+
+
+async def test_no_reading_stale_in_passive_wintering(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
+) -> None:
+    from .test_season import set_season
+
+    freezer.move_to(local(2026, 7, 1, 10, 0))
+    SwitchRouter(hass)
+    entry = await setup_pool(hass)
+    await _record(hass, "salt", 3.5)
+    await set_season(hass, entry, "winter_passive")
+    await next_day(hass, freezer, 31)
+    await tick(hass, freezer, 1)
+    assert "reading_stale" not in entry.runtime_data.alerts
