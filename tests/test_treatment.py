@@ -410,6 +410,8 @@ async def test_a_treatment_survives_a_reload(
     sensor = treatment_state(hass, entry)
     assert sensor.state == "shock"
     assert sensor.attributes["severity"] == "dark"
+    assert sensor.attributes["dose"]["amount"] == 920  # 30 m³ × 20 mg/L at 65 %
+    assert sensor.attributes["phase"] == "filtering"
     assert abs(entry.runtime_data.treatment["counted_s"] - 3600) < 60
     assert state(hass, PUMP_SWITCH) == "on"
 
@@ -426,3 +428,43 @@ async def test_high_free_chlorine_is_not_for_swimming(
     advised = not_advised(hass, entry)
     assert advised.state == "on"
     assert advised.attributes["reason"] == "free_chlorine_high"
+
+
+async def test_the_options_set_the_doses(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
+) -> None:
+    from homeassistant.data_entry_flow import FlowResultType
+
+    freezer.move_to(local(2026, 7, 15, 10, 0))
+    SwitchRouter(hass)
+    entry = await setup_pool(hass)
+
+    async def water_step(values):
+        result = await hass.config_entries.options.async_init(entry.entry_id)
+        result = await hass.config_entries.options.async_configure(
+            result["flow_id"], {"next_step_id": "water"}
+        )
+        done = await hass.config_entries.options.async_configure(result["flow_id"], values)
+        assert done["type"] is FlowResultType.CREATE_ENTRY
+        await hass.async_block_till_done()
+
+    # The concentration left as shown for calcium hypochlorite (65) follows
+    # the product: a liquid's 150 g/L, not 65 g/L.
+    await water_step({"shock_product": "sodium_hypochlorite", "shock_concentration": 65})
+    await start(hass, entry, "shock")
+    dose = treatment_state(hass, entry).attributes["dose"]
+    assert (dose["amount"], dose["unit"], dose["concentration"]) == (3.0, "L", 150)
+    await press(hass, entry, "end_treatment")
+
+    await water_step({"flocculant_dose_per_10m3": 50, "flocculant_dose_unit": "g"})
+    await start(hass, entry, "flocculant")
+    dose = treatment_state(hass, entry).attributes["dose"]
+    assert (dose["amount"], dose["unit"], dose["follow_label"]) == (150, "g", True)
+    # The dose also goes with the step that asks for it.
+    steps = entry.runtime_data.checklist_view()["treatment"]
+    assert next(s for s in steps if s["id"] == "treatment.dose")["dose"] == dose
+    await press(hass, entry, "end_treatment")
+
+    await start(hass, entry, "clarifier")
+    dose = treatment_state(hass, entry).attributes["dose"]
+    assert dose["amount"] is None and dose["follow_label"]

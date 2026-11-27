@@ -768,12 +768,6 @@
         "dichlor": "Dichlor (granular, raises the cyanuric acid)"
       }
     },
-    "dose_unit": {
-      "options": {
-        "mL": "mL",
-        "g": "g"
-      }
-    },
     "treatment_type": {
       "options": {
         "shock": "Shock (green water)",

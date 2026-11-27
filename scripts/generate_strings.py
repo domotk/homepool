@@ -323,7 +323,6 @@ selectors = {
   "shock_product": {"calcium_hypochlorite": T("Calcium hypochlorite (granular)", "Hipoclorito cálcico (granulado)"),
             "sodium_hypochlorite": T("Sodium hypochlorite (liquid)", "Hipoclorito sódico (líquido)"),
             "dichlor": T("Dichlor (granular, raises the cyanuric acid)", "Dicloro (granulado, sube el ácido cianúrico)")},
-  "dose_unit": {"mL": T("mL", "mL"), "g": T("g", "g")},
   "treatment_type": {"shock": T("Shock (green water)", "Choque (agua verde)"),
             "clarifier": T("Clarifier (cloudy water)", "Clarificante (agua turbia)"),
             "flocculant": T("Flocculant (cloudy water)", "Floculante (agua turbia)")},

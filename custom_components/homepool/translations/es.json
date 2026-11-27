@@ -768,12 +768,6 @@
         "dichlor": "Dicloro (granulado, sube el ácido cianúrico)"
       }
     },
-    "dose_unit": {
-      "options": {
-        "mL": "mL",
-        "g": "g"
-      }
-    },
     "treatment_type": {
       "options": {
         "shock": "Choque (agua verde)",

@@ -245,7 +245,11 @@ def _values(enum) -> list[str]:
 MONTHS = [str(m) for m in range(1, 13)]
 WINTER_PRODUCT_TYPES = ["none", "floater", "liquid", "tablets"]
 SHOCK_PRODUCTS = list(SHOCK_DEFAULT_CONCENTRATION)
-DOSE_UNITS = ["mL", "g"]
+# The units read the same in every language, and "mL" could not be a
+# translation key (they are lower case).
+_DOSE_UNIT_SELECTOR = sel.SelectSelector(
+    sel.SelectSelectorConfig(options=["mL", "g"], mode=sel.SelectSelectorMode.DROPDOWN)
+)
 
 
 def _or(value: Any, default: Any) -> Any:
@@ -658,7 +662,7 @@ class _Wizard:
                 vol.Required(
                     CONF_CLARIFIER_DOSE_UNIT,
                     default=d.get(CONF_CLARIFIER_DOSE_UNIT) or DEFAULT_DOSE_UNIT,
-                ): _select(DOSE_UNITS, "dose_unit"),
+                ): _DOSE_UNIT_SELECTOR,
                 vol.Optional(
                     CONF_FLOCCULANT_DOSE_PER_10M3,
                     description=self._sv(CONF_FLOCCULANT_DOSE_PER_10M3),
@@ -666,7 +670,7 @@ class _Wizard:
                 vol.Required(
                     CONF_FLOCCULANT_DOSE_UNIT,
                     default=d.get(CONF_FLOCCULANT_DOSE_UNIT) or DEFAULT_DOSE_UNIT,
-                ): _select(DOSE_UNITS, "dose_unit"),
+                ): _DOSE_UNIT_SELECTOR,
             }
         )
         errors: dict[str, str] = {}
