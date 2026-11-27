@@ -4,13 +4,15 @@ from __future__ import annotations
 
 import inspect
 import logging
+import math
 from typing import Any
 
 import voluptuous as vol
 
+from homeassistant.auth.permissions.const import POLICY_CONTROL
 from homeassistant.config_entries import ConfigEntry, ConfigEntryState
 from homeassistant.core import HomeAssistant, ServiceCall
-from homeassistant.exceptions import ServiceValidationError
+from homeassistant.exceptions import ServiceValidationError, Unauthorized, UnknownUser
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.service import async_extract_entity_ids
@@ -70,11 +72,20 @@ DURATION_SCHEMA = cv.make_entity_service_schema(
     {vol.Optional(ATTR_DURATION): vol.All(vol.Coerce(float), vol.Range(min=1, max=1440))}
 )
 EMPTY_SCHEMA = cv.make_entity_service_schema({})
+
+
+def _finite(value: float) -> float:
+    if not math.isfinite(value):
+        raise vol.Invalid("must be a finite number")
+    return value
+
+
 ACTION_SCHEMA = cv.make_entity_service_schema(
     {
         vol.Required(ATTR_ACTION_TYPE): vol.In([a.value for a in ManualAction]),
-        vol.Optional(ATTR_VALUE): vol.Coerce(float),
-        vol.Optional(ATTR_NOTES): cv.string,
+        vol.Optional(ATTR_VALUE): vol.All(vol.Coerce(float), _finite),
+        # Kept in the store and shown in an attribute the recorder writes.
+        vol.Optional(ATTR_NOTES): vol.All(cv.string, vol.Length(max=500)),
     }
 )
 TASK_SCHEMA = cv.make_entity_service_schema(
@@ -189,8 +200,20 @@ def _async_register_services(hass: HomeAssistant) -> None:
         return
 
     async def _pools(call: ServiceCall) -> list[PoolCoordinator]:
-        """Every pool the call points at, each once, however it was targeted."""
+        """Every pool the call points at, each once, however it was targeted.
+
+        A call made by a person needs control of every pool entity it targets,
+        as an entity's own service would: these services move the pump. A
+        call without a user (an automation, a script) is not checked.
+        """
         registry = er.async_get(hass)
+        user = None
+        if call.context.user_id:
+            user = await hass.auth.async_get_user(call.context.user_id)
+            if user is None:
+                raise UnknownUser(context=call.context)
+            if user.is_admin:
+                user = None
         found: dict[str, PoolCoordinator] = {}
         for entity_id in await _extract_entity_ids(hass, call):
             entity = registry.async_get(entity_id)
@@ -199,6 +222,10 @@ def _async_register_services(hass: HomeAssistant) -> None:
             entry = hass.config_entries.async_get_entry(entity.config_entry_id)
             if entry is None or entry.domain != DOMAIN or not hasattr(entry, "runtime_data"):
                 continue
+            if user is not None and not user.permissions.check_entity(entity_id, POLICY_CONTROL):
+                raise Unauthorized(
+                    context=call.context, entity_id=entity_id, permission=POLICY_CONTROL
+                )
             found.setdefault(entry.entry_id, entry.runtime_data)
         if not found:
             raise ServiceValidationError(

@@ -6,6 +6,7 @@ A mixin of ``PoolCoordinator``; see coordinator.py.
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+import math
 
 from homeassistant.const import ATTR_UNIT_OF_MEASUREMENT, STATE_ON, UnitOfPower
 from homeassistant.util import dt as dt_util
@@ -49,13 +50,16 @@ class ReadingsMixin:
         return state.state in (STATE_ON, "open", "heat", "true")
 
     def _number(self, key: str) -> float | None:
+        """A sensor's number, or None: nan and inf are a faulty sensor, not a
+        reading, and every comparison with them would quietly be false."""
         state = self._state(key)
         if state is None:
             return None
         try:
-            return float(state.state)
+            value = float(state.state)
         except ValueError:
             return None
+        return value if math.isfinite(value) else None
 
     def _watts(self, key: str) -> float | None:
         """A power reading in W, whatever unit the sensor uses."""

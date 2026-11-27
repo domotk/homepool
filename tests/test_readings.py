@@ -516,3 +516,25 @@ async def test_salt_is_not_stale_while_the_cell_is_not_in_use(
     stale = entry.runtime_data.alerts["reading_stale"]["message"]
     assert "total_alkalinity" in stale
     assert "salt" not in stale
+
+
+async def test_a_nan_reading_counts_as_unavailable(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
+) -> None:
+    """A sensor that reports nan or inf is not a number to act on: freeze
+    protection falls back to the air, as it does with the water unavailable."""
+    freezer.move_to(local(2026, 1, 15, 6, 0))
+    SwitchRouter(hass)
+    hass.states.async_set("sensor.water", "nan")
+    hass.states.async_set("sensor.air", "-3")
+    entry = await setup_pool(
+        hass, water_temperature_sensor="sensor.water", air_temperature_sensor="sensor.air"
+    )
+    coordinator = entry.runtime_data
+    await tick(hass, freezer, 1)
+    assert coordinator.water_temperature is None
+    assert coordinator.freeze_active
+    hass.states.async_set("sensor.water", "inf")
+    await tick(hass, freezer, 1)
+    assert coordinator.water_temperature is None
+    assert coordinator.freeze_active
