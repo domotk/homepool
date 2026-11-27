@@ -394,8 +394,11 @@ async def test_passive_wintering_ends_a_running_treatment(
     await set_season(hass, entry, "winter_active")
     await press(hass, entry, "start_shock")
     assert "closing" in entry.runtime_data.checklists
+    assert "treatment" in entry.runtime_data.checklists
     await set_season(hass, entry, "winter_passive")
     assert treatment_state(hass, entry).state == "none"
+    # Its own step list goes with it.
+    assert "treatment" not in entry.runtime_data.checklists
     assert state(hass, PUMP_SWITCH) == "off"
     # The shock did not get to run: its closing step is not ticked.
     closing = entry.runtime_data.checklists["closing"]["steps"]

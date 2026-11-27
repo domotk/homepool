@@ -1766,7 +1766,8 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         after a shock, its closing or opening step ticked.
 
         ``cut_short`` (passive wintering) only stops it: the treatment did not
-        run, so it leaves nothing due and the shock step stays open.
+        run, so it leaves nothing due, the shock step stays open and its own
+        step list goes.
         """
         t, self.treatment = self.treatment, None
         # Nothing asked of HomePool during the treatment acts after it: a
@@ -1788,6 +1789,9 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             if t["type"] == TreatmentType.SHOCK:
                 self.after_shock_since = now
                 await self._async_tick_shock_steps()
+        else:
+            # Its steps belong to a treatment that is no longer running.
+            self.checklists.pop(TREATMENT, None)
         await self._async_clear("treatment_frost")
         self._treatment_event(
             EVENT_TREATMENT_ENDED, t["type"], started=t["started"], ended=now.isoformat()
