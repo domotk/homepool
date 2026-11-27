@@ -9,6 +9,7 @@ import pytest
 from pytest_homeassistant_custom_component.common import async_fire_time_changed
 
 from homeassistant.core import Context, HomeAssistant, callback
+from homeassistant.exceptions import ServiceValidationError
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.util import dt as dt_util
@@ -817,3 +818,39 @@ async def test_vacuuming_alert_in_spanish(
     await _to_vacuuming(hass, freezer, entry)
     await advance(hass, freezer, 3 * 60 + 5)
     assert "aspires" in entry.runtime_data.alerts["treatment_vacuuming"]["message"]
+
+
+async def test_a_ph_window_is_refused_during_a_treatment(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
+) -> None:
+    """Asked for during a treatment, it would wait below it and start the pump
+    the moment the treatment ended (issue 11)."""
+    freezer.move_to(local(2026, 7, 15, 10, 0))
+    SwitchRouter(hass)
+    entry = await setup_pool(hass)
+    await set_mode(hass, "off")
+    await start(hass, entry, "clarifier", hours=2)
+    coordinator = entry.runtime_data
+    with pytest.raises(ServiceValidationError):
+        await coordinator.async_force_ph_window(30)
+    assert coordinator.ph_correction_forced is False
+
+
+async def test_a_ph_window_asked_before_a_treatment_does_not_outlive_it(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
+) -> None:
+    freezer.move_to(local(2026, 7, 15, 10, 0))
+    SwitchRouter(hass)
+    entry = await setup_pool(hass)
+    await set_mode(hass, "off")
+    coordinator = entry.runtime_data
+    await coordinator.async_force_ph_window(60)
+    await hass.async_block_till_done()
+    assert state(hass, PUMP_SWITCH) == "on"
+
+    await start(hass, entry, "clarifier", hours=2)
+    await advance(hass, freezer, 5, step=1)
+    await press(hass, entry, "end_treatment")
+    await advance(hass, freezer, 2, step=1)
+    assert coordinator.ph_window_until is None
+    assert state(hass, PUMP_SWITCH) == "off"

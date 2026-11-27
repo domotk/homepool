@@ -404,7 +404,14 @@ class SeasonMixin:
                     "new": new.value,
                 },
             )
-        await self._async_maybe_recalculate(dt_util.utcnow(), force=True)
+        if old == SeasonState.WINTER_PASSIVE and new != SeasonState.WINTER_PASSIVE:
+            # Whatever was switched by hand meanwhile was undone at once; none
+            # of it is a wish to act on once the pump may run again.
+            self.override = None
+            self.cycle_until = None
+        # Recalculated now, for the new season's figures, but during a day the
+        # target only goes up: only recalculate_schedule takes it down.
+        await self._async_maybe_recalculate(dt_util.utcnow(), force=True, may_lower=False)
         self._save()
         await self.async_refresh()
 

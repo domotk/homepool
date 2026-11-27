@@ -135,6 +135,9 @@ class ActionsMixin:
         await self.async_refresh()
 
     async def async_force_ph_window(self, minutes: float | None = None) -> None:
+        # A treatment decides the pump: a window asked for now would wait below
+        # it and start the pump the moment it ended.
+        self._refuse_during_treatment()
         duration = minutes or float(
             self.opt(CONF_PH_CORRECTION_MINUTES, DEFAULT_PH_CORRECTION_MINUTES)
         )

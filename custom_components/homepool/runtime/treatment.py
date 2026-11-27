@@ -285,8 +285,10 @@ class TreatmentMixin:
             "frost_interrupted": False,
         }
         # The treatment is above it on the ladder; an old one must not
-        # outlive it once the treatment ends.
+        # outlive it once the treatment ends. Nor a pH window asked for before.
         self.override = None
+        self.ph_correction_forced = False
+        self.ph_window_until = None
         # A new treatment starts a new list, whatever was left of the last one.
         self.checklists[TREATMENT] = {
             "created": now.isoformat(),
