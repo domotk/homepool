@@ -15,10 +15,17 @@ from typing import Any
 
 import voluptuous as vol
 
-from homeassistant.config_entries import ConfigEntry, ConfigFlow, ConfigFlowResult, OptionsFlow
+from homeassistant.config_entries import (
+    ConfigEntry,
+    ConfigEntryState,
+    ConfigFlow,
+    ConfigFlowResult,
+    OptionsFlow,
+)
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.data_entry_flow import section
 from homeassistant.helpers import selector as sel
+from homeassistant.util import dt as dt_util
 
 from .const import (
     CONF_AIR_TEMPERATURE_SENSOR,
@@ -61,6 +68,7 @@ from .const import (
     CONF_HAS_AUTOFILL_SKIMMER,
     CONF_HAS_COVER,
     CONF_HAS_PH_DOSING,
+    CONF_HAS_PH_PROBE_OUTSIDE,
     CONF_HEATING_TYPE,
     CONF_IS_COVERED_BY_ROOF,
     CONF_LATITUDE,
@@ -159,6 +167,7 @@ from .const import (
 )
 from .pool.geometry import PoolDimensions, calculate_volume
 from .pool.hardware import find, load_hardware
+from .pool.tasks import TASKS, TASKS_BY_KEY, configured_days, task_applies
 from .pool.layouts import LayoutCatalog, get_orientation_options, load_catalog
 
 CUSTOM = "custom"
@@ -911,6 +920,90 @@ class _Wizard:
                 return await self._after("notifications")
         return self._form("notifications", schema, errors)
 
+    # ── tasks ──
+
+    def _coordinator(self):
+        """The running pool, when there is one (the setup wizard has none yet)."""
+        return None
+
+    def _last_done_date(self, key: str):
+        coordinator = self._coordinator()
+        if coordinator is None:
+            return None
+        done = dt_util.parse_datetime(coordinator.tasks.get(TASKS_BY_KEY[key].action) or "")
+        return dt_util.as_local(done).date() if done else None
+
+    async def _record_last_done(self, key: str, day, entry: dict[str, Any]) -> None:
+        """Keep a "last done" date, to be taken in when the pool loads."""
+        entry["last_done"] = day.isoformat()
+
+    async def async_step_tasks(self, user_input: dict[str, Any] | None = None):
+        d = self._data
+        stored: dict[str, dict[str, Any]] = d.get("tasks") or {}
+        shown = [t for t in TASKS if task_applies(t.key, d)]
+        fields: dict[Any, Any] = {}
+        for defn in shown:
+            key, mine = defn.key, stored.get(defn.key, {})
+            fields[
+                vol.Required(f"{key}_days", default=mine.get("days", configured_days(defn, d, "swimming")))
+            ] = _number(1, 3650, 1, "d")
+            if defn.pump_hours is not None:
+                fields[
+                    vol.Required(
+                        f"{key}_pump_hours", default=mine.get("pump_hours", defn.pump_hours)
+                    )
+                ] = _number(1, 2000, 1, "h")
+            if defn.optional:
+                fields[vol.Required(f"{key}_enabled", default=mine.get("enabled", True))] = bool
+            last = self._last_done_date(key)
+            fields[
+                vol.Optional(
+                    f"{key}_last_done",
+                    description={"suggested_value": last.isoformat()} if last else {},
+                )
+            ] = sel.DateSelector()
+        fields[
+            vol.Required(
+                CONF_HAS_PH_PROBE_OUTSIDE, default=d.get(CONF_HAS_PH_PROBE_OUTSIDE, False)
+            )
+        ] = bool
+        schema = vol.Schema(fields)
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            today = dt_util.now().date()
+            dates = {}
+            for defn in shown:
+                given = dt_util.parse_date(user_input.get(f"{defn.key}_last_done") or "")
+                if given is not None and given > today:
+                    errors[f"{defn.key}_last_done"] = "date_in_future"
+                if given is not None:
+                    dates[defn.key] = given
+            if not errors:
+                # Only what differs from the default is kept, so a default that
+                # depends on the season (the water test in winter) still follows it.
+                tasks = dict(stored)
+                for defn in shown:
+                    key, entry = defn.key, {}
+                    days = int(user_input[f"{key}_days"])
+                    if days != configured_days(defn, d, "swimming"):
+                        entry["days"] = days
+                    if defn.pump_hours is not None:
+                        hours = float(user_input[f"{key}_pump_hours"])
+                        if hours != defn.pump_hours:
+                            entry["pump_hours"] = hours
+                    if defn.optional and not user_input[f"{key}_enabled"]:
+                        entry["enabled"] = False
+                    if key in dates and dates[key] != self._last_done_date(key):
+                        await self._record_last_done(key, dates[key], entry)
+                    if entry:
+                        tasks[key] = entry
+                    else:
+                        tasks.pop(key, None)
+                d["tasks"] = tasks
+                d[CONF_HAS_PH_PROBE_OUTSIDE] = bool(user_input[CONF_HAS_PH_PROBE_OUTSIDE])
+                return await self._after("tasks")
+        return self._form("tasks", schema, errors)
+
 
 class HomePoolConfigFlow(_Wizard, ConfigFlow, domain=DOMAIN):
     """Set up a pool, one group of questions at a time."""
@@ -927,6 +1020,7 @@ class HomePoolConfigFlow(_Wizard, ConfigFlow, domain=DOMAIN):
         "connections",
         "control",
         "notifications",
+        "tasks",
     )
 
     def __init__(self) -> None:
@@ -950,6 +1044,7 @@ class HomePoolConfigFlow(_Wizard, ConfigFlow, domain=DOMAIN):
             "connections": self.async_step_connections,
             "control": self.async_step_control,
             "notifications": self.async_step_notifications,
+            "tasks": self.async_step_tasks,
         }[nxt]()
 
     @staticmethod
@@ -969,8 +1064,20 @@ class HomePoolOptionsFlow(_Wizard, OptionsFlow):
         menu = ["identity", "shape", "construction", "pump", "water"]
         if self._data.get(CONF_CHLORINATION_TYPE) == ChlorinationType.SALT:
             menu.append("chlorinator_model")
-        menu += ["connections", "control", "notifications"]
+        menu += ["connections", "control", "notifications", "tasks"]
         return self.async_show_menu(step_id="init", menu_options=menu)
+
+    def _coordinator(self):
+        if self.config_entry.state is not ConfigEntryState.LOADED:
+            return None
+        return self.config_entry.runtime_data
+
+    async def _record_last_done(self, key: str, day, entry: dict[str, Any]) -> None:
+        coordinator = self._coordinator()
+        if coordinator is None:
+            await super()._record_last_done(key, day, entry)
+        else:
+            await coordinator.async_complete_task(key, day)
 
     async def _after(self, step: str) -> ConfigFlowResult:
         if step == "water" and self._data.get(CONF_CHLORINATION_TYPE) == ChlorinationType.SALT and (

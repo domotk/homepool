@@ -19,6 +19,26 @@ ROOT = (
 
 def T(en, es): return (en, es)
 
+# One name per recurring task, in the sentence "<name>: ...".
+task_names = {
+  "backwash": T("Backwash", "Contralavado"), "filter_cleaning": T("Filter cleaning", "Limpieza del filtro"),
+  "ph_calibration": T("pH probe calibration", "Calibración de la sonda de pH"),
+  "winter_product": T("Winter product", "Producto de invierno"), "water_test": T("Water test", "Medición del agua"),
+  "skimmer_baskets": T("Skimmer baskets", "Cestos del skimmer"), "cell_cleaning": T("Cell cleaning", "Limpieza de la célula"),
+  "filter_media_check": T("Filter media check", "Revisión de la arena o el vidrio"),
+}
+_pump_hours_tasks = ("backwash", "filter_cleaning")
+_optional_tasks = ("skimmer_baskets", "filter_media_check")
+tasks_data = {}
+for _k, (_en, _es) in task_names.items():
+  tasks_data[f"{_k}_days"] = T(f"{_en}: every (days)", f"{_es}: cada (días)")
+  if _k in _pump_hours_tasks:
+    tasks_data[f"{_k}_pump_hours"] = T(f"{_en} in winter: every (pump hours)", f"{_es} en invierno: cada (horas de bomba)")
+  if _k in _optional_tasks:
+    tasks_data[f"{_k}_enabled"] = T(f"{_en}: remind me", f"{_es}: avisarme")
+  tasks_data[f"{_k}_last_done"] = T(f"{_en}: last done", f"{_es}: última vez")
+tasks_data["has_ph_probe_outside"] = T("I check the pH with a probe or kit of my own", "Mido el pH con una sonda o un kit propios")
+
 steps_fields = {
   "identity": {
     "title": T("Your pool", "Tu piscina"),
@@ -203,6 +223,16 @@ steps_fields = {
       "critical_ignore_quiet_hours": T("Critical alerts ignore the quiet hours", "Las alertas críticas ignoran el silencio"),
     },
   },
+  "tasks": {
+    "title": T("Recurring tasks", "Tareas periódicas"),
+    "description": T("How often each job comes round, and when you last did it. Only the tasks your pool needs are listed. In winter the filter jobs count hours of pump instead of days.",
+                     "Cada cuánto toca cada trabajo y cuándo lo hiciste por última vez. Solo salen las tareas que tu piscina necesita. En invierno los trabajos del filtro cuentan horas de bomba en lugar de días."),
+    "data": tasks_data,
+    "data_description": {
+      "has_ph_probe_outside": T("Turns on the pH calibration reminder when HomePool has no pH sensor. Save, then open this page again to set its interval.",
+                                "Activa el recordatorio de calibración del pH cuando HomePool no tiene sensor de pH. Guarda y abre esta página otra vez para fijar su intervalo."),
+    },
+  },
 }
 
 errors = {
@@ -213,6 +243,7 @@ errors = {
   "no_months": T("Pick at least one month.", "Elige al menos un mes."),
   "same_switch": T("The chlorinator switch must be a different entity from the pump switch. If the cell is wired with the pump, leave it empty.", "El interruptor del clorador debe ser distinto del de la bomba. Si la célula va conectada con la bomba, déjalo vacío."),
   "bad_slots": T("Write the slots as HH:MM-HH:MM, separated by commas.", "Escribe las franjas como HH:MM-HH:MM, separadas por comas."),
+  "date_in_future": T("That date has not happened yet.", "Esa fecha todavía no ha llegado."),
   "service_required": T("Pick a notify service, or switch notifications off.", "Elige un servicio de notificación o desactiva las notificaciones."),
 }
 
@@ -221,7 +252,7 @@ menu = {
   "construction": T("Construction", "Construcción"), "pump": T("Pump and filter", "Bomba y filtro"),
   "water": T("Water treatment", "Tratamiento del agua"), "chlorinator_model": T("Salt chlorinator", "Clorador salino"),
   "connections": T("Entities", "Entidades"), "control": T("Control", "Control"),
-  "notifications": T("Notifications", "Notificaciones"),
+  "notifications": T("Notifications", "Notificaciones"), "tasks": T("Recurring tasks", "Tareas periódicas"),
 }
 
 selectors = {
@@ -256,6 +287,7 @@ selectors = {
             "surplus": T("Surplus (production minus consumption)", "Excedente (producción menos consumo)")},
   "pool_cleaner_type": {"none": T("None", "Ninguno"), "cable_electric": T("Robot with cable", "Robot con cable"),
             "battery": T("Robot with battery", "Robot con batería"), "hydraulic": T("Hydraulic", "Hidráulico")},
+  "task": {k: v for k, v in task_names.items()},
   "severity": {"info": T("Information", "Información"), "warning": T("Warning", "Aviso"), "critical": T("Critical", "Crítico")},
   "action_type": {"backwash": T("Backwash", "Contralavado"), "filter_cleaned": T("Filter cleaned", "Filtro limpiado"),
             "salt_added": T("Salt added", "Sal añadida"), "ph_calibrated": T("pH probe calibrated", "Sonda de pH calibrada"),
@@ -342,6 +374,9 @@ entity = {
   "mark_filter_cleaned": T("Filter cleaned", "Filtro limpiado"),
   "mark_salt_added": T("Salt added", "Sal añadida"),
   "mark_ph_calibrated": T("pH probe calibrated", "Sonda de pH calibrada"),
+  "mark_winter_product_added": T("Winter product added", "Producto de invierno repuesto"),
+  "mark_water_tested": T("Water tested", "Agua medida"),
+  "mark_skimmer_baskets_emptied": T("Skimmer baskets emptied", "Cestos del skimmer vaciados"),
   "recalculate_target": T("Recalculate target", "Recalcular objetivo"),
  },
 }
@@ -375,6 +410,9 @@ services = {
       {"action_type": (T("Action", "Acción"), T("What was done.", "Qué se ha hecho.")),
        "value": (T("Value", "Valor"), T("An amount, if it has one.", "Una cantidad, si la tiene.")),
        "notes": (T("Notes", "Notas"), T("Anything worth remembering.", "Lo que valga la pena recordar."))}),
+  "complete_task": (T("Complete task", "Completar tarea"), T("Marks a recurring task as done, today or on a past date, and counts its next one from then.", "Marca una tarea periódica como hecha, hoy o en una fecha pasada, y cuenta la siguiente desde entonces."),
+      {"task": (T("Task", "Tarea"), T("Which one was done.", "Cuál se ha hecho.")),
+       "date": (T("Date", "Fecha"), T("The day it was done. Today if left out.", "El día en que se hizo. Hoy si se omite."))}),
   "record_salt_level": (T("Record salt level", "Registrar nivel de sal"), T("A salt reading taken by hand. Used until a newer one, or a salinity sensor.", "Una lectura de sal tomada a mano. Se usa hasta que haya otra o un sensor de salinidad."),
       {"value": (T("Salt", "Sal"), T("Grams per litre.", "Gramos por litro."))}),
   "record_free_chlorine": (T("Record free chlorine", "Registrar cloro libre"), T("A free chlorine reading taken by hand.", "Una lectura de cloro libre tomada a mano."),
@@ -385,7 +423,8 @@ services = {
   "reset_daily_counters": (T("Reset today's counters", "Reiniciar contadores de hoy"), T("Starts today's filtration count from zero.", "Vuelve a poner a cero la filtración de hoy."), {}),
 }
 
-exceptions = {"no_pool_targeted": T("That target matches no HomePool pool.", "Ese destino no corresponde a ninguna piscina de HomePool.")}
+exceptions = {"no_pool_targeted": T("That target matches no HomePool pool.", "Ese destino no corresponde a ninguna piscina de HomePool."),
+  "date_in_future": T("That date has not happened yet.", "Esa fecha todavía no ha llegado.")}
 
 def build(i):
     pick = lambda t: t[i]

@@ -9,7 +9,21 @@ no sense, and then it never falls due.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from collections.abc import Mapping
 from datetime import date, datetime, timedelta
+from typing import Any
+
+from ..const import (
+    CONF_BACKWASH_INTERVAL_DAYS,
+    CONF_CHLORINATION_TYPE,
+    CONF_FILTER_TYPE,
+    CONF_HAS_PH_PROBE_OUTSIDE,
+    CONF_PH_CALIBRATION_INTERVAL_DAYS,
+    CONF_PH_SENSOR,
+    DEFAULT_BACKWASH_INTERVAL_DAYS,
+    DEFAULT_PH_CALIBRATION_INTERVAL_DAYS,
+    FilterType,
+)
 
 SWIMMING = "swimming"
 WINTER_ACTIVE = "winter_active"
@@ -49,6 +63,8 @@ TASKS: tuple[TaskDef, ...] = (
     TaskDef("filter_media_check", "filter_media_checked", 1825, None, (), _NOT_PASSIVE, True),
 )
 
+# The two filter jobs: one or the other exists, by filter type.
+FILTER_TASKS = ("backwash", "filter_cleaning")
 # Rows that already existed in 0.1.4: they count from ``tasks_since``.
 LEGACY_TASKS = ("backwash", "filter_cleaning", "ph_calibration")
 TASKS_BY_KEY = {t.key: t for t in TASKS}
@@ -58,6 +74,44 @@ TASKS_BY_ACTION = {t.action: t for t in TASKS}
 def default_days(defn: TaskDef, season_state: str) -> int | None:
     """The interval in days for a state, before any option or override."""
     return dict(defn.days_by_state).get(season_state, defn.days)
+
+
+def _set(conf: Mapping[str, Any], key: str, default: Any = None) -> Any:
+    value = conf.get(key)
+    return default if value in (None, "") else value
+
+
+def task_applies(key: str, conf: Mapping[str, Any]) -> bool:
+    """Whether the pool's equipment calls for a task, whatever the owner chose.
+
+    ``conf`` is the pool's configuration (entry data over options).
+    """
+    filter_type = conf.get(CONF_FILTER_TYPE, FilterType.SAND)
+    filter_bed = filter_type in (
+        FilterType.SAND,
+        FilterType.GLASS,
+        FilterType.DIATOMACEOUS_EARTH,
+    )
+    return {
+        "backwash": filter_bed,
+        "filter_cleaning": not filter_bed,
+        "ph_calibration": bool(conf.get(CONF_PH_SENSOR) or conf.get(CONF_HAS_PH_PROBE_OUTSIDE)),
+        "winter_product": _set(conf, "winter_product_type", "none") != "none",
+        "cell_cleaning": conf.get(CONF_CHLORINATION_TYPE) == "salt",
+        "filter_media_check": filter_type in (FilterType.SAND, FilterType.GLASS),
+    }.get(key, True)
+
+
+def configured_days(defn: TaskDef, conf: Mapping[str, Any], season_state: str) -> int | None:
+    """The interval in days before a per-task override: the pump and water
+    steps' settings for the jobs that had one in 0.1, the table otherwise."""
+    if defn.key in FILTER_TASKS:
+        return int(_set(conf, CONF_BACKWASH_INTERVAL_DAYS, DEFAULT_BACKWASH_INTERVAL_DAYS))
+    if defn.key == "ph_calibration":
+        return int(
+            _set(conf, CONF_PH_CALIBRATION_INTERVAL_DAYS, DEFAULT_PH_CALIBRATION_INTERVAL_DAYS)
+        )
+    return default_days(defn, season_state)
 
 
 @dataclass

@@ -14,15 +14,19 @@ from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.service import async_extract_entity_ids
+from homeassistant.util import dt as dt_util
 
 from .const import (
     ATTR_ACTION_TYPE,
+    ATTR_DATE,
     ATTR_DURATION,
     ATTR_NOTES,
+    ATTR_TASK,
     ATTR_VALUE,
     CONFIG_VERSION,
     DOMAIN,
     PLATFORMS,
+    SERVICE_COMPLETE_TASK,
     SERVICE_FORCE_PH_WINDOW,
     SERVICE_RECALCULATE,
     SERVICE_RECORD_FREE_CHLORINE,
@@ -34,6 +38,7 @@ from .const import (
     ManualAction,
 )
 from .coordinator import PoolCoordinator
+from .pool.tasks import TASKS_BY_KEY
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -51,6 +56,9 @@ ACTION_SCHEMA = cv.make_entity_service_schema(
         vol.Optional(ATTR_VALUE): vol.Coerce(float),
         vol.Optional(ATTR_NOTES): cv.string,
     }
+)
+TASK_SCHEMA = cv.make_entity_service_schema(
+    {vol.Required(ATTR_TASK): vol.In(list(TASKS_BY_KEY)), vol.Optional(ATTR_DATE): cv.date}
 )
 SALT_SCHEMA = cv.make_entity_service_schema(
     {vol.Required(ATTR_VALUE): vol.All(vol.Coerce(float), vol.Range(min=0, max=15))}
@@ -94,6 +102,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: HomePoolConfigEntry) ->
             SERVICE_START_CYCLE,
             SERVICE_STOP_CYCLE,
             SERVICE_RECORD_MANUAL_ACTION,
+            SERVICE_COMPLETE_TASK,
             SERVICE_RECORD_SALT_LEVEL,
             SERVICE_RECORD_FREE_CHLORINE,
             SERVICE_RECALCULATE,
@@ -166,6 +175,15 @@ def _async_register_services(hass: HomeAssistant) -> None:
                 call.data[ATTR_ACTION_TYPE], call.data.get(ATTR_VALUE), call.data.get(ATTR_NOTES)
             )
 
+    async def _complete_task(call: ServiceCall) -> None:
+        when = call.data.get(ATTR_DATE)
+        if when is not None and when > dt_util.now().date():
+            raise ServiceValidationError(
+                translation_domain=DOMAIN, translation_key="date_in_future"
+            )
+        for pool in await _pools(call):
+            await pool.async_complete_task(call.data[ATTR_TASK], when)
+
     async def _record_salt(call: ServiceCall) -> None:
         for pool in await _pools(call):
             await pool.async_record_reading("salt", call.data[ATTR_VALUE])
@@ -190,6 +208,7 @@ def _async_register_services(hass: HomeAssistant) -> None:
         SERVICE_START_CYCLE: (_start_cycle, DURATION_SCHEMA),
         SERVICE_STOP_CYCLE: (_stop_cycle, EMPTY_SCHEMA),
         SERVICE_RECORD_MANUAL_ACTION: (_record_action, ACTION_SCHEMA),
+        SERVICE_COMPLETE_TASK: (_complete_task, TASK_SCHEMA),
         SERVICE_RECORD_SALT_LEVEL: (_record_salt, SALT_SCHEMA),
         SERVICE_RECORD_FREE_CHLORINE: (_record_chlorine, CHLORINE_SCHEMA),
         SERVICE_RECALCULATE: (_recalculate, EMPTY_SCHEMA),

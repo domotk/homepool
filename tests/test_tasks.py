@@ -7,6 +7,7 @@ from datetime import date, datetime
 from freezegun.api import FrozenDateTimeFactory
 
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import entity_registry as er
 
 from custom_components.homepool.pool.tasks import TASKS, TASKS_BY_KEY, default_days, task_state
 
@@ -115,7 +116,10 @@ async def test_tasks_exist_by_equipment(
     assert keys == [
         "backwash", "water_test", "skimmer_baskets", "cell_cleaning", "filter_media_check",
     ]
-    coordinator.task_overrides = {"skimmer_baskets": {"enabled": False}}
+    hass.config_entries.async_update_entry(
+        coordinator.entry, options={"tasks": {"skimmer_baskets": {"enabled": False}}}
+    )
+    assert coordinator.task_overrides == {"skimmer_baskets": {"enabled": False}}
     assert "skimmer_baskets" not in [t["task"] for t in coordinator.task_status()]
     hass.config_entries.async_update_entry(
         coordinator.entry, data={**coordinator.entry.data, "has_ph_probe_outside": True}
@@ -171,4 +175,173 @@ async def test_rows_new_in_0_2_are_not_overdue_on_upgrade(
     assert not rows["water_test"]["overdue"]
     assert not rows["skimmer_baskets"]["overdue"]
     assert rows["water_test"]["due"] == "2026-07-22"
-    assert "task_first_seen" in entry.runtime_data._to_store()
+    coordinator = entry.runtime_data
+    first_seen = coordinator.task_first_seen["water_test"]
+    assert first_seen
+    coordinator.task_status()
+    assert coordinator.task_first_seen["water_test"] == first_seen
+
+
+async def test_disabling_an_overdue_task_clears_its_alert(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
+) -> None:
+    freezer.move_to(local(2026, 7, 15, 10, 0))
+    SwitchRouter(hass)
+    entry = await setup_pool(hass)
+    coordinator = entry.runtime_data
+    coordinator.tasks["skimmer_baskets_emptied"] = local(2026, 7, 1, 10, 0).isoformat()
+    await tick(hass, freezer, 1)
+    assert "skimmer_baskets_due" in coordinator.alerts
+    hass.config_entries.async_update_entry(
+        entry, options={"tasks": {"skimmer_baskets": {"enabled": False}}}
+    )
+    await coordinator._async_alerts(freezer())
+    assert "skimmer_baskets_due" not in coordinator.alerts
+
+
+async def _options_tasks(hass: HomeAssistant, entry, user_input: dict) -> None:
+    from homeassistant.data_entry_flow import FlowResultType
+
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    assert "tasks" in result["menu_options"]
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"next_step_id": "tasks"}
+    )
+    assert result["step_id"] == "tasks"
+    result = await hass.config_entries.options.async_configure(result["flow_id"], user_input)
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    await hass.async_block_till_done()
+
+
+async def test_tasks_step_sets_intervals_and_last_done(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
+) -> None:
+    freezer.move_to(local(2026, 11, 20, 10, 0))
+    SwitchRouter(hass)
+    entry = await setup_pool(hass)
+    await _options_tasks(
+        hass, entry, {"backwash_days": 21, "backwash_last_done": "2026-11-01"}
+    )
+    assert entry.options["tasks"]["backwash"] == {"days": 21}
+    rows = {t["task"]: t for t in entry.runtime_data.task_status()}
+    assert rows["backwash"]["interval_days"] == 21
+    assert rows["backwash"]["due"] == "2026-11-22"
+    # Left alone, the other tasks keep their defaults and store nothing.
+    assert "water_test" not in entry.options["tasks"]
+    assert rows["water_test"]["interval_days"] == 7
+
+
+async def test_tasks_step_disables_an_optional_task(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
+) -> None:
+    freezer.move_to(local(2026, 7, 15, 10, 0))
+    SwitchRouter(hass)
+    entry = await setup_pool(hass)
+    await _options_tasks(hass, entry, {"skimmer_baskets_enabled": False})
+    assert "skimmer_baskets" not in [t["task"] for t in entry.runtime_data.task_status()]
+
+
+async def test_complete_task_service_with_a_date(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
+) -> None:
+    freezer.move_to(local(2026, 7, 15, 10, 0))
+    SwitchRouter(hass)
+    entry = await setup_pool(hass)
+    await hass.services.async_call(
+        "homepool",
+        "complete_task",
+        {"entity_id": "sensor.pool_status", "task": "cell_cleaning", "date": "2026-07-10"},
+        blocking=True,
+    )
+    row = next(t for t in entry.runtime_data.task_status() if t["task"] == "cell_cleaning")
+    assert row["last_done"].startswith("2026-07-10T10:00:00")  # local noon, in UTC
+    assert row["due"] == "2026-10-08"
+
+
+async def test_complete_task_service_without_a_date_is_now(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
+) -> None:
+    freezer.move_to(local(2026, 7, 15, 10, 0))
+    SwitchRouter(hass)
+    entry = await setup_pool(hass)
+    await hass.services.async_call(
+        "homepool",
+        "complete_task",
+        {"entity_id": "sensor.pool_status", "task": "water_test"},
+        blocking=True,
+    )
+    row = next(t for t in entry.runtime_data.task_status() if t["task"] == "water_test")
+    assert row["due"] == "2026-07-22"
+
+
+async def test_ph_calibration_exists_with_a_probe_outside(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
+) -> None:
+    freezer.move_to(local(2026, 7, 15, 10, 0))
+    SwitchRouter(hass)
+    entry = await setup_pool(hass, has_ph_probe_outside=True)
+    assert "ph_calibration" in [t["task"] for t in entry.runtime_data.task_status()]
+
+
+def _entity_ids(hass: HomeAssistant, entry) -> set[str]:
+    registry = er.async_get(hass)
+    return {e.entity_id for e in er.async_entries_for_config_entry(registry, entry.entry_id)}
+
+
+async def test_task_buttons_exist_only_with_their_task(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
+) -> None:
+    freezer.move_to(local(2026, 7, 15, 10, 0))
+    SwitchRouter(hass)
+    entry = await setup_pool(hass)
+    ids = _entity_ids(hass, entry)
+    assert "button.pool_water_tested" in ids
+    assert "button.pool_skimmer_baskets_emptied" in ids
+    assert "button.pool_winter_product_added" not in ids
+    await hass.services.async_call(
+        "button", "press", {"entity_id": "button.pool_water_tested"}, blocking=True
+    )
+    row = next(t for t in entry.runtime_data.task_status() if t["task"] == "water_test")
+    assert row["last_done"] is not None
+
+
+async def test_the_winter_product_button_follows_its_task(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
+) -> None:
+    freezer.move_to(local(2026, 7, 15, 10, 0))
+    SwitchRouter(hass)
+    entry = await setup_pool(hass, winter_product_type="chlorine")
+    assert "button.pool_winter_product_added" in _entity_ids(hass, entry)
+
+
+async def test_a_date_given_in_the_wizard_is_taken_in_once(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
+) -> None:
+    freezer.move_to(local(2026, 7, 15, 10, 0))
+    SwitchRouter(hass)
+    entry = await setup_pool(hass, tasks={"cell_cleaning": {"last_done": "2026-07-10"}})
+    coordinator = entry.runtime_data
+    row = next(t for t in coordinator.task_status() if t["task"] == "cell_cleaning")
+    assert row["due"] == "2026-10-08"
+    # Done again later, the seed does not take over on the next load.
+    await coordinator.async_record_action("cell_cleaned")
+    await hass.config_entries.async_reload(entry.entry_id)
+    await hass.async_block_till_done()
+    row = next(t for t in entry.runtime_data.task_status() if t["task"] == "cell_cleaning")
+    assert row["due"] == "2026-10-13"
+
+
+async def test_tasks_step_refuses_a_future_date(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
+) -> None:
+    freezer.move_to(local(2026, 7, 15, 10, 0))
+    SwitchRouter(hass)
+    entry = await setup_pool(hass)
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"next_step_id": "tasks"}
+    )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"water_test_last_done": "2026-07-16"}
+    )
+    assert result["errors"] == {"water_test_last_done": "date_in_future"}

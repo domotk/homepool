@@ -24,7 +24,7 @@ have no Home Assistant in them and are tested on their own.
 from __future__ import annotations
 
 from collections import deque
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
 import logging
 from typing import Any
 
@@ -47,7 +47,6 @@ from .const import (
     COMMAND_MAX_ATTEMPTS,
     COMMAND_RETRY_S,
     CONF_AIR_TEMPERATURE_SENSOR,
-    CONF_BACKWASH_INTERVAL_DAYS,
     CONF_CHLORINATION_TYPE,
     CONF_CHLORINATOR_ACTIVE_MONTHS,
     CONF_CHLORINATOR_AUTO_TOGGLE,
@@ -76,7 +75,6 @@ from .const import (
     CONF_HANDS_OFF_ENTITY,
     CONF_HAS_COVER,
     CONF_HAS_PH_DOSING,
-    CONF_HAS_PH_PROBE_OUTSIDE,
     CONF_IS_COVERED_BY_ROOF,
     CONF_LATITUDE,
     CONF_LONGITUDE,
@@ -87,7 +85,6 @@ from .const import (
     CONF_NOTIFICATION_SEVERITY_MIN,
     CONF_CRITICAL_IGNORE_QUIET_HOURS,
     CONF_ORP_SENSOR,
-    CONF_PH_CALIBRATION_INTERVAL_DAYS,
     CONF_PH_CORRECTION_MAX_DAILY,
     CONF_PH_CORRECTION_MINUTES,
     CONF_PH_DOSING_ENTITY,
@@ -113,7 +110,6 @@ from .const import (
     CONF_VOLUME,
     CONF_WATER_TEMPERATURE_SENSOR,
     CONF_WEATHER_ENTITY,
-    DEFAULT_BACKWASH_INTERVAL_DAYS,
     DEFAULT_CHLORINATOR_MIN_WATER_TEMP,
     DEFAULT_CHLORINATOR_PRODUCTION_PCT,
     DEFAULT_EQUIPMENT_ROOM_MAX_TEMP,
@@ -122,7 +118,6 @@ from .const import (
     DEFAULT_FREEZE_THRESHOLD,
     DEFAULT_MANUAL_OVERRIDE_MINUTES,
     DEFAULT_OPERATION_MODE,
-    DEFAULT_PH_CALIBRATION_INTERVAL_DAYS,
     DEFAULT_PH_CORRECTION_MAX_DAILY,
     DEFAULT_PH_CORRECTION_MINUTES,
     DEFAULT_PH_RANGE_MAX,
@@ -176,7 +171,17 @@ from .pool.scheduler import (
     solar_noon_utc,
     surplus_watts,
 )
-from .pool.tasks import LEGACY_TASKS, TASKS, TASKS_BY_ACTION, TaskDef, default_days, task_state
+from .pool.tasks import (
+    FILTER_TASKS,
+    LEGACY_TASKS,
+    TASKS,
+    TASKS_BY_ACTION,
+    TASKS_BY_KEY,
+    TaskDef,
+    configured_days,
+    task_applies,
+    task_state,
+)
 from .texts import reason_text, text
 
 _LOGGER = logging.getLogger(__name__)
@@ -218,6 +223,10 @@ def _iso(value: datetime | None) -> str | None:
 
 def _parse_dt(value: str | None) -> datetime | None:
     return dt_util.parse_datetime(value) if value else None
+
+
+def _parse_date(value: Any) -> date | None:
+    return dt_util.parse_date(value) if isinstance(value, str) else None
 
 
 def _todays_forecast(days: list[dict[str, Any]], today: date) -> dict[str, Any]:
@@ -303,7 +312,6 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # Seconds the pump has run for each task since it was last done, and
         # the per-task changes made by the owner.
         self.task_pump_s: dict[str, float] = {}
-        self.task_overrides: dict[str, dict[str, Any]] = {}
         # When a task row first showed up without a date: rows added after 0.1.4
         # count from then, so an upgrade does not make them overdue at once.
         self.task_first_seen: dict[str, str] = {}
@@ -452,8 +460,8 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # counts from here. Set on first load, and on the first load of 0.1.4.
         self.tasks_since = _parse_dt(data.get("tasks_since")) or dt_util.utcnow()
         self.task_pump_s = {k: float(v) for k, v in (data.get("task_pump_s") or {}).items()}
-        self.task_overrides = data.get("task_overrides") or {}
         self.task_first_seen = data.get("task_first_seen") or {}
+        self._seed_task_dates()
         self.manual_readings = data.get("manual_readings") or {}
         self.actions = data.get("actions") or []
         self.history = data.get("history") or []
@@ -582,7 +590,6 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "tasks": self.tasks,
             "tasks_since": _iso(self.tasks_since),
             "task_pump_s": {k: round(v, 1) for k, v in self.task_pump_s.items()},
-            "task_overrides": self.task_overrides,
             "task_first_seen": self.task_first_seen,
             "manual_readings": self.manual_readings,
             "actions": self.actions[-ACTIONS_KEPT:],
@@ -793,35 +800,44 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # Until the season state is kept as such, a pool is swimming.
         return self.settings.get("season_state", "swimming")
 
+    @property
+    def task_overrides(self) -> dict[str, dict[str, Any]]:
+        """What the owner changed per task, from the options: ``days``,
+        ``pump_hours`` and, for optional tasks, ``enabled``."""
+        return self.conf.get("tasks") or {}
+
     def _task_exists(self, defn: TaskDef) -> bool:
-        key = defn.key
-        if defn.optional and self.task_overrides.get(key, {}).get("enabled") is False:
+        if defn.optional and self.task_overrides.get(defn.key, {}).get("enabled") is False:
             return False
-        filter_bed = self.uses_backwash
-        sand_or_glass = self.conf.get(CONF_FILTER_TYPE, FilterType.SAND) in (
-            FilterType.SAND,
-            FilterType.GLASS,
-        )
-        return {
-            "backwash": filter_bed,
-            "filter_cleaning": not filter_bed,
-            "ph_calibration": self.has(CONF_PH_SENSOR) or self.has(CONF_HAS_PH_PROBE_OUTSIDE),
-            "winter_product": self.opt("winter_product_type", "none") != "none",
-            "cell_cleaning": self.is_salt,
-            "filter_media_check": sand_or_glass,
-        }.get(key, True)
+        return task_applies(defn.key, self.conf)
+
+    def has_task(self, key: str) -> bool:
+        return self._task_exists(TASKS_BY_KEY[key])
 
     def _task_days(self, defn: TaskDef) -> int | None:
         override = self.task_overrides.get(defn.key, {}).get("days")
         if override is not None:
             return int(override)
-        if defn.key in ("backwash", "filter_cleaning"):
-            return int(self.opt(CONF_BACKWASH_INTERVAL_DAYS, DEFAULT_BACKWASH_INTERVAL_DAYS))
-        if defn.key == "ph_calibration":
-            return int(
-                self.opt(CONF_PH_CALIBRATION_INTERVAL_DAYS, DEFAULT_PH_CALIBRATION_INTERVAL_DAYS)
-            )
-        return default_days(defn, self.season_state)
+        return configured_days(defn, self.conf, self.season_state)
+
+    def _seed_task_dates(self) -> None:
+        """Take the "last done" dates given in the setup wizard, once.
+
+        The wizard has no pool to write them into yet, so it leaves them in
+        the options; a task that already has a date keeps it.
+        """
+        for key, cfg in self.task_overrides.items():
+            defn = TASKS_BY_KEY.get(key)
+            when = _parse_date(cfg.get("last_done"))
+            if defn is not None and when is not None and defn.action not in self.tasks:
+                self.tasks[defn.action] = self._noon(when).isoformat()
+
+    @staticmethod
+    def _noon(day: date) -> datetime:
+        """Noon of a day in the pool's time zone, as UTC: a date given by hand
+        has no time, and noon keeps it on that day in either direction."""
+        local_noon = datetime.combine(day, time(12), tzinfo=dt_util.get_default_time_zone())
+        return dt_util.as_utc(local_noon)
 
     def _task_pump_hours(self, defn: TaskDef) -> float | None:
         override = self.task_overrides.get(defn.key, {}).get("pump_hours")
@@ -851,7 +867,7 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             pump_seconds_since=self.task_pump_s.get(defn.key, 0.0),
             days=self._task_days(defn),
             pump_hours=self._task_pump_hours(defn),
-            force=self.pressure_high and defn.key in ("backwash", "filter_cleaning"),
+            force=self.pressure_high and defn.key in FILTER_TASKS,
         )
         return {
             "task": defn.key,
@@ -868,7 +884,7 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     @property
     def backwash_needed(self) -> bool:
         for task in self.task_status():
-            if task["task"] in ("backwash", "filter_cleaning"):
+            if task["task"] in FILTER_TASKS:
                 return task["overdue"]
         return False
 
@@ -1966,6 +1982,13 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     )
             else:
                 await self._async_clear(alert)
+        # A task that is gone (switched off in the options, or its equipment
+        # removed) takes its reminder with it.
+        listed = {t["task"] for t in self.task_status()}
+        for defn in TASKS:
+            if defn.key not in listed:
+                await self._async_clear(f"{defn.key}_due")
+                self.due_notified.pop(defn.key, None)
 
     # ──────────────────────────────────────────
     # Actions from entities and services
@@ -2036,10 +2059,24 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         else:
             await self.async_stop_cycle()
 
+    async def async_complete_task(self, task: str, when: date | None = None) -> None:
+        """Mark a task done today, or on a past day given by hand."""
+        await self.async_record_action(TASKS_BY_KEY[task].action, at=self._done_at(when))
+
+    def _done_at(self, when: date | None) -> datetime | None:
+        """When a job done on ``when`` counts from: noon that day, but never later than now."""
+        if when is None:
+            return None
+        return min(self._noon(when), dt_util.utcnow())
+
     async def async_record_action(
-        self, action: str, value: float | None = None, notes: str | None = None
+        self,
+        action: str,
+        value: float | None = None,
+        notes: str | None = None,
+        at: datetime | None = None,
     ) -> None:
-        now = dt_util.utcnow()
+        now = at or dt_util.utcnow()
         self.actions = [
             *self.actions,
             {"type": action, "at": now.isoformat(), "value": value, "notes": notes},
@@ -2050,7 +2087,7 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if completed is not None:
             self.task_pump_s.pop(completed.key, None)
             self.due_notified.pop(completed.key, None)
-            if completed.key in ("backwash", "filter_cleaning"):
+            if completed.key in FILTER_TASKS:
                 self._pressure_high_since = None
                 self.pressure_high = False
         self._save()

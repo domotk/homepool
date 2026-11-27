@@ -234,6 +234,36 @@
           "notification_quiet_hours_end": "Silencio hasta",
           "critical_ignore_quiet_hours": "Las alertas críticas ignoran el silencio"
         }
+      },
+      "tasks": {
+        "title": "Tareas periódicas",
+        "description": "Cada cuánto toca cada trabajo y cuándo lo hiciste por última vez. Solo salen las tareas que tu piscina necesita. En invierno los trabajos del filtro cuentan horas de bomba en lugar de días.",
+        "data": {
+          "backwash_days": "Contralavado: cada (días)",
+          "backwash_pump_hours": "Contralavado en invierno: cada (horas de bomba)",
+          "backwash_last_done": "Contralavado: última vez",
+          "filter_cleaning_days": "Limpieza del filtro: cada (días)",
+          "filter_cleaning_pump_hours": "Limpieza del filtro en invierno: cada (horas de bomba)",
+          "filter_cleaning_last_done": "Limpieza del filtro: última vez",
+          "ph_calibration_days": "Calibración de la sonda de pH: cada (días)",
+          "ph_calibration_last_done": "Calibración de la sonda de pH: última vez",
+          "winter_product_days": "Producto de invierno: cada (días)",
+          "winter_product_last_done": "Producto de invierno: última vez",
+          "water_test_days": "Medición del agua: cada (días)",
+          "water_test_last_done": "Medición del agua: última vez",
+          "skimmer_baskets_days": "Cestos del skimmer: cada (días)",
+          "skimmer_baskets_enabled": "Cestos del skimmer: avisarme",
+          "skimmer_baskets_last_done": "Cestos del skimmer: última vez",
+          "cell_cleaning_days": "Limpieza de la célula: cada (días)",
+          "cell_cleaning_last_done": "Limpieza de la célula: última vez",
+          "filter_media_check_days": "Revisión de la arena o el vidrio: cada (días)",
+          "filter_media_check_enabled": "Revisión de la arena o el vidrio: avisarme",
+          "filter_media_check_last_done": "Revisión de la arena o el vidrio: última vez",
+          "has_ph_probe_outside": "Mido el pH con una sonda o un kit propios"
+        },
+        "data_description": {
+          "has_ph_probe_outside": "Activa el recordatorio de calibración del pH cuando HomePool no tiene sensor de pH. Guarda y abre esta página otra vez para fijar su intervalo."
+        }
       }
     },
     "error": {
@@ -244,6 +274,7 @@
       "no_months": "Elige al menos un mes.",
       "same_switch": "El interruptor del clorador debe ser distinto del de la bomba. Si la célula va conectada con la bomba, déjalo vacío.",
       "bad_slots": "Escribe las franjas como HH:MM-HH:MM, separadas por comas.",
+      "date_in_future": "Esa fecha todavía no ha llegado.",
       "service_required": "Elige un servicio de notificación o desactiva las notificaciones."
     },
     "abort": {
@@ -486,6 +517,36 @@
           "critical_ignore_quiet_hours": "Las alertas críticas ignoran el silencio"
         }
       },
+      "tasks": {
+        "title": "Tareas periódicas",
+        "description": "Cada cuánto toca cada trabajo y cuándo lo hiciste por última vez. Solo salen las tareas que tu piscina necesita. En invierno los trabajos del filtro cuentan horas de bomba en lugar de días.",
+        "data": {
+          "backwash_days": "Contralavado: cada (días)",
+          "backwash_pump_hours": "Contralavado en invierno: cada (horas de bomba)",
+          "backwash_last_done": "Contralavado: última vez",
+          "filter_cleaning_days": "Limpieza del filtro: cada (días)",
+          "filter_cleaning_pump_hours": "Limpieza del filtro en invierno: cada (horas de bomba)",
+          "filter_cleaning_last_done": "Limpieza del filtro: última vez",
+          "ph_calibration_days": "Calibración de la sonda de pH: cada (días)",
+          "ph_calibration_last_done": "Calibración de la sonda de pH: última vez",
+          "winter_product_days": "Producto de invierno: cada (días)",
+          "winter_product_last_done": "Producto de invierno: última vez",
+          "water_test_days": "Medición del agua: cada (días)",
+          "water_test_last_done": "Medición del agua: última vez",
+          "skimmer_baskets_days": "Cestos del skimmer: cada (días)",
+          "skimmer_baskets_enabled": "Cestos del skimmer: avisarme",
+          "skimmer_baskets_last_done": "Cestos del skimmer: última vez",
+          "cell_cleaning_days": "Limpieza de la célula: cada (días)",
+          "cell_cleaning_last_done": "Limpieza de la célula: última vez",
+          "filter_media_check_days": "Revisión de la arena o el vidrio: cada (días)",
+          "filter_media_check_enabled": "Revisión de la arena o el vidrio: avisarme",
+          "filter_media_check_last_done": "Revisión de la arena o el vidrio: última vez",
+          "has_ph_probe_outside": "Mido el pH con una sonda o un kit propios"
+        },
+        "data_description": {
+          "has_ph_probe_outside": "Activa el recordatorio de calibración del pH cuando HomePool no tiene sensor de pH. Guarda y abre esta página otra vez para fijar su intervalo."
+        }
+      },
       "init": {
         "title": "Cambiar la piscina",
         "description": "Elige qué cambiar.",
@@ -498,7 +559,8 @@
           "chlorinator_model": "Clorador salino",
           "connections": "Entidades",
           "control": "Control",
-          "notifications": "Notificaciones"
+          "notifications": "Notificaciones",
+          "tasks": "Tareas periódicas"
         }
       }
     },
@@ -510,6 +572,7 @@
       "no_months": "Elige al menos un mes.",
       "same_switch": "El interruptor del clorador debe ser distinto del de la bomba. Si la célula va conectada con la bomba, déjalo vacío.",
       "bad_slots": "Escribe las franjas como HH:MM-HH:MM, separadas por comas.",
+      "date_in_future": "Esa fecha todavía no ha llegado.",
       "service_required": "Elige un servicio de notificación o desactiva las notificaciones."
     }
   },
@@ -653,6 +716,18 @@
         "cable_electric": "Robot con cable",
         "battery": "Robot con batería",
         "hydraulic": "Hidráulico"
+      }
+    },
+    "task": {
+      "options": {
+        "backwash": "Contralavado",
+        "filter_cleaning": "Limpieza del filtro",
+        "ph_calibration": "Calibración de la sonda de pH",
+        "winter_product": "Producto de invierno",
+        "water_test": "Medición del agua",
+        "skimmer_baskets": "Cestos del skimmer",
+        "cell_cleaning": "Limpieza de la célula",
+        "filter_media_check": "Revisión de la arena o el vidrio"
       }
     },
     "severity": {
@@ -929,6 +1004,15 @@
       "mark_ph_calibrated": {
         "name": "Sonda de pH calibrada"
       },
+      "mark_winter_product_added": {
+        "name": "Producto de invierno repuesto"
+      },
+      "mark_water_tested": {
+        "name": "Agua medida"
+      },
+      "mark_skimmer_baskets_emptied": {
+        "name": "Cestos del skimmer vaciados"
+      },
       "recalculate_target": {
         "name": "Recalcular objetivo"
       }
@@ -965,6 +1049,20 @@
         "notes": {
           "name": "Notas",
           "description": "Lo que valga la pena recordar."
+        }
+      }
+    },
+    "complete_task": {
+      "name": "Completar tarea",
+      "description": "Marca una tarea periódica como hecha, hoy o en una fecha pasada, y cuenta la siguiente desde entonces.",
+      "fields": {
+        "task": {
+          "name": "Tarea",
+          "description": "Cuál se ha hecho."
+        },
+        "date": {
+          "name": "Fecha",
+          "description": "El día en que se hizo. Hoy si se omite."
         }
       }
     },
@@ -1012,6 +1110,9 @@
   "exceptions": {
     "no_pool_targeted": {
       "message": "Ese destino no corresponde a ninguna piscina de HomePool."
+    },
+    "date_in_future": {
+      "message": "Esa fecha todavía no ha llegado."
     }
   }
 }

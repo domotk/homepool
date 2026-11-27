@@ -54,6 +54,29 @@ record_manual_action:
       selector:
         text:
 
+complete_task:
+  target:
+    entity:
+      integration: homepool
+  fields:
+    task:
+      required: true
+      selector:
+        select:
+          translation_key: task
+          options:
+            - backwash
+            - filter_cleaning
+            - ph_calibration
+            - winter_product
+            - water_test
+            - skimmer_baskets
+            - cell_cleaning
+            - filter_media_check
+    date:
+      selector:
+        date:
+
 record_salt_level:
   target:
     entity:

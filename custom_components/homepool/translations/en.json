@@ -234,6 +234,36 @@
           "notification_quiet_hours_end": "Quiet until",
           "critical_ignore_quiet_hours": "Critical alerts ignore the quiet hours"
         }
+      },
+      "tasks": {
+        "title": "Recurring tasks",
+        "description": "How often each job comes round, and when you last did it. Only the tasks your pool needs are listed. In winter the filter jobs count hours of pump instead of days.",
+        "data": {
+          "backwash_days": "Backwash: every (days)",
+          "backwash_pump_hours": "Backwash in winter: every (pump hours)",
+          "backwash_last_done": "Backwash: last done",
+          "filter_cleaning_days": "Filter cleaning: every (days)",
+          "filter_cleaning_pump_hours": "Filter cleaning in winter: every (pump hours)",
+          "filter_cleaning_last_done": "Filter cleaning: last done",
+          "ph_calibration_days": "pH probe calibration: every (days)",
+          "ph_calibration_last_done": "pH probe calibration: last done",
+          "winter_product_days": "Winter product: every (days)",
+          "winter_product_last_done": "Winter product: last done",
+          "water_test_days": "Water test: every (days)",
+          "water_test_last_done": "Water test: last done",
+          "skimmer_baskets_days": "Skimmer baskets: every (days)",
+          "skimmer_baskets_enabled": "Skimmer baskets: remind me",
+          "skimmer_baskets_last_done": "Skimmer baskets: last done",
+          "cell_cleaning_days": "Cell cleaning: every (days)",
+          "cell_cleaning_last_done": "Cell cleaning: last done",
+          "filter_media_check_days": "Filter media check: every (days)",
+          "filter_media_check_enabled": "Filter media check: remind me",
+          "filter_media_check_last_done": "Filter media check: last done",
+          "has_ph_probe_outside": "I check the pH with a probe or kit of my own"
+        },
+        "data_description": {
+          "has_ph_probe_outside": "Turns on the pH calibration reminder when HomePool has no pH sensor. Save, then open this page again to set its interval."
+        }
       }
     },
     "error": {
@@ -244,6 +274,7 @@
       "no_months": "Pick at least one month.",
       "same_switch": "The chlorinator switch must be a different entity from the pump switch. If the cell is wired with the pump, leave it empty.",
       "bad_slots": "Write the slots as HH:MM-HH:MM, separated by commas.",
+      "date_in_future": "That date has not happened yet.",
       "service_required": "Pick a notify service, or switch notifications off."
     },
     "abort": {
@@ -486,6 +517,36 @@
           "critical_ignore_quiet_hours": "Critical alerts ignore the quiet hours"
         }
       },
+      "tasks": {
+        "title": "Recurring tasks",
+        "description": "How often each job comes round, and when you last did it. Only the tasks your pool needs are listed. In winter the filter jobs count hours of pump instead of days.",
+        "data": {
+          "backwash_days": "Backwash: every (days)",
+          "backwash_pump_hours": "Backwash in winter: every (pump hours)",
+          "backwash_last_done": "Backwash: last done",
+          "filter_cleaning_days": "Filter cleaning: every (days)",
+          "filter_cleaning_pump_hours": "Filter cleaning in winter: every (pump hours)",
+          "filter_cleaning_last_done": "Filter cleaning: last done",
+          "ph_calibration_days": "pH probe calibration: every (days)",
+          "ph_calibration_last_done": "pH probe calibration: last done",
+          "winter_product_days": "Winter product: every (days)",
+          "winter_product_last_done": "Winter product: last done",
+          "water_test_days": "Water test: every (days)",
+          "water_test_last_done": "Water test: last done",
+          "skimmer_baskets_days": "Skimmer baskets: every (days)",
+          "skimmer_baskets_enabled": "Skimmer baskets: remind me",
+          "skimmer_baskets_last_done": "Skimmer baskets: last done",
+          "cell_cleaning_days": "Cell cleaning: every (days)",
+          "cell_cleaning_last_done": "Cell cleaning: last done",
+          "filter_media_check_days": "Filter media check: every (days)",
+          "filter_media_check_enabled": "Filter media check: remind me",
+          "filter_media_check_last_done": "Filter media check: last done",
+          "has_ph_probe_outside": "I check the pH with a probe or kit of my own"
+        },
+        "data_description": {
+          "has_ph_probe_outside": "Turns on the pH calibration reminder when HomePool has no pH sensor. Save, then open this page again to set its interval."
+        }
+      },
       "init": {
         "title": "Change the pool",
         "description": "Pick what to change.",
@@ -498,7 +559,8 @@
           "chlorinator_model": "Salt chlorinator",
           "connections": "Entities",
           "control": "Control",
-          "notifications": "Notifications"
+          "notifications": "Notifications",
+          "tasks": "Recurring tasks"
         }
       }
     },
@@ -510,6 +572,7 @@
       "no_months": "Pick at least one month.",
       "same_switch": "The chlorinator switch must be a different entity from the pump switch. If the cell is wired with the pump, leave it empty.",
       "bad_slots": "Write the slots as HH:MM-HH:MM, separated by commas.",
+      "date_in_future": "That date has not happened yet.",
       "service_required": "Pick a notify service, or switch notifications off."
     }
   },
@@ -653,6 +716,18 @@
         "cable_electric": "Robot with cable",
         "battery": "Robot with battery",
         "hydraulic": "Hydraulic"
+      }
+    },
+    "task": {
+      "options": {
+        "backwash": "Backwash",
+        "filter_cleaning": "Filter cleaning",
+        "ph_calibration": "pH probe calibration",
+        "winter_product": "Winter product",
+        "water_test": "Water test",
+        "skimmer_baskets": "Skimmer baskets",
+        "cell_cleaning": "Cell cleaning",
+        "filter_media_check": "Filter media check"
       }
     },
     "severity": {
@@ -929,6 +1004,15 @@
       "mark_ph_calibrated": {
         "name": "pH probe calibrated"
       },
+      "mark_winter_product_added": {
+        "name": "Winter product added"
+      },
+      "mark_water_tested": {
+        "name": "Water tested"
+      },
+      "mark_skimmer_baskets_emptied": {
+        "name": "Skimmer baskets emptied"
+      },
       "recalculate_target": {
         "name": "Recalculate target"
       }
@@ -965,6 +1049,20 @@
         "notes": {
           "name": "Notes",
           "description": "Anything worth remembering."
+        }
+      }
+    },
+    "complete_task": {
+      "name": "Complete task",
+      "description": "Marks a recurring task as done, today or on a past date, and counts its next one from then.",
+      "fields": {
+        "task": {
+          "name": "Task",
+          "description": "Which one was done."
+        },
+        "date": {
+          "name": "Date",
+          "description": "The day it was done. Today if left out."
         }
       }
     },
@@ -1012,6 +1110,9 @@
   "exceptions": {
     "no_pool_targeted": {
       "message": "That target matches no HomePool pool."
+    },
+    "date_in_future": {
+      "message": "That date has not happened yet."
     }
   }
 }

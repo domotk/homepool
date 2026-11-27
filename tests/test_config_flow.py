@@ -188,8 +188,19 @@ async def test_full_wizard_creates_entry(hass: HomeAssistant) -> None:
             "critical_ignore_quiet_hours": True,
         },
     )
+    assert result["step_id"] == "tasks"
+    shown = [str(k) for k in result["data_schema"].schema]
+    assert "backwash_days" in shown
+    assert "cell_cleaning_days" in shown  # salt
+    assert "filter_cleaning_days" not in shown  # sand filter
+    assert "skimmer_baskets_enabled" in shown
+    assert "water_test_enabled" not in shown  # not optional
+    assert "has_ph_probe_outside" in shown
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {})
     assert result["type"] is FlowResultType.CREATE_ENTRY
     data = result["data"]
+    assert data["tasks"] == {}
+    assert data["has_ph_probe_outside"] is False
     assert data["name"] == "Back garden"
     assert data["pump_switch"] == PUMP
     assert data["chlorinator_switch"] == CHLORINATOR
