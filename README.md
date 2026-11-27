@@ -197,7 +197,8 @@ the date says so.
   Confirming passive with a closing step still to do (a shock or backwash needs
   the pump) is allowed, but warns you: from then on the pump will not start.
 - The option `chlorinator_auto_toggle` now means "propose by the calendar".
-  Off, nothing is proposed and the state changes only by hand.
+  Off, the calendar proposes nothing and the state changes only by hand (the
+  `swimming` proposal made when the opening list is done still reminds).
 - *Chlorinator in use* follows the state: on in `swimming` (or when you
   reconnect the cell in the opening list), off in either wintering. You can
   still flip it by hand, and the last change wins.
@@ -239,7 +240,7 @@ change, and each only where it makes sense:
 
 The 90-day and 1825-day figures come from general guides, not one source; edit
 them. Intervals, whether a task is active and an optional "last done" date are
-in the options step *Tasks*. Mark a task done with `homepool.complete_task`
+in the options step *Recurring tasks*. Mark a task done with `homepool.complete_task`
 (`task`, optional `date`), `homepool.record_manual_action`, or the buttons for
 the frequent ones.
 
@@ -281,8 +282,8 @@ rejected. `record_salt_level` and `record_free_chlorine` still work.
 ## Water treatment
 
 A treatment is a temporary state you start with `homepool.start_treatment`
-(`type`, `severity`, `hours`) or the buttons `start_shock`, `start_clarifier`
-and `start_flocculant`. You can start one in `swimming`, `opening` and
+(`type`, `severity`, `hours`) or the buttons *Start a shock*, *Start a clarifier*
+and *Start a flocculant*. You can start one in `swimming`, `opening` and
 `winter_active`, not in `winter_passive`, and never two at once. It survives
 restarts and midnight, and does not change the season state.
 
@@ -290,21 +291,21 @@ restarts and midnight, and does not change the season state.
 | --- | --- | --- |
 | `shock` (green water) | `filtering`: pump on | 24 h |
 | `clarifier` (cloudy water) | `filtering`: pump on | 48 h |
-| `flocculant` | `mixing`: on, then `settling`: **off**, then `vacuuming`: yours | 2 h, 12 h, then until you press *advance* |
+| `flocculant` | `mixing`: on, then `settling`: **off**, then `vacuuming`: yours | 2 h, 12 h, then until you press *Next treatment phase* |
 
 - The `filtering` and `mixing` phases count **pump-running time**, so if a lock
   or a safety shutoff above the treatment stops the pump, the phase waits and a
   shock does not finish without its hours of filtering. `settling` counts
-  clock time, but not while freeze protection runs the pump (the alert says
-  the settling was interrupted), and **downtime of Home Assistant does not
+  clock time only while the pump is off (if freeze protection runs it, the
+  alert says the settling was interrupted), and **downtime of Home Assistant does not
   count towards settling**.
 - **Flocculant vacuuming: HomePool's own pump switch and cycle are refused.**
   The pump is left alone and you run it with the relay's own switch, so
-  HomePool does not take it for an outside change. Press `advance_treatment`
+  HomePool does not take it for an outside change. Press *Next treatment phase*
   ("vacuuming done") to finish.
 - A pump that was already on when the treatment started is let go when it ends.
-- During a shock the chlorinator runs at 100 % with water flowing, and goes
-  back to normal after. Settling and vacuuming leave it off.
+- During a shock the cell runs whenever it is in use with water flowing, and, if
+  HomePool controls its production, at 100 %, going back to normal after. Settling and vacuuming leave it off.
 - `homepool.advance_treatment` moves to the next phase; `homepool.end_treatment`
   ends it at any time.
 
@@ -354,7 +355,7 @@ entities exist depends on what you connected.
 | `number.<pool>_filtration_multiplier` | 0.5–2: your calibration knob for the whole target |
 | `number.<pool>_solar_surplus_threshold` · `_ph_target` · `_chlorinator_production` | |
 | `button.<pool>_start_cycle` · `_stop_cycle` · `_backwash_done` · `_filter_cleaned` · `_salt_added` · `_ph_probe_calibrated` · `_winter_product_added` · `_water_tested` · `_skimmer_baskets_emptied` · `_recalculate_target` | |
-| `button.<pool>_start_shock` · `_start_clarifier` · `_start_flocculant` · `_advance_treatment` · `_end_treatment` | Water treatment |
+| `button.<pool>_start_a_shock` · `_start_a_clarifier` · `_start_a_flocculant` · `_next_treatment_phase_vacuuming_done` · `_end_the_treatment` | Water treatment |
 
 Entity ids follow Home Assistant's language when the pool is added: in
 Spanish the target is `sensor.<pool>_objetivo_de_filtracion_diario`, not
