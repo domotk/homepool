@@ -223,7 +223,11 @@ daily-target sensor and reads:
 - the target sensor's factors, `min_minutes` and `max_minutes`;
 - the control sensor's state, `reason`, `reason_key` and
   `manual_override_by`. Since 0.2 the state can be `winter_passive` or
-  `treatment`; `next_manual_task` gains `checklists`.
+  `treatment`; `next_manual_task` gains `checklists`, a dict keyed by list id
+  (`closing`, `opening`, `treatment`: several can be open at once). Each list
+  is its steps in order, each with `id`, `text`, `done`, `done_at`,
+  `starts_treatment` (the treatment the card offers to start, or `null`) and
+  `needs_pump`; a treatment's `treatment.dose` step also carries `dose`.
 
 Treat these as a public API: add, don't rename.
 

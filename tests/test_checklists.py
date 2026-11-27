@@ -105,8 +105,13 @@ async def test_closing_is_created_with_the_proposal(
     shown = attrs["checklists"]["closing"]
     assert shown[0] == {
         "id": "closing.shock", "text": "Shock the water with the pH at 7.2–7.4.",
-        "done": False, "done_at": None,
+        "done": False, "done_at": None, "starts_treatment": "shock", "needs_pump": True,
     }
+    # Every item says whether it offers a treatment and whether it needs the pump.
+    cell = next(i for i in shown if i["id"] == "closing.cell")
+    assert cell["starts_treatment"] is None and cell["needs_pump"] is False
+    backwash = next(i for i in shown if i["id"] == "closing.backwash")
+    assert backwash["starts_treatment"] is None and backwash["needs_pump"] is True
     # The list is kept across a reload.
     await hass.config_entries.async_reload(entry.entry_id)
     await hass.async_block_till_done()

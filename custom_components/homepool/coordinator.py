@@ -1582,6 +1582,9 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     "text": text(language, d.text_key) if d else step["id"],
                     "done": step["done"] is not None,
                     "done_at": step["done"],
+                    # The card offers to start this treatment from the step.
+                    "starts_treatment": d.starts_treatment if d else None,
+                    "needs_pump": d.needs_pump if d else False,
                 }
                 if step["id"] == "treatment.dose" and checklist.get("dose"):
                     item["dose"] = checklist["dose"]
