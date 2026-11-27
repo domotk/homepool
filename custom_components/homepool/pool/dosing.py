@@ -62,17 +62,29 @@ DICHLOR_CYA_PER_CHLORINE = 0.9
 
 def shock_dose(product: str, concentration: float, volume_m3: float, severity: str) -> Dose:
     """``volume × rise`` grams of chlorine, in grams of a granular product
-    (to the nearest 10 g) or litres of a liquid (to 0.1 L)."""
+    (to the nearest 10 g) or litres of a liquid (to 0.1 L). Without a volume
+    there is no figure: the dose is "follow the label"."""
     rise = SHOCK_RISE[severity]
+    unit = "L" if product in SHOCK_LIQUIDS else "g"
+    cya_rise = round(DICHLOR_CYA_PER_CHLORINE * rise, 1) if product == "dichlor" else None
+    if volume_m3 <= 0:
+        return Dose(
+            amount=None,
+            unit=unit,
+            product=product,
+            concentration=concentration,
+            volume_m3=volume_m3,
+            basis="",
+            follow_label=True,
+            cya_rise_mg_l=cya_rise,
+        )
     chlorine_g = volume_m3 * rise
     working = f"{volume_m3:g} m³ × {rise:g} mg/L = {chlorine_g:g} g of chlorine"
     if product in SHOCK_LIQUIDS:
         amount = round(chlorine_g / concentration, 1)
-        unit = "L"
         working += f" ÷ {concentration:g} g/L"
     else:
         amount = float(round(chlorine_g / (concentration / 100) / 10) * 10)
-        unit = "g"
         working += f" ÷ {concentration:g} %"
     return Dose(
         amount=amount,
@@ -82,16 +94,15 @@ def shock_dose(product: str, concentration: float, volume_m3: float, severity: s
         volume_m3=volume_m3,
         basis=working,
         follow_label=True,
-        cya_rise_mg_l=(
-            round(DICHLOR_CYA_PER_CHLORINE * rise, 1) if product == "dichlor" else None
-        ),
+        cya_rise_mg_l=cya_rise,
     )
 
 
 def label_dose(product: str, per_10m3: float | None, unit: str, volume_m3: float) -> Dose:
     """A clarifier or a flocculant, by the label's dose per 10 m³. HomePool has
-    no figure of its own: without one the dose is "follow the label"."""
-    if per_10m3 is None:
+    no figure of its own: without one, or without a volume, the dose is
+    "follow the label"."""
+    if per_10m3 is None or volume_m3 <= 0:
         amount, basis = None, ""
     else:
         amount = round(per_10m3 * volume_m3 / 10, 1)

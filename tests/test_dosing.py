@@ -11,6 +11,8 @@ from custom_components.homepool.pool.dosing import (
     winter_product_dose,
 )
 
+from .test_control import local, madrid  # noqa: F401
+
 
 def test_one_floater_for_45_m3() -> None:
     dose = winter_product_dose("floater", 0.02, 45)
@@ -83,3 +85,26 @@ def test_label_dose_per_10_m3() -> None:
     assert dose.amount == 180
     assert dose.follow_label
     assert "45 m³" in dose.basis
+
+
+def test_without_a_volume_the_dose_is_the_label_s() -> None:
+    """M11: no volume, no figure: "follow the label", not 0 g."""
+    for product in SHOCK_DEFAULT_CONCENTRATION:
+        dose = shock_dose(product, SHOCK_DEFAULT_CONCENTRATION[product], 0, "green")
+        assert dose.amount is None
+        assert dose.follow_label
+        assert dose.basis == ""
+    dose = label_dose("flocculant", 2.0, "L", 0)
+    assert dose.amount is None and dose.follow_label and dose.basis == ""
+
+
+async def test_a_shock_without_a_volume_follows_the_label(hass, madrid, freezer) -> None:
+    from .helpers import SwitchRouter, setup_pool
+    from .test_treatment import start
+
+    freezer.move_to(local(2026, 7, 15, 10, 0))
+    SwitchRouter(hass)
+    entry = await setup_pool(hass, volume=0)
+    await start(hass, entry, "shock")
+    dose = entry.runtime_data.treatment["dose"]
+    assert dose["amount"] is None and dose["follow_label"] is True
