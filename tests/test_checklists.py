@@ -159,6 +159,38 @@ async def test_passive_with_pump_steps_open_warns(
     assert "closing_needs_pump" not in coordinator.alerts
 
 
+async def test_closing_needs_pump_is_notified_once_across_reloads(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
+) -> None:
+    """Ruling 26: the alert stays while it holds, but it reaches the phone once."""
+    from .test_winter import NOTIFY, _notified
+
+    calls = await _notified(hass)
+    entry, coordinator = await closing_proposed(
+        hass, freezer, **{**NOTIFY, "notification_quiet_hours_start": None,
+                          "notification_quiet_hours_end": None},
+    )
+
+    def sent() -> int:
+        return len([c for c in calls if "no longer start" in c.data["message"]])
+
+    await set_season(hass, entry, "winter_passive")
+    assert "closing_needs_pump" in coordinator.alerts
+    assert sent() == 1
+    for _ in range(2):
+        await hass.config_entries.async_reload(entry.entry_id)
+        await hass.async_block_till_done()
+        await tick(hass, freezer, 2)
+        assert "closing_needs_pump" in entry.runtime_data.alerts
+        assert sent() == 1
+    # Once it no longer holds, the flag goes: a new occasion is notified again.
+    coordinator = entry.runtime_data
+    await coordinator.async_complete_step("closing.shock")
+    await coordinator.async_complete_step("closing.backwash")
+    assert "closing_needs_pump" not in coordinator.alerts
+    assert not coordinator.closing_needs_pump_notified
+
+
 async def test_passive_with_the_pump_steps_done_does_not_warn(
     hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
 ) -> None:

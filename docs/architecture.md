@@ -197,7 +197,7 @@ it.
 - `season_proposal` (with `dismissed_for`), `checklists` (by id), `treatment`
   (type, phase, pump-time and settle counters, when vacuuming was last
   reminded), `backwash_after_treatment`, `treatment_rest_today` (a day spent
-  settling or vacuuming misses no target) and `after_shock_since` (swimming
+  settling or vacuuming misses no target), `closing_needs_pump_notified` and `after_shock_since` (swimming
   stays not advised after a shock);
 - a short `history` of closed days;
 - `air_max`;

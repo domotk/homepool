@@ -441,6 +441,9 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # Whether today a treatment kept the pump off on purpose (settling or
         # vacuuming): such a day misses no target.
         self.treatment_rest_today = False
+        # Whether ``closing_needs_pump`` was already notified: it stays raised
+        # all through passive wintering, but reaches the phone once (ruling 26).
+        self.closing_needs_pump_notified = False
         # A finished treatment leaves the filter due a backwash, until one is done.
         self.backwash_after_treatment = False
         # When the last shock ended, until a free chlorine inside the range is
@@ -603,6 +606,7 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.treatment = data.get("treatment")
         self.backwash_after_treatment = bool(data.get("backwash_after_treatment", False))
         self.treatment_rest_today = bool(data.get("treatment_rest_today", False))
+        self.closing_needs_pump_notified = bool(data.get("closing_needs_pump_notified", False))
         self.after_shock_since = _parse_dt(data.get("after_shock_since"))
         if self.in_season_last is None and self.is_salt:
             # Known from the first day, so the first season change after
@@ -763,6 +767,7 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "treatment": self.treatment,
             "backwash_after_treatment": self.backwash_after_treatment,
             "treatment_rest_today": self.treatment_rest_today,
+            "closing_needs_pump_notified": self.closing_needs_pump_notified,
             "after_shock_since": _iso(self.after_shock_since),
         }
 
@@ -2595,6 +2600,25 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             if probe is not None and not self._outside("free_chlorine", probe):
                 self.after_shock_since = None
 
+    async def _async_closing_needs_pump(self) -> None:
+        """Raised while it holds; notified only the first time, not after
+        every restart (alerts are not kept across one)."""
+        if not self._closing_needs_pump():
+            await self._async_clear("closing_needs_pump")
+            if self.closing_needs_pump_notified:
+                self.closing_needs_pump_notified = False
+                self._save()
+            return
+        await self._async_raise(
+            "closing_needs_pump",
+            Severity.WARNING,
+            {},
+            notify=not self.closing_needs_pump_notified,
+        )
+        if not self.closing_needs_pump_notified:
+            self.closing_needs_pump_notified = True
+            self._save()
+
     async def _async_vacuuming_reminder(self) -> None:
         """Vacuuming never ends by itself: remind the owner 3 h into it, then
         once a day. The time of the last reminder is kept with the treatment,
@@ -2628,7 +2652,7 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         )
         await self._async_freeze_alert()
         await self._async_treatment_alerts()
-        await self._async_set("closing_needs_pump", self._closing_needs_pump(), Severity.WARNING)
+        await self._async_closing_needs_pump()
         ph = self.ph
         await self._async_set(
             "ph_out_of_range",
