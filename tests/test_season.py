@@ -73,6 +73,11 @@ def test_proposal_edges() -> None:
     # Already wintering: nothing to propose until the opening window.
     assert season_proposal(date(2026, 10, 15), SUMMER, "winter_passive") is None
     assert season_proposal(date(2027, 5, 31), SUMMER, "winter_passive") == "opening"
+    # Still wintering once the season has started: opening is still proposed,
+    # until the run ends.
+    assert season_proposal(date(2027, 6, 1), SUMMER, "winter_active") == "opening"
+    assert season_proposal(date(2027, 9, 30), SUMMER, "winter_active") == "opening"
+    assert season_proposal(date(2027, 10, 1), SUMMER, "winter_active") is None
     # Opening is its own state: nothing comes from the calendar.
     assert season_proposal(date(2026, 9, 30), SUMMER, "opening") is None
     # A run across the new year, south of the equator.
@@ -150,6 +155,37 @@ async def test_upgrade_from_014_store_in_season_with_cell_off(
     assert len([c for c in calls if "season state" in c.data["message"]]) == 1
 
 
+async def test_the_upgrade_reminder_waits_for_home_assistant_to_run(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory, hass_storage
+) -> None:
+    from homeassistant.core import CoreState
+
+    freezer.move_to(local(2026, 7, 15, 12, 0))
+    hass_storage[f"{DOMAIN}.upg"] = {
+        "version": 1, "key": f"{DOMAIN}.upg",
+        "data": {"day": "2026-07-15", "settings": {"chlorinator_enabled": False}},
+    }
+    SwitchRouter(hass)
+    calls = await _notified(hass)
+    await setup_helpers(hass)
+    hass.set_state(CoreState.starting)
+    entry = MockConfigEntry(
+        domain=DOMAIN, title="Pool", data={**BASE, **NOTIFY}, version=1, entry_id="upg"
+    )
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    # Loaded and evaluated while starting: queued, not sent.
+    assert not [c for c in calls if "season state" in c.data["message"]]
+    assert any(
+        "season state" in r["message"] for r in entry.runtime_data.pending_reminders
+    )
+    hass.set_state(CoreState.running)
+    await tick(hass, freezer, 1)  # the first evaluation with it running
+    assert len([c for c in calls if "season state" in c.data["message"]]) == 1
+    assert not entry.runtime_data.pending_reminders
+
+
 async def test_a_new_install_is_not_told_about_the_season_state(
     hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
 ) -> None:
@@ -224,6 +260,26 @@ async def test_opening_is_proposed_before_the_season(
     await set_season(hass, entry, "opening")
     assert entry.runtime_data.season_proposal is None
     assert entry.runtime_data.chlorinator_enabled == enabled
+
+
+async def test_an_unconfirmed_opening_keeps_reminding_into_the_season(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
+) -> None:
+    freezer.move_to(local(2027, 5, 31, 12, 0))
+    SwitchRouter(hass)
+    events = []
+    hass.bus.async_listen("homepool_season_proposal", events.append)
+    entry = await setup_pool(hass)
+    coordinator = entry.runtime_data
+    assert coordinator.season_state == "winter_active"
+    await next_day(hass, freezer)  # the season's first day
+    assert [e.data["to"] for e in events] == ["opening"]
+    assert coordinator.season_proposal_shown == "opening"
+    await next_day(hass, freezer, 6)
+    assert len(events) == 1
+    await next_day(hass, freezer)  # a week later
+    assert [e.data["to"] for e in events] == ["opening", "opening"]
+    assert coordinator.season_state == "winter_active"
 
 
 async def test_no_proposals_without_auto_toggle(

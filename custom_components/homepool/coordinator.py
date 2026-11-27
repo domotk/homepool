@@ -36,7 +36,14 @@ from homeassistant.const import (
     STATE_UNKNOWN,
     UnitOfPower,
 )
-from homeassistant.core import Context, Event, EventStateChangedData, HomeAssistant, callback
+from homeassistant.core import (
+    Context,
+    CoreState,
+    Event,
+    EventStateChangedData,
+    HomeAssistant,
+    callback,
+)
 from homeassistant.helpers.event import async_call_later, async_track_state_change_event
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
@@ -528,15 +535,19 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             )
             self.settings["season_state"] = first.value
             if data:
+                # Queued, not sent: at load the notify service may not exist
+                # yet. The first evaluation with Home Assistant running sends it.
                 language = self.hass.config.language
-                await self._async_remind(
-                    text(language, "title") + f" · {self.pool_name}",
-                    text(
-                        language,
-                        "season_state_introduced",
-                        pool=self.pool_name,
-                        state=text(language, f"season_{first.value}"),
-                    ),
+                self.pending_reminders.append(
+                    {
+                        "title": text(language, "title") + f" · {self.pool_name}",
+                        "message": text(
+                            language,
+                            "season_state_introduced",
+                            pool=self.pool_name,
+                            state=text(language, f"season_{first.value}"),
+                        ),
+                    }
                 )
 
     def _configure_notifier(self) -> None:
@@ -1245,7 +1256,9 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.hass.bus.async_fire(
             event, {"entry_id": self.entry.entry_id, "pool": self.pool_name, "message": message}
         )
-        await self._async_remind(text(self.hass.config.language, "title"), message)
+        if not self.conf.get(CONF_CHLORINATOR_AUTO_TOGGLE, True):
+            # With proposals on, the season proposal's reminder replaces this one.
+            await self._async_remind(text(self.hass.config.language, "title"), message)
 
     async def _async_season_proposal(self, now: datetime) -> None:
         """Propose the season change the calendar calls for, and bring it up
@@ -1977,6 +1990,9 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             return
         if not self.notifier or not self.notifier.service:
             self.pending_reminders = []
+            return
+        if self.hass.state is not CoreState.running:
+            # Still starting: the notify service may not be registered yet.
             return
         local = dt_util.as_local(now)
         if self.notifier.quiet(local):

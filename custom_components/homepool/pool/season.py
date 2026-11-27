@@ -53,9 +53,10 @@ def season_proposal(today: date, swimming_months: list[int], state: str) -> str 
 
     ``"winter"`` while swimming on the last day of a run of months, or on any
     day after it that is out of season, except in the fourteen days before the
-    next run (a pool opened early); ``"opening"`` while wintering, in those
-    fourteen days. A calendar of no months or of all twelve never changes, so
-    it proposes nothing.
+    next run (a pool opened early); ``"opening"`` while wintering, from those
+    fourteen days until the run ends, so a missed reminder does not leave a
+    pool wintering all summer. A calendar of no months or of all twelve never
+    changes, so it proposes nothing.
     """
     months = {int(m) for m in swimming_months if 1 <= int(m) <= 12}
     if not months or len(months) == 12:
@@ -68,7 +69,7 @@ def season_proposal(today: date, swimming_months: list[int], state: str) -> str 
         last_day = today.day == monthrange(today.year, today.month)[1]
         return "winter" if last_of_run and last_day else None
     if state in WINTER_STATES:
-        return "opening" if lead_in else None
+        return "opening" if lead_in or today.month in months else None
     return None
 
 

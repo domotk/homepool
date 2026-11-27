@@ -14,6 +14,8 @@ from freezegun.api import FrozenDateTimeFactory
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.util import dt as dt_util
 
+from custom_components.homepool.texts import text
+
 from .helpers import PUMP, SwitchRouter, setup_pool
 from .test_control import local, madrid, set_mode, state, tick  # noqa: F401
 
@@ -179,11 +181,15 @@ async def test_the_season_change_reaches_the_phone_after_the_quiet_hours(
     hass.bus.async_listen("homepool_chlorinator_season_end", events.append)
     await setup_pool(hass, **NOTIFY)
     await tick(hass, freezer, 4 * 60)  # past midnight, inside the quiet hours
+    # The event is still fired, as before.
     assert len(events) == 1
-    assert events[0].data["message"] not in [c.data["message"] for c in calls]
+    proposal = text("en", "season_proposal_winter", pool="Pool")
+    assert proposal not in [c.data["message"] for c in calls]
     await tick(hass, freezer, 7 * 60)  # 08:00 passed
     messages = [c.data["message"] for c in calls]
-    assert events[0].data["message"] in messages
+    # With proposals on, the season proposal's reminder replaces the old one.
+    assert proposal in messages
+    assert events[0].data["message"] not in messages
 
 
 async def test_a_task_falling_due_is_notified_with_the_default_threshold(
