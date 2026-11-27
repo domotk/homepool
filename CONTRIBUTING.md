@@ -45,12 +45,18 @@ your configuration's `custom_components/` and restart. Read
   coding agent, it reads that file; you should too.
 - [docs/design-v1.md](docs/design-v1.md) (Spanish) has the reasoning behind
   the algorithm and a section per release on what changed and why.
+- `docs/superpowers/specs/` and `docs/superpowers/plans/` hold the design and
+  the step-by-step plan of larger releases (0.2 so far), written before the
+  code. Read the spec to learn why a 0.2 feature works the way it does. A
+  large new feature gets its own spec there, agreed in an issue first.
 
 ## Making a change
 
 1. Branch from `main`.
 2. Make the change with tests. Pure logic (`pool/`, `modes/`) gets unit tests;
-   anything that moves the pump gets a test in `tests/test_control.py`.
+   anything that moves the pump gets a test in `tests/test_control.py`, and a
+   new service gets a test that a read-only user is refused
+   (`tests/test_services.py`).
 3. If you changed interface text, run `python scripts/generate_strings.py` and
    commit its output.
 4. `python -m pytest -q` passes.
@@ -61,6 +67,9 @@ your configuration's `custom_components/` and restart. Read
 
 CI runs the tests on Python 3.13 and 3.14, hassfest and the HACS checks.
 All must pass.
+
+If you find a security problem, do not open an issue: follow
+[SECURITY.md](SECURITY.md).
 
 Changes that need the card to follow (a new attribute it should show, a
 renamed state) get a matching pull request in

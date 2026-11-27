@@ -180,6 +180,24 @@ With a power sensor and a nominal power, a pump drawing far from nominal while
 on (above 1.5× or below 0.3×) for `ANOMALY_MINUTES` is a safety shutoff
 (`pump_power_anomaly`).
 
+## Services and who may call them
+
+The `homepool.*` services are registered once in `__init__.py`, however many
+pools there are. Each handler finds its pools through `_pools(call)`, which also
+checks who is calling:
+
+- A call with no user (an automation, a script) passes.
+- An administrator passes.
+- Any other user needs `POLICY_CONTROL` on every HomePool entity the call
+  targets, the same permission an entity's own services need. Otherwise
+  `_pools` raises `Unauthorized`; an unknown user raises `UnknownUser`.
+
+These services move the pump or change what it will do, so this check is the
+only thing between a read-only user and the pool. A new service must find its
+pools through `_pools`, never by reading `entry.runtime_data` itself. Values a
+person types are checked before they are stored: numbers must be finite, and
+notes are capped at 500 characters.
+
 ## Season, tasks and treatments (0.2)
 
 Pure modules in `pool/`, driven by the coordinator:

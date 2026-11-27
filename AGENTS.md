@@ -77,6 +77,18 @@ locally without Docker, so read its output on the pull request.
   `texts.REASONS` in *both* languages. `reason_key` is recorded in history;
   `reason` is not. Never rename a key: history and automations use them.
 
+**Security**
+
+- **Every service finds its pools through `_pools(call)`** in `__init__.py`.
+  It checks that the calling user may control the targeted pool entities
+  (admins and automations pass). A service that reads `entry.runtime_data`
+  itself skips that check and lets a read-only user drive the pump. See
+  [docs/architecture.md](docs/architecture.md#services-and-who-may-call-them).
+- **Distrust what comes in.** A sensor may report `NaN`, `inf` or text: read
+  numbers through `_number` (`runtime/readings.py`), which treats those as
+  unavailable. Cap any free text a person can store.
+- Vulnerabilities are reported privately: see [SECURITY.md](SECURITY.md).
+
 **Compatibility**
 
 - **Entity unique ids are `<entry_id>_<key>`.** Renaming a key orphans the
@@ -121,7 +133,10 @@ locally without Docker, so read its output on the pull request.
   relays confirm late and under a fresh context; say so when a test can only
   cover the instant case.
 - A service call that carries a `user_id` needs a real user
-  (`await hass.auth.async_create_user(...)`).
+  (`await hass.auth.async_create_user(...)`). Home Assistant makes the first
+  user created the owner, an admin, so a test of a non-admin creates another
+  user first (see `_user` in `test_services.py`). A new service gets a test
+  that a read-only user is refused.
 - Entity ids follow Home Assistant's language at creation. To test Spanish
   text, set `hass.config.language` *after* `setup_pool`.
 - Pure calculators have their own tests (`test_filtration_calculator.py`,
