@@ -238,6 +238,13 @@ class SeasonMixin:
                 return True
         return False
 
+    def _step_text_key(self, d: StepDef) -> str:
+        """A filter step reads as the pool's own filter job: a cartridge is
+        cleaned, not backwashed. The step id stays the same, as it is stored."""
+        if d.completes_task in FILTER_TASKS and task_applies("filter_cleaning", self.conf):
+            return d.text_key + "_cartridge"
+        return d.text_key
+
     def checklist_view(self) -> dict[str, list[dict[str, Any]]]:
         """The open lists, with their texts in Home Assistant's language."""
         language = self.hass.config.language
@@ -250,7 +257,7 @@ class SeasonMixin:
                 d = step_def(list_id, step["id"], checklist.get("treatment"))
                 item = {
                     "id": step["id"],
-                    "text": text(language, d.text_key) if d else step["id"],
+                    "text": text(language, self._step_text_key(d)) if d else step["id"],
                     "done": step["done"] is not None,
                     "done_at": step["done"],
                     # The card offers to start this treatment from the step.

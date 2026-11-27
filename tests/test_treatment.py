@@ -854,3 +854,33 @@ async def test_a_ph_window_asked_before_a_treatment_does_not_outlive_it(
     await advance(hass, freezer, 2, step=1)
     assert coordinator.ph_window_until is None
     assert state(hass, PUMP_SWITCH) == "off"
+
+
+async def test_a_reload_puts_the_vacuuming_alert_back_without_raising_it_again(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
+) -> None:
+    """The alert is back after a reload, but it is not a new one: no event (issue 14)."""
+    freezer.move_to(local(2026, 7, 15, 10, 0))
+    SwitchRouter(hass)
+    events = []
+    hass.bus.async_listen(
+        "homepool_alert",
+        lambda e: events.append(e) if e.data["type"] == "treatment_vacuuming" else None,
+    )
+    entry = await setup_pool(hass)
+    await set_mode(hass, "off")
+    await _to_vacuuming(hass, freezer, entry)
+    await advance(hass, freezer, 3 * 60 + 5)
+    await hass.async_block_till_done()
+    assert len(events) == 1
+
+    await hass.config_entries.async_reload(entry.entry_id)
+    await hass.async_block_till_done()
+    await advance(hass, freezer, 5, step=1)
+    await hass.async_block_till_done()
+    assert "treatment_vacuuming" in entry.runtime_data.alerts
+    assert len(events) == 1
+    # A day on, it is raised and notified again, as before.
+    await advance(hass, freezer, 24 * 60)
+    await hass.async_block_till_done()
+    assert len(events) == 2

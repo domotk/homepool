@@ -193,8 +193,10 @@ class TreatmentMixin:
             self._save()
             # Raised anew: the event and the notification go out again.
             await self._async_clear("treatment_vacuuming")
+        # Not due, it was raised before: after a reload it is only put back,
+        # with no event and no notification.
         await self._async_raise(
-            "treatment_vacuuming", Severity.WARNING, {}, reminder=True, notify=due
+            "treatment_vacuuming", Severity.WARNING, {}, reminder=True, notify=due, event=due
         )
 
     def _require_treatment(self) -> None:
