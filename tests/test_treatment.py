@@ -544,8 +544,10 @@ async def test_the_end_drops_a_cycle_asked_for_during_the_treatment(
     entry = await setup_pool(hass)
     await set_mode(hass, "off")
     await _to_settling(hass, freezer, entry)
-    await entry.runtime_data.async_start_cycle(600)  # below the treatment: waits
-    assert state(hass, PUMP_SWITCH) == "off"
+    # Left from before the treatment (asking for one now is refused).
+    entry.runtime_data.cycle_until = dt_util.utcnow() + timedelta(minutes=600)
+    await advance(hass, freezer, 1, step=1)
+    assert state(hass, PUMP_SWITCH) == "off"  # below the treatment: waits
     await press(hass, entry, "end_treatment")
     await advance(hass, freezer, 2, step=1)
     assert entry.runtime_data.cycle_until is None
@@ -697,3 +699,42 @@ async def test_a_day_spent_settling_or_vacuuming_misses_no_target(
     await advance(hass, freezer, 24 * 60)
     assert coordinator.history[-1]["day"] == "2026-07-18"
     assert len(missed) == 1
+
+
+@pytest.mark.parametrize("kind", ["shock", "flocculant"])
+async def test_homepool_pump_controls_are_refused_in_every_treatment_phase(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory, kind: str
+) -> None:
+    """M6: the treatment decides the pump in all its phases, not only vacuuming."""
+    freezer.move_to(local(2026, 7, 15, 10, 0))
+    SwitchRouter(hass)
+    entry = await setup_pool(hass)
+    await set_mode(hass, "off")
+    coordinator = entry.runtime_data
+
+    async def refused(phase: str) -> None:
+        assert treatment_state(hass, entry).attributes["phase"] == phase
+        for domain, service, data in (
+            ("switch", "turn_on", {"entity_id": entity(entry, "pump")}),
+            ("switch", "turn_off", {"entity_id": entity(entry, "pump")}),
+            ("homepool", "start_cycle", {"entity_id": entity(entry, "overall_status")}),
+            ("homepool", "stop_cycle", {"entity_id": entity(entry, "overall_status")}),
+        ):
+            with pytest.raises(HomeAssistantError) as err:
+                await hass.services.async_call(domain, service, data, blocking=True)
+            assert err.value.translation_key == "pump_in_treatment"
+        assert coordinator.cycle_until is None and coordinator.override is None
+
+    await start(hass, entry, kind)
+    if kind == "shock":
+        await refused("filtering")
+    else:
+        await refused("mixing")
+        await advance(hass, freezer, 121)
+        await refused("settling")
+    # Over, they work again.
+    await press(hass, entry, "end_treatment")
+    await hass.services.async_call(
+        "homepool", "start_cycle", {"entity_id": entity(entry, "overall_status")}, blocking=True
+    )
+    assert coordinator.cycle_until is not None

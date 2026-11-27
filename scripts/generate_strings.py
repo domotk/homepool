@@ -517,6 +517,7 @@ exceptions = {"invalid_reading": T("{value} is not a possible {kind} reading.", 
   "cycle_in_winter_passive": T("The pump does not start in passive wintering. Change the season state first.", "La bomba no arranca en el invernaje pasivo. Cambia antes el estado de temporada."),
   "treatment_not_allowed": T("{pool} cannot start a treatment now: it is in passive wintering, or another treatment is running.", "{pool} no puede empezar un tratamiento ahora: está en invernaje pasivo o ya hay otro en marcha."),
   "pump_in_owner_hands": T("{pool} is vacuuming: the pump is yours to run at its own switch. Press \"vacuuming done\" first to hand it back to HomePool.", "{pool} está aspirando: la bomba la manejas tú con su propio interruptor. Pulsa antes «aspirado terminado» para devolvérsela a HomePool."),
+  "pump_in_treatment": T("{pool} is running a water treatment, which decides the pump until it ends. Press \"End the treatment\" first to hand the pump back.", "{pool} está con un tratamiento del agua, que decide la bomba hasta que termina. Pulsa antes «Terminar el tratamiento» para recuperarla."),
   "no_treatment": T("{pool} has no treatment running.", "{pool} no tiene ningún tratamiento en marcha.")}
 
 def build(i):

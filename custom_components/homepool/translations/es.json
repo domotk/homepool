@@ -1388,6 +1388,9 @@
     "pump_in_owner_hands": {
       "message": "{pool} está aspirando: la bomba la manejas tú con su propio interruptor. Pulsa antes «aspirado terminado» para devolvérsela a HomePool."
     },
+    "pump_in_treatment": {
+      "message": "{pool} está con un tratamiento del agua, que decide la bomba hasta que termina. Pulsa antes «Terminar el tratamiento» para recuperarla."
+    },
     "no_treatment": {
       "message": "{pool} no tiene ningún tratamiento en marcha."
     }

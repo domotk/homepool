@@ -1388,6 +1388,9 @@
     "pump_in_owner_hands": {
       "message": "{pool} is vacuuming: the pump is yours to run at its own switch. Press \"vacuuming done\" first to hand it back to HomePool."
     },
+    "pump_in_treatment": {
+      "message": "{pool} is running a water treatment, which decides the pump until it ends. Press \"End the treatment\" first to hand the pump back."
+    },
     "no_treatment": {
       "message": "{pool} has no treatment running."
     }

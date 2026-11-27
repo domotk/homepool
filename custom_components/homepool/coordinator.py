@@ -2936,23 +2936,28 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         except Exception:  # noqa: BLE001
             _LOGGER.warning("%s: could not set production on %s", self.pool_name, entity_id)
 
-    def _refuse_while_vacuuming(self) -> None:
-        """While vacuuming the pump is the owner's, at its own switch: a cycle
-        or a hold asked of HomePool would outlive the treatment and act on
-        its own afterwards, perhaps with the valve still on waste."""
-        if self.treatment_phase == Phase.VACUUMING:
-            raise ServiceValidationError(
-                translation_domain=DOMAIN,
-                translation_key="pump_in_owner_hands",
-                translation_placeholders={"pool": self.pool_name},
-            )
+    def _refuse_during_treatment(self) -> None:
+        """While a treatment runs it decides the pump, in every phase: a cycle
+        or a hold asked of HomePool would wait below it, then outlive it and
+        act on its own afterwards. While vacuuming the pump is the owner's,
+        at its own switch, perhaps with the valve still on waste."""
+        phase = self.treatment_phase
+        if phase is None:
+            return
+        raise ServiceValidationError(
+            translation_domain=DOMAIN,
+            translation_key=(
+                "pump_in_owner_hands" if phase == Phase.VACUUMING else "pump_in_treatment"
+            ),
+            translation_placeholders={"pool": self.pool_name},
+        )
 
     async def async_start_cycle(self, minutes: float | None = None) -> None:
         if self.winter_passive:
             raise ServiceValidationError(
                 translation_domain=DOMAIN, translation_key="cycle_in_winter_passive"
             )
-        self._refuse_while_vacuuming()
+        self._refuse_during_treatment()
         duration = minutes or self.cycle_duration or 60
         self.cycle_until = dt_util.utcnow() + timedelta(minutes=float(duration))
         self.override = None
@@ -3036,7 +3041,7 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     async def async_stop_cycle(self) -> None:
         """Stop a manual cycle, and stop the pump now if nothing else needs it."""
-        self._refuse_while_vacuuming()
+        self._refuse_during_treatment()
         self.cycle_until = None
         until = dt_util.utcnow() + timedelta(
             minutes=float(self.opt(CONF_MANUAL_OVERRIDE_MINUTES, DEFAULT_MANUAL_OVERRIDE_MINUTES))
