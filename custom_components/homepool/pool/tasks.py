@@ -20,6 +20,7 @@ from ..const import (
     CONF_HAS_PH_PROBE_OUTSIDE,
     CONF_PH_CALIBRATION_INTERVAL_DAYS,
     CONF_PH_SENSOR,
+    CONF_WINTER_PRODUCT_TYPE,
     DEFAULT_BACKWASH_INTERVAL_DAYS,
     DEFAULT_PH_CALIBRATION_INTERVAL_DAYS,
     FilterType,
@@ -96,7 +97,7 @@ def task_applies(key: str, conf: Mapping[str, Any]) -> bool:
         "backwash": filter_bed,
         "filter_cleaning": not filter_bed,
         "ph_calibration": bool(conf.get(CONF_PH_SENSOR) or conf.get(CONF_HAS_PH_PROBE_OUTSIDE)),
-        "winter_product": _set(conf, "winter_product_type", "none") != "none",
+        "winter_product": _set(conf, CONF_WINTER_PRODUCT_TYPE, "none") != "none",
         "cell_cleaning": conf.get(CONF_CHLORINATION_TYPE) == "salt",
         "filter_media_check": filter_type in (FilterType.SAND, FilterType.GLASS),
     }.get(key, True)

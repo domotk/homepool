@@ -100,9 +100,11 @@
           "ph_calibration_interval_days": "Calibrate the pH probe every",
           "free_chlorine_target": "Free chlorine target",
           "free_chlorine_range_min": "Free chlorine, lowest",
-          "free_chlorine_range_max": "Free chlorine, highest"
+          "free_chlorine_range_max": "Free chlorine, highest",
+          "swimming_months": "Months the pool is used"
         },
         "data_description": {
+          "swimming_months": "HomePool proposes wintering when they end and opening two weeks before they start.",
           "has_ph_dosing": "When the pH is too high, the pump is run for a while so the doser can work."
         }
       },
@@ -121,14 +123,14 @@
           "chlorinator_self_regulating": "Regulates itself (ORP or chlorine probe)",
           "chlorinator_controllable": "Its production can be set from Home Assistant",
           "chlorinator_active_months": "Months it is used",
-          "chlorinator_auto_toggle": "Switch it on and off with the calendar",
+          "chlorinator_auto_toggle": "Propose the season change from the calendar",
           "chlorinator_min_water_temp": "Coldest water it may run in",
           "salt_target": "Salt target",
           "salt_range_min": "Salt, lowest",
           "salt_range_max": "Salt, highest"
         },
         "data_description": {
-          "chlorinator_auto_toggle": "Otherwise HomePool only tells you when the season starts and ends."
+          "chlorinator_auto_toggle": "When the swimming months end or are about to start, HomePool proposes changing the season state; you confirm it. Otherwise you change it yourself."
         }
       },
       "connections": {
@@ -382,9 +384,11 @@
           "ph_calibration_interval_days": "Calibrate the pH probe every",
           "free_chlorine_target": "Free chlorine target",
           "free_chlorine_range_min": "Free chlorine, lowest",
-          "free_chlorine_range_max": "Free chlorine, highest"
+          "free_chlorine_range_max": "Free chlorine, highest",
+          "swimming_months": "Months the pool is used"
         },
         "data_description": {
+          "swimming_months": "HomePool proposes wintering when they end and opening two weeks before they start.",
           "has_ph_dosing": "When the pH is too high, the pump is run for a while so the doser can work."
         }
       },
@@ -403,14 +407,14 @@
           "chlorinator_self_regulating": "Regulates itself (ORP or chlorine probe)",
           "chlorinator_controllable": "Its production can be set from Home Assistant",
           "chlorinator_active_months": "Months it is used",
-          "chlorinator_auto_toggle": "Switch it on and off with the calendar",
+          "chlorinator_auto_toggle": "Propose the season change from the calendar",
           "chlorinator_min_water_temp": "Coldest water it may run in",
           "salt_target": "Salt target",
           "salt_range_min": "Salt, lowest",
           "salt_range_max": "Salt, highest"
         },
         "data_description": {
-          "chlorinator_auto_toggle": "Otherwise HomePool only tells you when the season starts and ends."
+          "chlorinator_auto_toggle": "When the swimming months end or are about to start, HomePool proposes changing the season state; you confirm it. Otherwise you change it yourself."
         }
       },
       "connections": {
@@ -730,6 +734,14 @@
         "filter_media_check": "Filter media check"
       }
     },
+    "season_state": {
+      "options": {
+        "swimming": "Swimming",
+        "winter_active": "Active wintering",
+        "winter_passive": "Passive wintering",
+        "opening": "Opening"
+      }
+    },
     "severity": {
       "options": {
         "info": "Information",
@@ -835,7 +847,8 @@
           "manual_cycle": "Manual cycle",
           "manual_override": "Switched by hand",
           "mode": "Operation mode",
-          "unavailable": "Pump unavailable"
+          "unavailable": "Pump unavailable",
+          "winter_passive": "Passive wintering"
         }
       },
       "chlorine_production_elapsed_today": {
@@ -852,7 +865,8 @@
         "state": {
           "salt": "Salt",
           "tablets": "Tablets",
-          "off": "Off"
+          "off": "Off",
+          "winter_product": "Winter product"
         }
       },
       "days_since_last_backwash": {
@@ -968,6 +982,15 @@
           "smart": "Smart",
           "solar": "Solar",
           "smart_solar": "Smart + solar"
+        }
+      },
+      "season_state": {
+        "name": "Season state",
+        "state": {
+          "swimming": "Swimming",
+          "winter_active": "Active wintering",
+          "winter_passive": "Passive wintering",
+          "opening": "Opening"
         }
       }
     },
@@ -1101,6 +1124,21 @@
         }
       }
     },
+    "set_season_state": {
+      "name": "Set season state",
+      "description": "Confirms the pool's season state. Wintering turns the chlorinator off and swimming turns it on; passive wintering keeps the pump off.",
+      "fields": {
+        "state": {
+          "name": "State",
+          "description": "The season state to set."
+        }
+      }
+    },
+    "dismiss_season_proposal": {
+      "name": "Dismiss season proposal",
+      "description": "Stops reminding about the season change the calendar proposed, until it proposes another.",
+      "fields": {}
+    },
     "reset_daily_counters": {
       "name": "Reset today's counters",
       "description": "Starts today's filtration count from zero.",
@@ -1113,6 +1151,9 @@
     },
     "date_in_future": {
       "message": "That date has not happened yet."
+    },
+    "task_not_in_pool": {
+      "message": "{pool} has no {task} task."
     }
   }
 }

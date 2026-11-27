@@ -21,23 +21,27 @@ from .const import (
     ATTR_DATE,
     ATTR_DURATION,
     ATTR_NOTES,
+    ATTR_STATE,
     ATTR_TASK,
     ATTR_VALUE,
     CONFIG_VERSION,
     DOMAIN,
     PLATFORMS,
     SERVICE_COMPLETE_TASK,
+    SERVICE_DISMISS_SEASON_PROPOSAL,
     SERVICE_FORCE_PH_WINDOW,
     SERVICE_RECALCULATE,
     SERVICE_RECORD_FREE_CHLORINE,
     SERVICE_RECORD_MANUAL_ACTION,
     SERVICE_RECORD_SALT_LEVEL,
     SERVICE_RESET_DAILY,
+    SERVICE_SET_SEASON_STATE,
     SERVICE_START_CYCLE,
     SERVICE_STOP_CYCLE,
     ManualAction,
 )
 from .coordinator import PoolCoordinator
+from .pool.season import SeasonState
 from .pool.tasks import TASKS_BY_KEY
 
 _LOGGER = logging.getLogger(__name__)
@@ -59,6 +63,9 @@ ACTION_SCHEMA = cv.make_entity_service_schema(
 )
 TASK_SCHEMA = cv.make_entity_service_schema(
     {vol.Required(ATTR_TASK): vol.In(list(TASKS_BY_KEY)), vol.Optional(ATTR_DATE): cv.date}
+)
+SEASON_SCHEMA = cv.make_entity_service_schema(
+    {vol.Required(ATTR_STATE): vol.In([s.value for s in SeasonState])}
 )
 SALT_SCHEMA = cv.make_entity_service_schema(
     {vol.Required(ATTR_VALUE): vol.All(vol.Coerce(float), vol.Range(min=0, max=15))}
@@ -108,6 +115,8 @@ async def async_unload_entry(hass: HomeAssistant, entry: HomePoolConfigEntry) ->
             SERVICE_RECALCULATE,
             SERVICE_FORCE_PH_WINDOW,
             SERVICE_RESET_DAILY,
+            SERVICE_SET_SEASON_STATE,
+            SERVICE_DISMISS_SEASON_PROPOSAL,
         ):
             hass.services.async_remove(DOMAIN, service)
     return unloaded
@@ -181,8 +190,26 @@ def _async_register_services(hass: HomeAssistant) -> None:
             raise ServiceValidationError(
                 translation_domain=DOMAIN, translation_key="date_in_future"
             )
+        task = call.data[ATTR_TASK]
+        pools = await _pools(call)
+        # Every pool first, so a call that one of them refuses changes none.
+        for pool in pools:
+            if not pool.has_task(task):
+                raise ServiceValidationError(
+                    translation_domain=DOMAIN,
+                    translation_key="task_not_in_pool",
+                    translation_placeholders={"task": task, "pool": pool.pool_name},
+                )
+        for pool in pools:
+            await pool.async_complete_task(task, when)
+
+    async def _set_season_state(call: ServiceCall) -> None:
         for pool in await _pools(call):
-            await pool.async_complete_task(call.data[ATTR_TASK], when)
+            await pool.async_set_season_state(call.data[ATTR_STATE])
+
+    async def _dismiss_season_proposal(call: ServiceCall) -> None:
+        for pool in await _pools(call):
+            await pool.async_dismiss_season_proposal()
 
     async def _record_salt(call: ServiceCall) -> None:
         for pool in await _pools(call):
@@ -214,6 +241,8 @@ def _async_register_services(hass: HomeAssistant) -> None:
         SERVICE_RECALCULATE: (_recalculate, EMPTY_SCHEMA),
         SERVICE_FORCE_PH_WINDOW: (_ph_window, DURATION_SCHEMA),
         SERVICE_RESET_DAILY: (_reset, EMPTY_SCHEMA),
+        SERVICE_SET_SEASON_STATE: (_set_season_state, SEASON_SCHEMA),
+        SERVICE_DISMISS_SEASON_PROPOSAL: (_dismiss_season_proposal, EMPTY_SCHEMA),
     }
     for name, (handler, schema) in handlers.items():
         hass.services.async_register(DOMAIN, name, handler, schema=schema)

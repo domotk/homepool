@@ -105,11 +105,13 @@ from .const import (
     CONF_SOLAR_EXCESS_SENSOR,
     CONF_SOLAR_EXCESS_SIGN,
     CONF_SOLAR_IMPORT_TOLERANCE,
+    CONF_SWIMMING_MONTHS,
     CONF_TIMER_SLOTS,
     CONF_UV_SENSOR,
     CONF_VOLUME,
     CONF_WATER_TEMPERATURE_SENSOR,
     CONF_WEATHER_ENTITY,
+    CONF_WINTER_PRODUCT_TYPE,
     DEFAULT_CHLORINATOR_MIN_WATER_TEMP,
     DEFAULT_CHLORINATOR_PRODUCTION_PCT,
     DEFAULT_EQUIPMENT_ROOM_MAX_TEMP,
@@ -135,6 +137,8 @@ from .const import (
     EVENT_CHLORINATOR_SEASON_START,
     EVENT_MANUAL_ACTION_DUE,
     EVENT_SAFETY_SHUTOFF,
+    EVENT_SEASON_PROPOSAL,
+    EVENT_SEASON_STATE_CHANGED,
     EVENT_TARGET_RECALCULATED,
     HISTORY_DAYS,
     MIN_OFF_MINUTES,
@@ -162,6 +166,13 @@ from .pool.chlorine_calculator import (
 from .pool.filtration_calculator import FiltrationInputs, calculate_filtration_target
 from .pool.geometry import calculate_cycle_duration_minutes
 from .pool.safety import evaluate_safety
+from .pool.season import (
+    WINTER_STATES,
+    SeasonState,
+    default_swimming_months,
+    initial_state,
+    season_proposal,
+)
 from .pool.scheduler import (
     ChlorinatorInputs,
     ControlInputs,
@@ -253,6 +264,11 @@ EVENT_SCRIPT_STARTED = "script_started"
 # Automation and script runs remembered to attribute pump changes.
 RUNNER_CONTEXTS_KEPT = 300
 REMINDERS_KEPT = 20
+# An unconfirmed season proposal is brought up again after this many days.
+PROPOSAL_REMIND_DAYS = 7
+# The proposals that come from the calendar; any other is not the calendar's
+# to withdraw.
+CALENDAR_PROPOSALS = ("winter", "opening")
 # Rungs above freeze protection: with one of them deciding, the pump is not
 # kept running however cold the water is.
 FREEZE_BLOCKERS = ("unavailable", "hands_off", "maintenance_lock", "safety")
@@ -333,6 +349,9 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.due_notified: dict[str, str] = {}
         # Reminders held back by the quiet hours, sent when they end.
         self.pending_reminders: list[dict[str, str]] = []
+        # A season change the calendar proposes and the owner has not
+        # confirmed: {"to", "since", "reminded", "dismissed_for"}.
+        self.season_proposal: dict[str, Any] | None = None
         # The probe's last distinct pH reading and when it was first seen.
         self._ph_seen: tuple[float, datetime] | None = None
         self._closed_days: list[dict[str, Any]] = []
@@ -397,6 +416,15 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     def active_months(self) -> list[int]:
         months = self.conf.get(CONF_CHLORINATOR_ACTIVE_MONTHS) or []
         return sorted(int(m) for m in months)
+
+    @property
+    def swimming_months(self) -> list[int]:
+        """The months the pool is used: what season proposals follow."""
+        months = self.conf.get(CONF_SWIMMING_MONTHS)
+        if months:
+            return sorted(int(m) for m in months)
+        latitude = float(self.opt(CONF_LATITUDE, self.hass.config.latitude) or 0)
+        return default_swimming_months(self.active_months, self.is_salt, latitude)
 
     # Settings changed from entities: stored, not in the config entry, so that
     # moving a slider does not reload the whole integration.
@@ -474,6 +502,7 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.started_by = data.get("started_by")
         self.due_notified = data.get("due_notified") or {}
         self.pending_reminders = data.get("pending_reminders") or []
+        self.season_proposal = data.get("season_proposal")
         if self.in_season_last is None and self.is_salt:
             # Known from the first day, so the first season change after
             # installing is not missed (it used to be set at the first midnight).
@@ -490,6 +519,25 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if self.day > today:
             self.day = today
         self._configure_notifier()
+
+        if "season_state" not in self.settings:
+            # 0.1 had no season state: deduce it, and say so once. A new
+            # install has nothing to be told about.
+            first = initial_state(
+                today.month in self.swimming_months, self.is_salt, self.chlorinator_enabled
+            )
+            self.settings["season_state"] = first.value
+            if data:
+                language = self.hass.config.language
+                await self._async_remind(
+                    text(language, "title") + f" · {self.pool_name}",
+                    text(
+                        language,
+                        "season_state_introduced",
+                        pool=self.pool_name,
+                        state=text(language, f"season_{first.value}"),
+                    ),
+                )
 
     def _configure_notifier(self) -> None:
         if not self.conf.get(CONF_ENABLE_BUILTIN_NOTIFICATIONS):
@@ -603,6 +651,7 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "started_by": self.started_by,
             "due_notified": self.due_notified,
             "pending_reminders": self.pending_reminders,
+            "season_proposal": self.season_proposal,
         }
 
     def _save(self) -> None:
@@ -775,6 +824,11 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     @property
     def chlorination_mode(self) -> str:
+        if (
+            self.season_state in WINTER_STATES
+            and self.opt(CONF_WINTER_PRODUCT_TYPE, "none") != "none"
+        ):
+            return ChlorinationMode.WINTER_PRODUCT
         if not self.is_salt:
             return ChlorinationMode.TABLETS
         if self.in_season and self.chlorinator_enabled:
@@ -797,8 +851,12 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     @property
     def season_state(self) -> str:
-        # Until the season state is kept as such, a pool is swimming.
-        return self.settings.get("season_state", "swimming")
+        """The owner's season state; set on the first load when missing."""
+        return self.settings.get("season_state", SeasonState.SWIMMING)
+
+    @property
+    def winter_passive(self) -> bool:
+        return self.season_state == SeasonState.WINTER_PASSIVE
 
     @property
     def task_overrides(self) -> dict[str, dict[str, Any]]:
@@ -1149,9 +1207,11 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         while self._closed_days:
             closed = self._closed_days.pop(0)
             mode = MODE_REGISTRY.get(self.mode)
+            # Passive wintering keeps the pump off on purpose: no target is missed.
             if (
                 mode is not None
                 and mode.guarantees_target
+                and not self.winter_passive
                 and closed["target"]
                 and closed["elapsed"] < closed["target"] * 0.9
             ):
@@ -1162,9 +1222,14 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     once=True,
                 )
             await self._async_season(self.day)
+            await self._async_season_proposal(dt_util.now())
 
     async def _async_season(self, today: date) -> None:
-        """Fire season events and follow the calendar if asked to."""
+        """Fire the chlorinator's season events, as in 0.1.
+
+        The cell no longer follows the calendar: it follows the season state,
+        which the owner confirms (``async_set_season_state``).
+        """
         if not self.is_salt:
             return
         in_season = is_chlorinator_in_season(today, self.active_months)
@@ -1180,9 +1245,51 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.hass.bus.async_fire(
             event, {"entry_id": self.entry.entry_id, "pool": self.pool_name, "message": message}
         )
-        if self.conf.get(CONF_CHLORINATOR_AUTO_TOGGLE, True):
-            self.settings["chlorinator_enabled"] = in_season
         await self._async_remind(text(self.hass.config.language, "title"), message)
+
+    async def _async_season_proposal(self, now: datetime) -> None:
+        """Propose the season change the calendar calls for, and bring it up
+        again every week until it is confirmed or dismissed."""
+        to = None
+        if self.conf.get(CONF_CHLORINATOR_AUTO_TOGGLE, True):
+            to = season_proposal(now.date(), self.swimming_months, self.season_state)
+        current = self.season_proposal
+        if to is None:
+            if current is not None and current.get("to") in CALENDAR_PROPOSALS:
+                self.season_proposal = None
+            return
+        is_new = current is None or current.get("to") != to
+        if is_new:
+            self.season_proposal = current = {
+                "to": to,
+                "since": now.isoformat(),
+                "reminded": None,
+                "dismissed_for": None,
+            }
+        elif current.get("dismissed_for") == to:
+            return
+        else:
+            reminded = _parse_dt(current.get("reminded"))
+            if reminded is not None and now.date() < (
+                dt_util.as_local(reminded).date() + timedelta(days=PROPOSAL_REMIND_DAYS)
+            ):
+                return
+        current["reminded"] = now.isoformat()
+        self.hass.bus.async_fire(
+            EVENT_SEASON_PROPOSAL,
+            {"entry_id": self.entry.entry_id, "pool": self.pool_name, "to": to},
+        )
+        language = self.hass.config.language
+        await self._async_remind(
+            text(language, "title") + f" · {self.pool_name}",
+            text(language, f"season_proposal_{to}", pool=self.pool_name),
+        )
+        if is_new:
+            self._open_season_checklist(to)
+        self._save()
+
+    def _open_season_checklist(self, to: str) -> None:
+        """Open the closing or opening checklist. Arrives with the checklists."""
 
     def _sample_inputs(self, now: datetime) -> None:
         air = self.air_temperature
@@ -1533,10 +1640,16 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         and restarted every half hour.
 
         In ``off`` mode HomePool does not start the pump for the pH: only a
-        window asked for through the service does. A probe reading that cannot
-        be right (outside 5-9, or unchanged for a day: a probe in its cup or
-        out of the water) does not start it either.
+        window asked for through the service does. In passive wintering not
+        even that: the pipes are drained. A probe reading that cannot be right
+        (outside 5-9, or unchanged for a day: a probe in its cup or out of the
+        water) does not start it either.
         """
+        if self.winter_passive:
+            self.ph_correction_active = False
+            self.ph_correction_forced = False
+            self.ph_window_until = None
+            return False
         if self.ph_correction_forced:
             if self.ph_window_until and now < self.ph_window_until:
                 # A window forced from the service runs its course regardless.
@@ -1633,9 +1746,11 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 minutes_in_state=minutes_in_state,
                 hands_off=hands_off,
                 maintenance_lock=self.maintenance_lock,
+                winter_passive=self.winter_passive,
                 safety_shutoff=self.safety_active,
                 safety_reason=", ".join(self.safety_reasons) or None,
-                freeze_risk=self.freeze_active,
+                # The alert still tells of the frost; the pump is not run.
+                freeze_risk=self.freeze_active and not self.winter_passive,
                 ph_correction=ph_force,
                 manual_cycle=self.cycle_until is not None,
                 manual_override=self.override.get("state") if self.override else None,
@@ -1700,7 +1815,7 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 enabled=self.chlorinator_enabled,
                 in_season=self.in_season,
                 target_reached=self.chlorine_target_reached,
-                blocked=self.maintenance_lock or self.safety_active,
+                blocked=self.maintenance_lock or self.safety_active or self.winter_passive,
                 water_temperature_c=self.water_temperature,
                 min_water_temperature_c=float(
                     self.opt(CONF_CHLORINATOR_MIN_WATER_TEMP, DEFAULT_CHLORINATOR_MIN_WATER_TEMP)
@@ -1894,12 +2009,19 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if not self.freeze_active:
             await self._async_clear("freeze_protection")
             return
-        blocked = self.decision_source in FREEZE_BLOCKERS
-        text_key = "freeze_protection_blocked" if blocked else "freeze_protection"
-        values = {"reason": self.decision_reason or ""} if blocked else {}
+        values: dict[str, Any] = {}
+        if self.winter_passive:
+            # The pump is never run in passive wintering: the plugs and the
+            # gizmos are what protect the pipes.
+            text_key = "freeze_protection_passive"
+        elif self.decision_source in FREEZE_BLOCKERS:
+            text_key = "freeze_protection_blocked"
+            values = {"reason": self.decision_reason or ""}
+        else:
+            text_key = "freeze_protection"
         current = self.alerts.get("freeze_protection")
         if current and self._alert_text_keys.get("freeze_protection") != text_key:
-            if not blocked:
+            if text_key == "freeze_protection":
                 # Running again: correct the text without another notification.
                 current["message"] = text(
                     self.hass.config.language, text_key, pool=self.pool_name
@@ -1932,7 +2054,9 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             },
         )
         if self.is_salt:
-            in_season_on = self.in_season and self.chlorinator_enabled
+            in_season_on = (
+                self.season_state == SeasonState.SWIMMING and self.chlorinator_enabled
+            )
             salt, _ = self.salinity
             low = float(self.opt(CONF_SALT_RANGE_MIN, DEFAULT_SALT_RANGE_MIN))
             # Salt only matters while the cell is working: out of season an old
@@ -1959,7 +2083,8 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             await self._async_set("chlorinator_not_producing", bool(not_producing), Severity.WARNING)
 
         today = dt_util.now().date().isoformat()
-        for task in self.task_status():
+        tasks = self.task_status()
+        for task in tasks:
             name = task["task"]
             alert = f"{name}_due"
             if task["overdue"]:
@@ -1984,7 +2109,7 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 await self._async_clear(alert)
         # A task that is gone (switched off in the options, or its equipment
         # removed) takes its reminder with it.
-        listed = {t["task"] for t in self.task_status()}
+        listed = {t["task"] for t in tasks}
         for defn in TASKS:
             if defn.key not in listed:
                 await self._async_clear(f"{defn.key}_due")
@@ -2005,6 +2130,46 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self.override = None
         self._save()
         await self.async_refresh()
+
+    async def async_set_season_state(self, state: str) -> None:
+        """The owner confirms a season state, from the select or the service."""
+        new = SeasonState(state)
+        old = self.season_state
+        self.settings["season_state"] = new.value
+        if new == SeasonState.SWIMMING:
+            self.settings["chlorinator_enabled"] = True
+        elif new in WINTER_STATES:
+            self.settings["chlorinator_enabled"] = False
+        self.season_proposal = None
+        if new != old:
+            self.hass.bus.async_fire(
+                EVENT_SEASON_STATE_CHANGED,
+                {
+                    "entry_id": self.entry.entry_id,
+                    "pool": self.pool_name,
+                    "old": str(old),
+                    "new": new.value,
+                },
+            )
+        await self._async_maybe_recalculate(dt_util.utcnow(), force=True)
+        self._save()
+        await self.async_refresh()
+
+    async def async_dismiss_season_proposal(self) -> None:
+        """Not now: the proposal is not brought up again until the calendar
+        calls for another change."""
+        if self.season_proposal is not None:
+            self.season_proposal["dismissed_for"] = self.season_proposal["to"]
+        self._save()
+        await self.async_refresh()
+
+    @property
+    def season_proposal_shown(self) -> str | None:
+        """The change proposed and not dismissed, if any."""
+        proposal = self.season_proposal
+        if proposal is None or proposal.get("dismissed_for") == proposal.get("to"):
+            return None
+        return proposal.get("to")
 
     async def _async_push_production(self, value: float) -> None:
         entity_id = self.conf.get(CONF_CHLORINATOR_PRODUCTION_ENTITY)

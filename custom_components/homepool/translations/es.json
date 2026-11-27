@@ -100,9 +100,11 @@
           "ph_calibration_interval_days": "Calibrar la sonda de pH cada",
           "free_chlorine_target": "Cloro libre objetivo",
           "free_chlorine_range_min": "Cloro libre mínimo",
-          "free_chlorine_range_max": "Cloro libre máximo"
+          "free_chlorine_range_max": "Cloro libre máximo",
+          "swimming_months": "Meses de baño"
         },
         "data_description": {
+          "swimming_months": "HomePool propone invernar cuando terminan y la puesta en marcha dos semanas antes de que empiecen.",
           "has_ph_dosing": "Si el pH está alto, la bomba se pone en marcha un rato para que la dosificadora pueda trabajar."
         }
       },
@@ -121,14 +123,14 @@
           "chlorinator_self_regulating": "Se autorregula (sonda ORP o de cloro)",
           "chlorinator_controllable": "Su producción se puede ajustar desde Home Assistant",
           "chlorinator_active_months": "Meses en que se usa",
-          "chlorinator_auto_toggle": "Activarlo y desactivarlo según el calendario",
+          "chlorinator_auto_toggle": "Proponer el cambio de temporada según el calendario",
           "chlorinator_min_water_temp": "Agua más fría con la que puede funcionar",
           "salt_target": "Sal objetivo",
           "salt_range_min": "Sal mínima",
           "salt_range_max": "Sal máxima"
         },
         "data_description": {
-          "chlorinator_auto_toggle": "Si no, HomePool solo avisa cuando empieza y termina la temporada."
+          "chlorinator_auto_toggle": "Cuando terminan los meses de baño o están a punto de empezar, HomePool propone cambiar el estado de temporada y tú lo confirmas. Si no, lo cambias tú."
         }
       },
       "connections": {
@@ -382,9 +384,11 @@
           "ph_calibration_interval_days": "Calibrar la sonda de pH cada",
           "free_chlorine_target": "Cloro libre objetivo",
           "free_chlorine_range_min": "Cloro libre mínimo",
-          "free_chlorine_range_max": "Cloro libre máximo"
+          "free_chlorine_range_max": "Cloro libre máximo",
+          "swimming_months": "Meses de baño"
         },
         "data_description": {
+          "swimming_months": "HomePool propone invernar cuando terminan y la puesta en marcha dos semanas antes de que empiecen.",
           "has_ph_dosing": "Si el pH está alto, la bomba se pone en marcha un rato para que la dosificadora pueda trabajar."
         }
       },
@@ -403,14 +407,14 @@
           "chlorinator_self_regulating": "Se autorregula (sonda ORP o de cloro)",
           "chlorinator_controllable": "Su producción se puede ajustar desde Home Assistant",
           "chlorinator_active_months": "Meses en que se usa",
-          "chlorinator_auto_toggle": "Activarlo y desactivarlo según el calendario",
+          "chlorinator_auto_toggle": "Proponer el cambio de temporada según el calendario",
           "chlorinator_min_water_temp": "Agua más fría con la que puede funcionar",
           "salt_target": "Sal objetivo",
           "salt_range_min": "Sal mínima",
           "salt_range_max": "Sal máxima"
         },
         "data_description": {
-          "chlorinator_auto_toggle": "Si no, HomePool solo avisa cuando empieza y termina la temporada."
+          "chlorinator_auto_toggle": "Cuando terminan los meses de baño o están a punto de empezar, HomePool propone cambiar el estado de temporada y tú lo confirmas. Si no, lo cambias tú."
         }
       },
       "connections": {
@@ -730,6 +734,14 @@
         "filter_media_check": "Revisión de la arena o el vidrio"
       }
     },
+    "season_state": {
+      "options": {
+        "swimming": "Baño",
+        "winter_active": "Invernaje activo",
+        "winter_passive": "Invernaje pasivo",
+        "opening": "Puesta en marcha"
+      }
+    },
     "severity": {
       "options": {
         "info": "Información",
@@ -835,7 +847,8 @@
           "manual_cycle": "Ciclo manual",
           "manual_override": "Accionada a mano",
           "mode": "Modo de funcionamiento",
-          "unavailable": "Bomba no disponible"
+          "unavailable": "Bomba no disponible",
+          "winter_passive": "Invernaje pasivo"
         }
       },
       "chlorine_production_elapsed_today": {
@@ -852,7 +865,8 @@
         "state": {
           "salt": "Salina",
           "tablets": "Pastillas",
-          "off": "Apagada"
+          "off": "Apagada",
+          "winter_product": "Producto de invierno"
         }
       },
       "days_since_last_backwash": {
@@ -968,6 +982,15 @@
           "smart": "Inteligente",
           "solar": "Solar",
           "smart_solar": "Inteligente + solar"
+        }
+      },
+      "season_state": {
+        "name": "Estado de temporada",
+        "state": {
+          "swimming": "Baño",
+          "winter_active": "Invernaje activo",
+          "winter_passive": "Invernaje pasivo",
+          "opening": "Puesta en marcha"
         }
       }
     },
@@ -1101,6 +1124,21 @@
         }
       }
     },
+    "set_season_state": {
+      "name": "Cambiar estado de temporada",
+      "description": "Confirma el estado de temporada de la piscina. Invernar apaga el clorador y el baño lo enciende; el invernaje pasivo mantiene la bomba parada.",
+      "fields": {
+        "state": {
+          "name": "Estado",
+          "description": "El estado de temporada que poner."
+        }
+      }
+    },
+    "dismiss_season_proposal": {
+      "name": "Descartar propuesta de temporada",
+      "description": "Deja de recordar el cambio de temporada propuesto por el calendario, hasta que proponga otro.",
+      "fields": {}
+    },
     "reset_daily_counters": {
       "name": "Reiniciar contadores de hoy",
       "description": "Vuelve a poner a cero la filtración de hoy.",
@@ -1113,6 +1151,9 @@
     },
     "date_in_future": {
       "message": "Esa fecha todavía no ha llegado."
+    },
+    "task_not_in_pool": {
+      "message": "{pool} no tiene la tarea {task}."
     }
   }
 }

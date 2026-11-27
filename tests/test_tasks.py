@@ -219,6 +219,8 @@ async def test_tasks_step_sets_intervals_and_last_done(
     freezer.move_to(local(2026, 11, 20, 10, 0))
     SwitchRouter(hass)
     entry = await setup_pool(hass)
+    # A November install starts in active wintering; these are swimming intervals.
+    entry.runtime_data.settings["season_state"] = "swimming"
     await _options_tasks(
         hass, entry, {"backwash_days": 21, "backwash_last_done": "2026-11-01"}
     )

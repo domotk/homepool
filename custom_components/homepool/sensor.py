@@ -142,7 +142,7 @@ SENSORS: tuple[PoolSensorDescription, ...] = (
         key="pump_control",
         device_class=SensorDeviceClass.ENUM,
         options=[
-            "hands_off", "maintenance_lock", "safety", "freeze_protection",
+            "hands_off", "maintenance_lock", "winter_passive", "safety", "freeze_protection",
             "ph_correction", "manual_cycle", "manual_override", "mode", "unavailable",
         ],
         value_fn=lambda c: c.decision_source,

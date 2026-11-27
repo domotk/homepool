@@ -94,6 +94,9 @@ async def test_a_task_never_marked_done_still_falls_due(
     SwitchRouter(hass)
     entry = await setup_pool(hass, backwash_interval_days=14)
     coordinator = entry.runtime_data
+    # A November install starts in active wintering, where the backwash counts
+    # pump hours; this is about the days it counts while swimming.
+    coordinator.settings["season_state"] = "swimming"
     task = coordinator.task_status()[0]
     assert task["last_done"] is None
     assert task["due"] == "2026-12-10"

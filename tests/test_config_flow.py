@@ -205,6 +205,8 @@ async def test_full_wizard_creates_entry(hass: HomeAssistant) -> None:
     assert data["pump_switch"] == PUMP
     assert data["chlorinator_switch"] == CHLORINATOR
     assert data["chlorinator_active_months"] == [6, 7, 8, 9]
+    # Asked in the water step, before the chlorinator: summer by default.
+    assert data["swimming_months"] == [6, 7, 8, 9]
     assert data["pump_model"] == "Astralpool Sena 25465"
     assert 25 < data["volume"] < 35
     assert data["water_temperature_sensor"] is None

@@ -32,6 +32,7 @@ from .const import (
     CONF_BACKWASH_INTERVAL_DAYS,
     CONF_CHLORINATION_TYPE,
     CONF_CHLORINATOR_ACTIVE_MONTHS,
+    CONF_SWIMMING_MONTHS,
     CONF_CHLORINATOR_AUTO_TOGGLE,
     CONF_CHLORINATOR_CONTROLLABLE,
     CONF_CHLORINATOR_MIN_WATER_TEMP,
@@ -169,6 +170,7 @@ from .pool.geometry import PoolDimensions, calculate_volume
 from .pool.hardware import find, load_hardware
 from .pool.tasks import TASKS, TASKS_BY_KEY, configured_days, task_applies
 from .pool.layouts import LayoutCatalog, get_orientation_options, load_catalog
+from .pool.season import default_swimming_months
 
 CUSTOM = "custom"
 CATALOG_CACHE = f"{DOMAIN}_catalogs"
@@ -556,6 +558,11 @@ class _Wizard:
 
     async def async_step_water(self, user_input: dict[str, Any] | None = None):
         d = self._data
+        swimming = d.get(CONF_SWIMMING_MONTHS) or default_swimming_months(
+            d.get(CONF_CHLORINATOR_ACTIVE_MONTHS),
+            d.get(CONF_CHLORINATION_TYPE) == ChlorinationType.SALT,
+            float(d.get(CONF_LATITUDE, self.hass.config.latitude) or 0),
+        )
         schema = vol.Schema(
             {
                 vol.Required(
@@ -590,11 +597,16 @@ class _Wizard:
                     CONF_FREE_CHLORINE_RANGE_MAX,
                     default=d.get(CONF_FREE_CHLORINE_RANGE_MAX, DEFAULT_FREE_CHLORINE_RANGE_MAX),
                 ): _number(0, 10, 0.1, "ppm"),
+                vol.Required(
+                    CONF_SWIMMING_MONTHS, default=[str(m) for m in swimming]
+                ): _select(MONTHS, "month", multiple=True),
             }
         )
         errors: dict[str, str] = {}
         if user_input is not None:
-            if not (
+            if not user_input.get(CONF_SWIMMING_MONTHS):
+                errors[CONF_SWIMMING_MONTHS] = "no_months"
+            elif not (
                 user_input[CONF_PH_RANGE_MIN]
                 <= user_input[CONF_PH_TARGET]
                 <= user_input[CONF_PH_RANGE_MAX]
@@ -604,6 +616,9 @@ class _Wizard:
                 self._store(schema, user_input)
                 self._data[CONF_PH_CALIBRATION_INTERVAL_DAYS] = int(
                     self._data[CONF_PH_CALIBRATION_INTERVAL_DAYS]
+                )
+                self._data[CONF_SWIMMING_MONTHS] = sorted(
+                    int(m) for m in self._data[CONF_SWIMMING_MONTHS]
                 )
                 return await self._after("water")
         return self._form("water", schema, errors)

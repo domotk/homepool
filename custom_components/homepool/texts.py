@@ -26,6 +26,9 @@ TEXTS: dict[str, dict[str, str]] = {
             "{pool}: water near freezing, but HomePool cannot keep the pump running "
             "({reason}). Make sure the pipes are protected."
         ),
+        "freeze_protection_passive": (
+            "{pool}: frost expected: check that the plugs and gizmos are in."
+        ),
         "ph_out_of_range": "{pool}: pH {value:.2f} is outside {low:.1f}–{high:.1f}.",
         "salt_low": "{pool}: salt at {value:.1f} g/L, below {low:.1f} g/L.",
         "chlorinator_cold": (
@@ -55,6 +58,22 @@ TEXTS: dict[str, dict[str, str]] = {
             "{pool}: chlorinator season ends. Clean the cell, switch to tablets if "
             "you use them, and protect the pH probe."
         ),
+        "season_proposal_winter": (
+            "{pool}: the swimming season is over. Choose active or passive wintering "
+            "in the season state when you close the pool."
+        ),
+        "season_proposal_opening": (
+            "{pool}: the swimming season is about to start. Set the season state to "
+            "opening when you start getting the pool ready."
+        ),
+        "season_state_introduced": (
+            "{pool}: HomePool now keeps a season state, and it is set to {state}. "
+            "Change it if that is not right."
+        ),
+        "season_swimming": "swimming",
+        "season_winter_active": "active wintering",
+        "season_winter_passive": "passive wintering",
+        "season_opening": "opening",
         "title": "Pool",
     },
     "es": {
@@ -74,6 +93,9 @@ TEXTS: dict[str, dict[str, str]] = {
         "freeze_protection_blocked": (
             "{pool}: el agua está cerca de congelarse, pero HomePool no puede mantener "
             "la bomba en marcha ({reason}). Asegúrate de que las tuberías están protegidas."
+        ),
+        "freeze_protection_passive": (
+            "{pool}: helada prevista: revisa que los tapones y los gizmos estén puestos."
         ),
         "ph_out_of_range": "{pool}: el pH {value:.2f} está fuera de {low:.1f}–{high:.1f}.",
         "salt_low": "{pool}: sal en {value:.1f} g/L, por debajo de {low:.1f} g/L.",
@@ -104,6 +126,22 @@ TEXTS: dict[str, dict[str, str]] = {
             "{pool}: termina la temporada del clorador. Limpia la célula, pasa a "
             "pastillas si las usas y protege la sonda de pH."
         ),
+        "season_proposal_winter": (
+            "{pool}: ha terminado la temporada de baño. Elige invernaje activo o pasivo "
+            "en el estado de temporada cuando cierres la piscina."
+        ),
+        "season_proposal_opening": (
+            "{pool}: la temporada de baño está a punto de empezar. Pon el estado "
+            "de temporada en puesta en marcha cuando empieces a prepararla."
+        ),
+        "season_state_introduced": (
+            "{pool}: HomePool tiene ahora estado de temporada: está en {state}; "
+            "cámbialo si no es así."
+        ),
+        "season_swimming": "baño",
+        "season_winter_active": "invernaje activo",
+        "season_winter_passive": "invernaje pasivo",
+        "season_opening": "puesta en marcha",
         "title": "Piscina",
     },
 }
@@ -127,6 +165,7 @@ REASONS: dict[str, dict[str, str]] = {
         "unavailable": "The pump switch is unavailable",
         "hands_off": "Hands off: the pump is being run by hand",
         "maintenance_lock": "Maintenance lock is on",
+        "winter_passive": "Passive wintering: the pump stays off",
         "safety": "Safety shutoff: {reason}",
         "freeze_protection": "Freeze protection: water near 0 °C",
         "ph_correction": "pH correction needs water flowing",
@@ -166,6 +205,7 @@ REASONS: dict[str, dict[str, str]] = {
         "unavailable": "El interruptor de la bomba no está disponible",
         "hands_off": "Manos fuera: la bomba se maneja a mano",
         "maintenance_lock": "El bloqueo de mantenimiento está activado",
+        "winter_passive": "Invernaje pasivo: la bomba se queda parada",
         "safety": "Parada de seguridad: {reason}",
         "freeze_protection": "Protección antiheladas: agua cerca de 0 °C",
         "ph_correction": "La corrección del pH necesita el agua en movimiento",

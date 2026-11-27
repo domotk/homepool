@@ -9,17 +9,21 @@ Authority over the pump, highest first:
 1. **Hands off** — an external entity says nobody touches the pump. HomePool
    neither switches it on nor off, it only keeps counting.
 2. **Maintenance lock** — forces it off.
-3. **Safety shutoff** — flood, overheat, filter pressure, a pump drawing far
+3. **Passive wintering** — the pool is closed with its pipes drained and
+   plugged. Forces it off, like the lock: a pump started by hand is stopped
+   again, because running it dry can damage the motor. Only hands-off, above,
+   lets someone run it.
+4. **Safety shutoff** — flood, overheat, filter pressure, a pump drawing far
    more than it should. Forces it off.
-4. **Freeze protection** — water near freezing. Forces it *on*: moving water
+5. **Freeze protection** — water near freezing. Forces it *on*: moving water
    does not freeze in the pipes, still water does.
-5. **pH correction** — the dosing pump only works with water flowing, so a pH
+6. **pH correction** — the dosing pump only works with water flowing, so a pH
    that needs correcting forces the pump on for a while, capped per day so a
    faulty probe cannot run it all night.
-6. **Manual cycle** — a cycle started from HomePool (button or service).
-7. **Manual override** — someone switched the pump by hand, outside HomePool.
+7. **Manual cycle** — a cycle started from HomePool (button or service).
+8. **Manual override** — someone switched the pump by hand, outside HomePool.
    Respected for a while instead of being undone on the next tick.
-8. **The operation mode.**
+9. **The operation mode.**
 
 The last two are also subject to minimum on and off times: the motor and the
 relay both last longer when they are not cycled every few minutes.
@@ -44,6 +48,7 @@ class ControlInputs:
 
     hands_off: bool = False
     maintenance_lock: bool = False
+    winter_passive: bool = False
     safety_shutoff: bool = False
     safety_reason: str | None = None
     freeze_risk: bool = False
@@ -95,6 +100,8 @@ def arbitrate(inp: ControlInputs) -> ControlDecision:
         return ControlDecision(None, "hands_off", "Hands off: the pump is being run by hand", "hands_off")
     if inp.maintenance_lock:
         return ControlDecision(False, "maintenance_lock", "Maintenance lock is on", "maintenance_lock")
+    if inp.winter_passive:
+        return ControlDecision(False, "winter_passive", "Passive wintering: the pump stays off", "winter_passive")
     if inp.safety_shutoff:
         return ControlDecision(
             False,

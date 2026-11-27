@@ -100,6 +100,9 @@ CONF_CHLORINATOR_CONTROLLABLE = "chlorinator_controllable"
 CONF_CHLORINATOR_SELF_REGULATING = "chlorinator_self_regulating"
 CONF_CHLORINATOR_ACTIVE_MONTHS = "chlorinator_active_months"
 CONF_CHLORINATOR_AUTO_TOGGLE = "chlorinator_auto_toggle"
+# The months the pool is used, for every pool: what the season state follows.
+CONF_SWIMMING_MONTHS = "swimming_months"
+CONF_WINTER_PRODUCT_TYPE = "winter_product_type"
 CONF_CHLORINATOR_MIN_WATER_TEMP = "chlorinator_min_water_temp"
 
 # Lighting and auxiliary
@@ -286,6 +289,7 @@ class ChlorinationMode(StrEnum):
     SALT = "salt"
     TABLETS = "tablets"
     OFF = "off"
+    WINTER_PRODUCT = "winter_product"
 
 
 class ManualAction(StrEnum):
@@ -404,6 +408,8 @@ EVENT_TARGET_RECALCULATED = f"{DOMAIN}_target_recalculated"
 EVENT_MANUAL_ACTION_DUE = f"{DOMAIN}_manual_action_due"
 EVENT_CHLORINATOR_SEASON_START = f"{DOMAIN}_chlorinator_season_start"
 EVENT_CHLORINATOR_SEASON_END = f"{DOMAIN}_chlorinator_season_end"
+EVENT_SEASON_PROPOSAL = f"{DOMAIN}_season_proposal"
+EVENT_SEASON_STATE_CHANGED = f"{DOMAIN}_season_state_changed"
 
 # ──────────────────────────────────────────────
 # Services
@@ -418,6 +424,8 @@ SERVICE_RECALCULATE = "recalculate_schedule"
 SERVICE_FORCE_PH_WINDOW = "force_ph_correction_window"
 SERVICE_RESET_DAILY = "reset_daily_counters"
 SERVICE_COMPLETE_TASK = "complete_task"
+SERVICE_SET_SEASON_STATE = "set_season_state"
+SERVICE_DISMISS_SEASON_PROPOSAL = "dismiss_season_proposal"
 
 ATTR_DURATION = "duration"
 ATTR_ACTION_TYPE = "action_type"
@@ -425,3 +433,4 @@ ATTR_VALUE = "value"
 ATTR_NOTES = "notes"
 ATTR_TASK = "task"
 ATTR_DATE = "date"
+ATTR_STATE = "state"

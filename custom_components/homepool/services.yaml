@@ -130,3 +130,24 @@ reset_daily_counters:
   target:
     entity:
       integration: homepool
+
+set_season_state:
+  target:
+    entity:
+      integration: homepool
+  fields:
+    state:
+      required: true
+      selector:
+        select:
+          translation_key: season_state
+          options:
+            - swimming
+            - winter_active
+            - winter_passive
+            - opening
+
+dismiss_season_proposal:
+  target:
+    entity:
+      integration: homepool

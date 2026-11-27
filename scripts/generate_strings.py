@@ -27,6 +27,9 @@ task_names = {
   "skimmer_baskets": T("Skimmer baskets", "Cestos del skimmer"), "cell_cleaning": T("Cell cleaning", "Limpieza de la célula"),
   "filter_media_check": T("Filter media check", "Revisión de la arena o el vidrio"),
 }
+season_states = {"swimming": T("Swimming", "Baño"), "winter_active": T("Active wintering", "Invernaje activo"),
+  "winter_passive": T("Passive wintering", "Invernaje pasivo"), "opening": T("Opening", "Puesta en marcha")}
+
 _pump_hours_tasks = ("backwash", "filter_cleaning")
 _optional_tasks = ("skimmer_baskets", "filter_media_check")
 tasks_data = {}
@@ -119,8 +122,10 @@ steps_fields = {
       "free_chlorine_target": T("Free chlorine target", "Cloro libre objetivo"),
       "free_chlorine_range_min": T("Free chlorine, lowest", "Cloro libre mínimo"),
       "free_chlorine_range_max": T("Free chlorine, highest", "Cloro libre máximo"),
+      "swimming_months": T("Months the pool is used", "Meses de baño"),
     },
     "data_description": {
+      "swimming_months": T("HomePool proposes wintering when they end and opening two weeks before they start.", "HomePool propone invernar cuando terminan y la puesta en marcha dos semanas antes de que empiecen."),
       "has_ph_dosing": T("When the pH is too high, the pump is run for a while so the doser can work.", "Si el pH está alto, la bomba se pone en marcha un rato para que la dosificadora pueda trabajar."),
     },
   },
@@ -137,12 +142,12 @@ steps_fields = {
       "chlorinator_self_regulating": T("Regulates itself (ORP or chlorine probe)", "Se autorregula (sonda ORP o de cloro)"),
       "chlorinator_controllable": T("Its production can be set from Home Assistant", "Su producción se puede ajustar desde Home Assistant"),
       "chlorinator_active_months": T("Months it is used", "Meses en que se usa"),
-      "chlorinator_auto_toggle": T("Switch it on and off with the calendar", "Activarlo y desactivarlo según el calendario"),
+      "chlorinator_auto_toggle": T("Propose the season change from the calendar", "Proponer el cambio de temporada según el calendario"),
       "chlorinator_min_water_temp": T("Coldest water it may run in", "Agua más fría con la que puede funcionar"),
       "salt_target": T("Salt target", "Sal objetivo"), "salt_range_min": T("Salt, lowest", "Sal mínima"), "salt_range_max": T("Salt, highest", "Sal máxima"),
     },
     "data_description": {
-      "chlorinator_auto_toggle": T("Otherwise HomePool only tells you when the season starts and ends.", "Si no, HomePool solo avisa cuando empieza y termina la temporada."),
+      "chlorinator_auto_toggle": T("When the swimming months end or are about to start, HomePool proposes changing the season state; you confirm it. Otherwise you change it yourself.", "Cuando terminan los meses de baño o están a punto de empezar, HomePool propone cambiar el estado de temporada y tú lo confirmas. Si no, lo cambias tú."),
     },
   },
   "connections": {
@@ -288,6 +293,7 @@ selectors = {
   "pool_cleaner_type": {"none": T("None", "Ninguno"), "cable_electric": T("Robot with cable", "Robot con cable"),
             "battery": T("Robot with battery", "Robot con batería"), "hydraulic": T("Hydraulic", "Hidráulico")},
   "task": {k: v for k, v in task_names.items()},
+  "season_state": season_states,
   "severity": {"info": T("Information", "Información"), "warning": T("Warning", "Aviso"), "critical": T("Critical", "Crítico")},
   "action_type": {"backwash": T("Backwash", "Contralavado"), "filter_cleaned": T("Filter cleaned", "Filtro limpiado"),
             "salt_added": T("Salt added", "Sal añadida"), "ph_calibrated": T("pH probe calibrated", "Sonda de pH calibrada"),
@@ -303,7 +309,8 @@ control_states = {"hands_off": T("Hands off", "Manos fuera"), "maintenance_lock"
   "safety": T("Safety shutoff", "Parada de seguridad"), "freeze_protection": T("Freeze protection", "Protección antiheladas"),
   "ph_correction": T("pH correction", "Corrección de pH"), "manual_cycle": T("Manual cycle", "Ciclo manual"),
   "manual_override": T("Switched by hand", "Accionada a mano"), "mode": T("Operation mode", "Modo de funcionamiento"),
-  "unavailable": T("Pump unavailable", "Bomba no disponible")}
+  "unavailable": T("Pump unavailable", "Bomba no disponible"),
+  "winter_passive": T("Passive wintering", "Invernaje pasivo")}
 
 entity = {
  "sensor": {
@@ -318,7 +325,8 @@ entity = {
   "chlorine_production_elapsed_today": T("Chlorine production today", "Producción de cloro hoy"),
   "chlorine_production_remaining_today": T("Chlorine production left today", "Producción de cloro pendiente hoy"),
   "recommended_chlorinator_production": T("Recommended chlorinator production", "Producción recomendada del clorador"),
-  "chlorination_mode": (T("Chlorination", "Cloración"), {"salt": T("Salt", "Salina"), "tablets": T("Tablets", "Pastillas"), "off": T("Off", "Apagada")}),
+  "chlorination_mode": (T("Chlorination", "Cloración"), {"salt": T("Salt", "Salina"), "tablets": T("Tablets", "Pastillas"), "off": T("Off", "Apagada"),
+        "winter_product": T("Winter product", "Producto de invierno")}),
   "days_since_last_backwash": T("Days since the filter was cleaned", "Días desde la limpieza del filtro"),
   "days_since_ph_calibration": T("Days since pH calibration", "Días desde la calibración del pH"),
   "next_manual_task": (T("Next manual task", "Próxima tarea manual"), {"none": T("None", "Ninguna"), "backwash": T("Backwash", "Contralavado"),
@@ -360,6 +368,7 @@ entity = {
  "select": {
   "operation_mode": (T("Operation mode", "Modo de funcionamiento"), {"off": T("Off", "Apagado"), "timer": T("Timer", "Temporizador"),
         "smart": T("Smart", "Inteligente"), "solar": T("Solar", "Solar"), "smart_solar": T("Smart + solar", "Inteligente + solar")}),
+  "season_state": (T("Season state", "Estado de temporada"), season_states),
  },
  "number": {
   "user_multiplier": T("Filtration multiplier", "Multiplicador de filtración"),
@@ -420,11 +429,15 @@ services = {
   "recalculate_schedule": (T("Recalculate target", "Recalcular objetivo"), T("Works out today's target again now. Unlike the hourly update, it may also lower it.", "Vuelve a calcular el objetivo de hoy ahora. A diferencia de la actualización horaria, también puede bajarlo."), {}),
   "force_ph_correction_window": (T("Force pH correction window", "Forzar ventana de corrección de pH"), T("Runs the pump so the pH doser can work.", "Pone la bomba en marcha para que la dosificadora de pH pueda trabajar."),
       {"duration": (T("Duration", "Duración"), T("Minutes. The configured window if left out.", "Minutos. La ventana configurada si se omite."))}),
+  "set_season_state": (T("Set season state", "Cambiar estado de temporada"), T("Confirms the pool's season state. Wintering turns the chlorinator off and swimming turns it on; passive wintering keeps the pump off.", "Confirma el estado de temporada de la piscina. Invernar apaga el clorador y el baño lo enciende; el invernaje pasivo mantiene la bomba parada."),
+      {"state": (T("State", "Estado"), T("The season state to set.", "El estado de temporada que poner."))}),
+  "dismiss_season_proposal": (T("Dismiss season proposal", "Descartar propuesta de temporada"), T("Stops reminding about the season change the calendar proposed, until it proposes another.", "Deja de recordar el cambio de temporada propuesto por el calendario, hasta que proponga otro."), {}),
   "reset_daily_counters": (T("Reset today's counters", "Reiniciar contadores de hoy"), T("Starts today's filtration count from zero.", "Vuelve a poner a cero la filtración de hoy."), {}),
 }
 
 exceptions = {"no_pool_targeted": T("That target matches no HomePool pool.", "Ese destino no corresponde a ninguna piscina de HomePool."),
-  "date_in_future": T("That date has not happened yet.", "Esa fecha todavía no ha llegado.")}
+  "date_in_future": T("That date has not happened yet.", "Esa fecha todavía no ha llegado."),
+  "task_not_in_pool": T("{pool} has no {task} task.", "{pool} no tiene la tarea {task}.")}
 
 def build(i):
     pick = lambda t: t[i]
