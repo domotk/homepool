@@ -19,7 +19,7 @@ from custom_components.homepool.pool.readings import (
     validate,
 )
 
-from .helpers import PUMP, SwitchRouter, setup_pool
+from .helpers import PUMP, SwitchRouter, form_fields, form_input, setup_pool
 from .test_control import local, madrid, set_mode, state, tick  # noqa: F401
 from .test_season import entity, next_day
 
@@ -413,16 +413,16 @@ async def test_the_water_step_sets_ranges_and_stale_ages(
         result["flow_id"], {"next_step_id": "water"}
     )
     assert result["step_id"] == "water"
-    shown = {str(k) for k in result["data_schema"].schema}
+    shown = form_fields(result)
     assert {"total_alkalinity_range_min", "cyanuric_acid_range_max", "salt_stale_days"} <= shown
     assert "combined_chlorine_range_min" not in shown
     bad = await hass.config_entries.options.async_configure(
-        result["flow_id"], {"total_alkalinity_range_min": 130}
+        result["flow_id"], form_input(result, {"total_alkalinity_range_min": 130})
     )
-    assert bad["errors"] == {"total_alkalinity_range_min": "range_order"}
+    assert bad["errors"] == {"ranges": "range_order"}
     done = await hass.config_entries.options.async_configure(
         result["flow_id"],
-        {"total_alkalinity_range_max": 100, "salt_stale_days": 10},
+        form_input(result, {"total_alkalinity_range_max": 100, "salt_stale_days": 10}),
     )
     assert done["type"] is FlowResultType.CREATE_ENTRY
     await hass.async_block_till_done()
@@ -483,7 +483,9 @@ async def test_the_cyanuric_acid_range_follows_the_chlorination_unless_changed(
         result = await hass.config_entries.options.async_configure(
             result["flow_id"], {"next_step_id": "water"}
         )
-        done = await hass.config_entries.options.async_configure(result["flow_id"], values)
+        done = await hass.config_entries.options.async_configure(
+            result["flow_id"], form_input(result, values)
+        )
         assert done["type"] is FlowResultType.CREATE_ENTRY
         await hass.async_block_till_done()
 

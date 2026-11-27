@@ -448,10 +448,17 @@ Needs Home Assistant 2024.11 or newer.
 ## Setting it up
 
 Add the integration and answer the questions in order: name and location,
-shape and size (it works out the volume and lets you correct it), construction,
-pump and filter, water treatment, the chlorinator if it is salt, your entities,
-and control and notifications. Pumps and chlorinators in the built-in catalogue
-fill in their own figures.
+shape and size, construction, pump and filter, water treatment, the chlorinator
+if it is salt, your entities, control, notifications and recurring tasks. Pumps
+and chlorinators in the built-in catalogue fill in their own figures.
+
+*Shape and size* takes three pages: the shape, then its inside measurements
+(length and width, or diameter, and the shallowest and deepest depth), then the
+volume they give, which you can replace with the real figure if you know it. A
+real figure written there wins over the measurements until you clear it. The
+pump and the chlorinator work the same way: the model first, its figures on the
+next page. How often each job comes round, the backwash included, is set in
+*Recurring tasks*.
 
 **Only the pump switch is required.** Everything else is optional, and each
 sensor you add unlocks something: a water thermometer refines the target, a

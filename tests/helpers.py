@@ -114,3 +114,37 @@ class SwitchRouter:
 
     def count(self, service: str, entity_id: str) -> int:
         return sum(1 for s, e in self.calls if s == service and e == entity_id)
+
+
+def form_fields(result: dict) -> set[str]:
+    """Every field a form shows, its sections opened."""
+    from homeassistant.data_entry_flow import section
+
+    fields: set[str] = set()
+    for marker, value in result["data_schema"].schema.items():
+        if isinstance(value, section):
+            fields |= {str(k) for k in value.schema.schema}
+        else:
+            fields.add(str(marker))
+    return fields
+
+
+def form_input(result: dict, values: dict[str, Any]) -> dict[str, Any]:
+    """Flat values put into the form's sections, as the frontend sends them.
+
+    The frontend sends every section, even one left closed; a field not given
+    takes the form's default.
+    """
+    from homeassistant.data_entry_flow import section
+
+    sent: dict[str, Any] = {}
+    for marker, value in result["data_schema"].schema.items():
+        name = str(marker)
+        if isinstance(value, section):
+            keys = {str(k) for k in value.schema.schema}
+            sent[name] = {k: v for k, v in values.items() if k in keys}
+        elif name in values:
+            sent[name] = values[name]
+    unknown = set(values) - form_fields(result)
+    assert not unknown, f"not on the form: {sorted(unknown)}"
+    return sent
