@@ -103,6 +103,33 @@ def _manual_attrs(c: PoolCoordinator, kind: str) -> dict[str, Any]:
     }
 
 
+def _shown_reading(
+    c: PoolCoordinator, kind: str, in_use: tuple[float | None, str | None]
+) -> tuple[float | None, str | None, bool]:
+    """What a 0.1 reading sensor shows: the reading in use (a probe, or a
+    fresh one by hand), else the last one by hand even when it is stale.
+
+    Only the calculations and the alerts ignore a stale reading; the sensor
+    keeps the number and says it is old, like the kinds new in 0.2.
+    """
+    value, source = in_use
+    if value is not None:
+        return value, source, False
+    status = c.manual_status(kind)
+    if status.value is None:
+        return None, None, False
+    return status.value, "manual_record", status.stale
+
+
+def _reading_attrs(c: PoolCoordinator, kind: str, in_use) -> dict[str, Any]:
+    _, source, stale = _shown_reading(c, kind, in_use)
+    return {
+        "source": source,
+        "recorded_at": (c.manual_readings.get(kind) or {}).get("at"),
+        "stale": stale,
+    }
+
+
 SENSORS: tuple[PoolSensorDescription, ...] = (
     PoolSensorDescription(
         key="daily_filtration_target",
@@ -254,22 +281,16 @@ SENSORS: tuple[PoolSensorDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         suggested_display_precision=1,
         exists_fn=lambda c: c.is_salt,
-        value_fn=lambda c: c.salinity[0],
-        attrs_fn=lambda c: {
-            "source": c.salinity[1],
-            "recorded_at": (c.manual_readings.get("salt") or {}).get("at"),
-        },
+        value_fn=lambda c: _shown_reading(c, "salt", c.salinity)[0],
+        attrs_fn=lambda c: _reading_attrs(c, "salt", c.salinity),
     ),
     PoolSensorDescription(
         key="free_chlorine",
         native_unit_of_measurement="ppm",
         state_class=SensorStateClass.MEASUREMENT,
         suggested_display_precision=1,
-        value_fn=lambda c: c.free_chlorine[0],
-        attrs_fn=lambda c: {
-            "source": c.free_chlorine[1],
-            "recorded_at": (c.manual_readings.get("free_chlorine") or {}).get("at"),
-        },
+        value_fn=lambda c: _shown_reading(c, "free_chlorine", c.free_chlorine)[0],
+        attrs_fn=lambda c: _reading_attrs(c, "free_chlorine", c.free_chlorine),
     ),
     PoolSensorDescription(
         key="ph_manual",

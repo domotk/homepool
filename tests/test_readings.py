@@ -169,6 +169,35 @@ async def test_stale_salt_stops_feeding_the_target(
     assert "reading_stale_due" not in coordinator.alerts
 
 
+async def test_the_salinity_and_free_chlorine_sensors_show_a_stale_reading(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
+) -> None:
+    """The 0.1 sensors keep the last number and say it is old, like the new
+    kinds; only the calculations and the alerts ignore it."""
+    freezer.move_to(local(2026, 7, 15, 10, 0))
+    SwitchRouter(hass)
+    entry = await setup_pool(hass)
+    coordinator = entry.runtime_data
+    await _record(hass, "salt", 2.8)
+    await _record(hass, "free_chlorine", 0.4)
+    await tick(hass, freezer, 1)
+    for sensor in ("sensor.pool_salinity", "sensor.pool_free_chlorine"):
+        assert hass.states.get(sensor).attributes["stale"] is False
+
+    await next_day(hass, freezer, 31)
+    await tick(hass, freezer, 1)
+    assert coordinator.salinity == (None, None)
+    assert coordinator.free_chlorine == (None, None)
+    assert "salt_low" not in coordinator.alerts
+    assert "free_chlorine_out_of_range" not in coordinator.alerts
+    for sensor, value in (("sensor.pool_salinity", 2.8), ("sensor.pool_free_chlorine", 0.4)):
+        st = hass.states.get(sensor)
+        assert float(st.state) == value
+        assert st.attributes["stale"] is True
+        assert st.attributes["source"] == "manual_record"
+        assert st.attributes["recorded_at"]
+
+
 async def test_a_stale_reading_keeps_no_range_alert_and_says_so(
     hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
 ) -> None:
