@@ -309,10 +309,11 @@ async def test_a_swimming_proposal_survives_a_midnight_with_no_calendar_proposal
     await tick(hass, freezer, 2 * 60)  # past midnight
     assert coordinator.day.isoformat() == "2027-07-16"
     assert coordinator.season_proposal["to"] == "swimming"
-    # Dismissed, it stays dismissed.
+    # Dismissed, it is not shown, and the next midnight drops it.
     await coordinator.async_dismiss_season_proposal()
+    assert coordinator.season_proposal_shown is None
     await next_day(hass, freezer, 8)
-    assert coordinator.season_proposal["dismissed_for"] == "swimming"
+    assert coordinator.season_proposal is None
     assert coordinator.season_proposal_shown is None
 
 
@@ -378,4 +379,67 @@ async def test_entering_winter_drops_an_open_opening_list(
     assert "opening" in coordinator.checklists
     await set_season(hass, entry, "winter_passive")
     assert "opening" not in coordinator.checklists
+    assert "closing" in coordinator.checklists
+
+
+async def test_finishing_the_opening_list_while_swimming_proposes_nothing(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
+) -> None:
+    """Swimming is proposed only from the opening state; a list ticked after
+    the owner confirmed swimming must not block the end of the season."""
+    freezer.move_to(local(2026, 5, 20, 12, 0))
+    SwitchRouter(hass)
+    entry = await setup_pool(hass, chlorination_type="tablets")
+    coordinator = entry.runtime_data
+    await set_season(hass, entry, "winter_active")
+    await set_season(hass, entry, "opening")
+    await set_season(hass, entry, "swimming")
+    for step in step_ids(coordinator, "opening"):
+        await coordinator.async_complete_step(step)
+    assert "opening" not in coordinator.checklists
+    assert coordinator.season_proposal is None
+
+    freezer.move_to(local(2026, 9, 30, 21, 0))
+    await tick(hass, freezer, 4 * 60)  # past midnight: the season is over
+    assert coordinator.season_proposal["to"] == "winter"
+    assert coordinator.season_proposal_shown == "winter"
+    assert "closing" in coordinator.checklists
+
+
+async def test_finishing_the_opening_list_while_wintering_keeps_the_opening_proposal(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
+) -> None:
+    freezer.move_to(local(2027, 5, 17, 12, 0))
+    SwitchRouter(hass)
+    entry = await setup_pool(hass)
+    coordinator = entry.runtime_data
+    assert coordinator.season_state == "winter_active"
+    await next_day(hass, freezer)
+    assert coordinator.season_proposal["to"] == "opening"
+    for step in step_ids(coordinator, "opening"):
+        await coordinator.async_complete_step(step)
+    assert coordinator.season_proposal["to"] == "opening"
+    assert coordinator.season_proposal_shown == "opening"
+
+
+@pytest.mark.parametrize("dismissed", [True, False])
+async def test_a_stale_swimming_proposal_does_not_block_the_calendar(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory, dismissed: bool
+) -> None:
+    """A swimming proposal left from before (dismissed, or for the state the
+    pool is already in) is dropped and the calendar has its say."""
+    freezer.move_to(local(2026, 9, 30, 21, 0))
+    SwitchRouter(hass)
+    entry = await setup_pool(hass)
+    coordinator = entry.runtime_data
+    assert coordinator.season_state == "swimming"
+    coordinator.season_proposal = {
+        "to": "swimming",
+        "since": local(2026, 6, 1, 12, 0).isoformat(),
+        "reminded": local(2026, 6, 1, 12, 0).isoformat(),
+        "dismissed_for": "swimming" if dismissed else None,
+    }
+    await tick(hass, freezer, 4 * 60)
+    assert coordinator.season_proposal["to"] == "winter"
+    assert coordinator.season_proposal_shown == "winter"
     assert "closing" in coordinator.checklists

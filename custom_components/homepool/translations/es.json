@@ -160,7 +160,7 @@
           "salt_range_max": "Sal máxima"
         },
         "data_description": {
-          "chlorinator_auto_toggle": "Cuando terminan los meses de baño o están a punto de empezar, HomePool propone cambiar el estado de temporada y tú lo confirmas. Si no, lo cambias tú."
+          "chlorinator_auto_toggle": "Cuando terminan los meses de baño o están a punto de empezar, HomePool propone cambiar el estado de temporada y tú lo confirmas. Si no, lo cambias tú. En los dos casos, terminar la lista de apertura con la piscina en apertura propone pasar a baño."
         }
       },
       "connections": {
@@ -476,7 +476,7 @@
           "salt_range_max": "Sal máxima"
         },
         "data_description": {
-          "chlorinator_auto_toggle": "Cuando terminan los meses de baño o están a punto de empezar, HomePool propone cambiar el estado de temporada y tú lo confirmas. Si no, lo cambias tú."
+          "chlorinator_auto_toggle": "Cuando terminan los meses de baño o están a punto de empezar, HomePool propone cambiar el estado de temporada y tú lo confirmas. Si no, lo cambias tú. En los dos casos, terminar la lista de apertura con la piscina en apertura propone pasar a baño."
         }
       },
       "connections": {

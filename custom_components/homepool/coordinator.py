@@ -1430,12 +1430,18 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if current is not None and current.get("to") not in CALENDAR_PROPOSALS:
             # The finished opening list proposes swimming, not the calendar:
             # it is brought up again every week, until confirmed or dismissed.
-            if current.get("dismissed_for") != current.get("to") and self._proposal_due(
-                current, now
+            # Dismissed, or for the state the pool is already in, it is moot:
+            # it goes, and the calendar has its say.
+            if (
+                current.get("dismissed_for") != current.get("to")
+                and current.get("to") != self.season_state
             ):
-                await self._async_announce_proposal(current, now)
-                self._save()
-            return
+                if self._proposal_due(current, now):
+                    await self._async_announce_proposal(current, now)
+                    self._save()
+                return
+            self.season_proposal = current = None
+            self._save()
         to = None
         if self.conf.get(CONF_CHLORINATOR_AUTO_TOGGLE, True):
             to = season_proposal(now.date(), self.swimming_months, self.season_state)
@@ -1608,7 +1614,21 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             await self.async_refresh()
 
     async def _async_propose_swimming(self) -> None:
-        """The opening list is done: propose the swimming state, which the owner confirms."""
+        """The opening list is done: propose the swimming state, which the owner confirms.
+
+        Only from the opening state: ticked while wintering, the calendar's
+        opening proposal still stands; ticked while swimming, there is nothing
+        to propose.
+        """
+        if self.season_state != SeasonState.OPENING:
+            return
+        current = self.season_proposal
+        if (
+            current is not None
+            and current.get("to") == "opening"
+            and current.get("dismissed_for") != "opening"
+        ):
+            return
         now = dt_util.now()
         self.season_proposal = {
             "to": SeasonState.SWIMMING.value,

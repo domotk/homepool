@@ -180,7 +180,7 @@ steps_fields = {
       "salt_target": T("Salt target", "Sal objetivo"), "salt_range_min": T("Salt, lowest", "Sal mínima"), "salt_range_max": T("Salt, highest", "Sal máxima"),
     },
     "data_description": {
-      "chlorinator_auto_toggle": T("When the swimming months end or are about to start, HomePool proposes changing the season state; you confirm it. Otherwise you change it yourself.", "Cuando terminan los meses de baño o están a punto de empezar, HomePool propone cambiar el estado de temporada y tú lo confirmas. Si no, lo cambias tú."),
+      "chlorinator_auto_toggle": T("When the swimming months end or are about to start, HomePool proposes changing the season state; you confirm it. Otherwise you change it yourself. Either way, finishing the opening checklist while the pool is in the opening state proposes swimming.", "Cuando terminan los meses de baño o están a punto de empezar, HomePool propone cambiar el estado de temporada y tú lo confirmas. Si no, lo cambias tú. En los dos casos, terminar la lista de apertura con la piscina en apertura propone pasar a baño."),
     },
   },
   "connections": {
