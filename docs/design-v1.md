@@ -1247,3 +1247,37 @@ quien lo construyese, está en
   antiheladas usa la temperatura del aire (antes un `nan` del agua rompía la
   evaluación). `record_manual_action` exige un valor finito y notas de 500
   caracteres como mucho.
+
+## 24. Cambios en la v0.2.1 (noviembre de 2026), tras la prueba real de la 0.2.0
+
+La tercera instalación real probó el invernaje pasivo con un relé Shelly de
+verdad. HomePool apagó en 136 ms la bomba que se había encendido a mano. Pero
+apuntó ese encendido como un cambio a respetar durante dos horas, y al volver
+a invernaje activo encendió la bomba por él, con el objetivo cumplido y
+tirando de la red.
+
+- **En invernaje pasivo no se apunta ningún cambio hecho fuera de HomePool**,
+  porque se deshace al momento. Además, al salir del invernaje pasivo se borra
+  cualquier anulación o ciclo que quedara.
+- **Un cambio de temporada ya no baja el objetivo del día.** Recalcula al
+  momento, pero conserva la cifra más alta, como cualquier otro recálculo
+  durante el día. La prueba lo vio bajar de 246 a 232. Solo
+  `homepool.recalculate_schedule` lo baja.
+- **Una ventana de pH no se acepta durante un tratamiento**, y la que se había
+  pedido antes se borra al empezarlo. Las dos esperaban debajo del tratamiento
+  y encendían la bomba nada más terminar (issue #11).
+- **Con filtro de cartucho, las listas dicen «Limpia el cartucho del
+  filtro»**, no «Haz un contralavado». El identificador del paso es el mismo,
+  porque se guarda con la lista (issue #12).
+- **La alerta del aspirado vuelve tras una recarga sin lanzarse de nuevo**: ni
+  evento ni notificación hasta que toca otra vez al día siguiente (issue #14).
+- **El asistente de configuración es más fácil de seguir**:
+  - las pantallas que llevan a otra lo dicen;
+  - las profundidades salen vacías;
+  - la pantalla del volumen avisa de que el volumen real manda sobre las
+    medidas;
+  - los intervalos de contralavado, calibración del pH y producto de invierno
+    se piden solo en las tareas periódicas;
+  - «Tratamiento del agua» y «Control» se agrupan en secciones. Los errores se
+    muestran sobre la sección, porque Home Assistant no los enseña en un campo
+    que está dentro de una sección.

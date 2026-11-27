@@ -677,3 +677,27 @@ async def test_a_backwash_step_cleans_a_cartridge(
     assert "backwash" not in coordinator.tasks
     row = next(t for t in coordinator.task_status() if t["task"] == "filter_cleaning")
     assert row["last_done"] is not None and not row["overdue"]
+
+
+@pytest.mark.parametrize(
+    ("language", "sand", "cartridge"),
+    [
+        ("en", "Backwash the filter.", "Clean the filter cartridge."),
+        ("es", "Haz un contralavado.", "Limpia el cartucho del filtro."),
+    ],
+)
+async def test_a_cartridge_is_cleaned_not_backwashed(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory,
+    language: str, sand: str, cartridge: str,
+) -> None:
+    """The step keeps its id, which is stored; only its text follows the filter (issue 12)."""
+    entry, coordinator = await closing_proposed(hass, freezer, filter_type="cartridge")
+    hass.config.language = language
+    step = next(i for i in coordinator.checklist_view()["closing"] if i["id"] == "closing.backwash")
+    assert step["text"] == cartridge
+    hass.config_entries.async_update_entry(entry, options={**entry.options, "filter_type": "sand"})
+    await hass.async_block_till_done()
+    step = next(
+        i for i in entry.runtime_data.checklist_view()["closing"] if i["id"] == "closing.backwash"
+    )
+    assert step["text"] == sand

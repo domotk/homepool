@@ -238,6 +238,13 @@ class SeasonMixin:
                 return True
         return False
 
+    def _step_text_key(self, d: StepDef) -> str:
+        """A filter step reads as the pool's own filter job: a cartridge is
+        cleaned, not backwashed. The step id stays the same, as it is stored."""
+        if d.completes_task in FILTER_TASKS and task_applies("filter_cleaning", self.conf):
+            return d.text_key + "_cartridge"
+        return d.text_key
+
     def checklist_view(self) -> dict[str, list[dict[str, Any]]]:
         """The open lists, with their texts in Home Assistant's language."""
         language = self.hass.config.language
@@ -250,7 +257,7 @@ class SeasonMixin:
                 d = step_def(list_id, step["id"], checklist.get("treatment"))
                 item = {
                     "id": step["id"],
-                    "text": text(language, d.text_key) if d else step["id"],
+                    "text": text(language, self._step_text_key(d)) if d else step["id"],
                     "done": step["done"] is not None,
                     "done_at": step["done"],
                     # The card offers to start this treatment from the step.
@@ -404,7 +411,14 @@ class SeasonMixin:
                     "new": new.value,
                 },
             )
-        await self._async_maybe_recalculate(dt_util.utcnow(), force=True)
+        if old == SeasonState.WINTER_PASSIVE and new != SeasonState.WINTER_PASSIVE:
+            # Whatever was switched by hand meanwhile was undone at once; none
+            # of it is a wish to act on once the pump may run again.
+            self.override = None
+            self.cycle_until = None
+        # Recalculated now, for the new season's figures, but during a day the
+        # target only goes up: only recalculate_schedule takes it down.
+        await self._async_maybe_recalculate(dt_util.utcnow(), force=True, may_lower=False)
         self._save()
         await self.async_refresh()
 

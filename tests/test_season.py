@@ -601,3 +601,75 @@ def test_an_early_opening_is_not_sent_back_to_winter() -> None:
     south = [12, 1, 2, 3]
     assert season_proposal(date(2026, 10, 1), south, "opening") is None
     assert season_proposal(date(2026, 5, 1), south, "opening") == "winter"
+
+
+async def test_a_hand_switch_in_passive_wintering_is_not_acted_on_later(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
+) -> None:
+    """The third real install (0.2.0): switched on by hand in passive wintering,
+    off again at once, and then on for two hours on leaving it."""
+    freezer.move_to(local(2026, 11, 27, 19, 0))
+    SwitchRouter(hass)
+    entry = await setup_pool(hass)
+    await set_mode(hass, "off")
+    await set_season(hass, entry, "winter_active")
+    assert state(hass, PUMP) == "off"
+
+    await set_season(hass, entry, "winter_passive")
+    user = await hass.auth.async_create_user("Owner")
+    await hass.services.async_call(
+        "input_boolean", "turn_on", {"entity_id": PUMP}, blocking=True,
+        context=Context(user_id=user.id),
+    )
+    await hass.async_block_till_done()
+    await tick(hass, freezer, 1)
+    assert state(hass, PUMP) == "off"
+    assert entry.runtime_data.override is None
+
+    await set_season(hass, entry, "winter_active")
+    await tick(hass, freezer, 1)
+    assert state(hass, PUMP) == "off"
+    attrs = hass.states.get("sensor.pool_pump_control").attributes
+    assert attrs["reason_key"] != "manual_override_on"
+
+
+async def test_leaving_passive_wintering_drops_a_hold_left_from_before(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
+) -> None:
+    """However a hold got there, none outlives passive wintering."""
+    freezer.move_to(local(2026, 11, 27, 19, 0))
+    SwitchRouter(hass)
+    entry = await setup_pool(hass)
+    await set_mode(hass, "off")
+    await set_season(hass, entry, "winter_passive")
+    coordinator = entry.runtime_data
+    coordinator.override = {
+        "state": True,
+        "until": (dt_util.utcnow() + timedelta(hours=2)).isoformat(),
+        "by": "user",
+        "name": None,
+    }
+    await set_season(hass, entry, "winter_active")
+    assert coordinator.override is None
+    await tick(hass, freezer, 1)
+    assert state(hass, PUMP) == "off"
+
+
+async def test_a_season_change_does_not_lower_the_days_target(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
+) -> None:
+    """During a day the target only goes up (246 fell to 232 on the third
+    install); only recalculate_schedule takes it down."""
+    freezer.move_to(local(2026, 11, 27, 18, 0))
+    SwitchRouter(hass)
+    entry = await setup_pool(hass)
+    coordinator = entry.runtime_data
+    held = coordinator.target_minutes + 60
+    coordinator.target = {**coordinator.target, "target_minutes": held}
+
+    await set_season(hass, entry, "winter_passive")
+    assert coordinator.target_minutes == held
+    assert coordinator.target["held_at_previous"] is True
+
+    await coordinator.async_recalculate()
+    assert coordinator.target_minutes < held

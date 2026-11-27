@@ -58,13 +58,16 @@ class AlertsMixin:
         reminder: bool = False,
         text_key: str | None = None,
         notify: bool = True,
+        event: bool = True,
     ) -> None:
         """Raise an alert on its rising edge: event, and notification if enabled.
 
         ``reminder`` marks an alert that asks the owner to do something: it is
         notified whatever the severity floor, after the quiet hours if need be.
         ``text_key`` picks another wording for the same alert; ``notify``
-        False raises it without a notification.
+        False raises it without a notification, and ``event`` False without
+        the event either: an alert that was already raised before a reload,
+        and is only put back.
         """
         if alert in self.alerts and not once:
             return
@@ -86,6 +89,8 @@ class AlertsMixin:
             "message": message,
             "context": values,
         }
+        if not event:
+            return
         self.hass.bus.async_fire(EVENT_ALERT, payload)
         if alert == "safety_shutoff":
             self.hass.bus.async_fire(

@@ -502,6 +502,9 @@ class PoolCoordinator(
                 # Vacuuming leaves the pump to the owner: their switching is
                 # the treatment going as planned, not a change to respect.
                 and self.treatment_phase != Phase.VACUUMING
+                # In passive wintering HomePool switches it off again at once;
+                # a hold kept from that would start the pump on leaving it.
+                and not self.winter_passive
             ):
                 minutes = float(
                     self.opt(CONF_MANUAL_OVERRIDE_MINUTES, DEFAULT_MANUAL_OVERRIDE_MINUTES)

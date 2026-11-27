@@ -58,7 +58,8 @@ locally without Docker, so read its output on the pull request.
   passive wintering, safety shutoff, freeze protection, water treatment, pH
   correction, manual cycle, a change made outside HomePool, then the mode.
   Passive wintering keeps the pump off (the pipes are empty) and undoes a pump
-  switched on by hand; only hands-off is above it. A treatment's rung is
+  switched on by hand, recording no hold for it; leaving it drops any hold or
+  cycle left. Only hands-off is above it. A treatment's rung is
   decided on the phase key, because its pump may be `None` (vacuuming, the
   owner's). `treatment` is in `FORCING_SOURCES`. A new feature that moves the pump
   finds its rung there; it never switches the pump from anywhere else.
@@ -67,7 +68,11 @@ locally without Docker, so read its output on the pull request.
   window) runs it. Users rely on that when testing it next to their own
   automations. Keep it so.
 - **During a day the target only goes up** (`_async_maybe_recalculate`);
-  `homepool.recalculate_schedule` is the only way down. A day ends at local
+  `homepool.recalculate_schedule` is the way down. A few things the owner
+  changes on purpose also recalculate at once and may lower it (the
+  multiplier, a salt reading, `reset_daily_counters`). A season change
+  recalculates at once but does not lower it (`may_lower=False`); a new
+  forced recalculation should do the same unless lowering is the point. A day ends at local
   midnight, and time is never carried over.
 - **HomePool proposes a season change and the owner confirms it.** Nothing
   changes `season_state` on its own; `season_proposal` only asks.

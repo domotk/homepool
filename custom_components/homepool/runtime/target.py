@@ -130,7 +130,16 @@ class TargetMixin:
             return float(uv), "forecast"
         return None, None
 
-    async def _async_maybe_recalculate(self, now: datetime, force: bool = False) -> None:
+    async def _async_maybe_recalculate(
+        self, now: datetime, force: bool = False, may_lower: bool | None = None
+    ) -> None:
+        """Recalculate the day's target when it is due, or at once with ``force``.
+
+        A forced recalculation may lower the target unless ``may_lower`` is
+        False; an unforced one never does.
+        """
+        if may_lower is None:
+            may_lower = force
         if (
             not force
             and self.target
@@ -141,7 +150,7 @@ class TargetMixin:
         await self._async_forecast(now)
         result = self.calculate_target(dt_util.as_local(now).date())
         old = self.target_minutes
-        if self.target and not force and result["target_minutes"] < old:
+        if self.target and not may_lower and result["target_minutes"] < old:
             # During a day the target only ever goes up. A target that drops in
             # the afternoon because a cloud cooled the air is what made the old
             # automations stop half way; the day's demand does not shrink.
