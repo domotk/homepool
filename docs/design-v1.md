@@ -1195,3 +1195,11 @@ invernaje, producto de invierno, más lecturas) queda para la 0.2.
    desde `tasks_since`, que se fija la primera vez que se carga la 0.1.4 (o al
    instalar). Pedir la fecha del último en el asistente queda para la 0.2.
 
+## 23. La v0.2 (noviembre de 2026): el año entero
+
+La 0.2 añade el estado de temporada, el producto de invierno, una tabla de
+tareas con listas de pasos, las lecturas químicas manuales y el tratamiento del
+agua, con dos escalones nuevos en la escalera de autoridad (`winter_passive` y
+`treatment`). El diseño completo, con lo que decidió Rubén y lo que se dejó a
+quien lo construyese, está en
+[superpowers/specs/2026-11-27-homepool-0.2-design.md](superpowers/specs/2026-11-27-homepool-0.2-design.md).

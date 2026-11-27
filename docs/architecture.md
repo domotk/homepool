@@ -16,6 +16,8 @@ config entry ──► PoolCoordinator (coordinator.py)   one per pool, every 60
                    │          modes/<mode>                → what the mode wants
                    │          pool/scheduler.arbitrate    → what actually happens
                    │          pool/safety, chlorinator_wanted
+                   │          pool/season, tasks, checklists, readings,
+                   │          treatment, dosing    → the year, the chores
                    ├─ writes  switch.turn_on/off on the pump and chlorinator
                    ├─ keeps   a Store (.storage/homepool.<entry_id>)
                    └─ fires   homepool_* events, alerts, optional notifications
@@ -106,12 +108,23 @@ From most to least authority; the first that applies decides:
 | Pump switch unavailable | `unavailable` | left alone |
 | Hands-off entity on | `hands_off` | left alone |
 | Maintenance lock | `maintenance_lock` | off |
+| Passive wintering (`season_state` = `winter_passive`) | `winter_passive` | off, and a pump switched on by hand is switched off again |
 | Safety shutoff (flood, hot equipment room, filter pressure, pump power anomaly) | `safety` | off |
-| Freeze protection | `freeze_protection` | on, in every mode |
-| pH correction window (not in `off`, not on an implausible probe reading) | `ph_correction` | on, capped per day |
+| Freeze protection (never in passive wintering) | `freeze_protection` | on, in every mode |
+| Water treatment | `treatment` | by phase: on (`filtering`, `mixing`), off (`settling`), `None` (`vacuuming`, the owner's) |
+| pH correction window (not in `off`, not on an implausible probe reading, never on a manual pH) | `ph_correction` | on, capped per day |
 | Manual cycle | `manual_cycle` | on |
 | Changed from outside, for `manual_override_minutes` | `manual_override` | as it was left |
 | The mode | `mode` | what the mode says |
+
+Passive wintering sits at the lock's level: with the pipes drained, running the
+pump dry can damage it, so only hands-off, above, lets someone run it. A
+treatment is decided on its phase key, not on the pump value: in `vacuuming` the
+pump is `None`, and the rung still holds the pump for the owner so the relay's
+own switch is not read as an outside change. `treatment` is in
+`FORCING_SOURCES`, so a pump it started (and `started_by` remembers) is let go
+when it ends, and a treatment starts the pump even in `off`, because a person
+asked for it.
 
 The minimum run (`MIN_ON_MINUTES`, 20) and rest (`MIN_OFF_MINUTES`, 10) times
 apply only to the mode's decisions, wrapped as `min_run` / `min_rest`. When a
@@ -140,6 +153,27 @@ With a power sensor and a nominal power, a pump drawing far from nominal while
 on (above 1.5× or below 0.3×) for `ANOMALY_MINUTES` is a safety shutoff
 (`pump_power_anomaly`).
 
+## Season, tasks and treatments (0.2)
+
+Pure modules in `pool/`, driven by the coordinator:
+
+| Module | What it holds |
+|---|---|
+| `season.py` | `SeasonState`, the calendar (`swimming_months`), `season_proposal()`: what the calendar would propose today, never applied |
+| `tasks.py` | The task table: key, action, interval (days or pump hours), when it exists, which states count it |
+| `checklists.py` | The step lists `closing`, `opening` and `treatment`, with `only_passive` and `starts_treatment` flags |
+| `readings.py` | Kinds, valid values, default ranges, stale ages |
+| `treatment.py` | `TreatmentType`, phases and what each wants of the pump |
+| `dosing.py` | Shock, clarifier, flocculant and winter product doses, with their inputs |
+
+The coordinator owns the state. The owner confirms season changes
+(`async_set_season_state`); `_async_season_proposal` only creates, repeats
+weekly and clears a `season_proposal`. Treatment phases that run the pump count
+**pump-running time** (so a lock pauses them), `settling` counts clock time
+except while freeze protection runs the pump and not across Home Assistant
+downtime. Stale readings never set the status to `attention`, and are absent in
+passive wintering (salt is never stale while the cell is not in use).
+
 ## The chlorinator
 
 `chlorinator_wanted()` turns the cell on only with water flowing for
@@ -155,7 +189,13 @@ it.
 - today's counters (`elapsed_s`, `chlorine_s`, `ph_correction_s`);
 - the target and when it was worked out;
 - runtime settings (mode, multiplier, chlorinator in use…);
-- maintenance tasks and manual readings;
+- maintenance tasks and manual readings, plus `tasks_since`, `task_pump_s`
+  (pump seconds per task) and `task_first_seen` (tasks new in 0.2 count from
+  when they first appear, so an update does not make them overdue);
+- `winter_entered` and `in_season_last`;
+- `season_proposal` (with `dismissed_for`), `checklists` (by id), `treatment`
+  (type, phase, pump-time and settle counters), `backwash_after_treatment` and
+  `after_shock_since` (swimming stays not advised after a shock);
 - a short `history` of closed days;
 - `air_max`;
 - the pending override, cycle and pH window.
@@ -181,7 +221,8 @@ daily-target sensor and reads:
   entities and lights;
 - the target sensor's factors, `min_minutes` and `max_minutes`;
 - the control sensor's state, `reason`, `reason_key` and
-  `manual_override_by`.
+  `manual_override_by`. Since 0.2 the state can be `winter_passive` or
+  `treatment`; `next_manual_task` gains `checklists`.
 
 Treat these as a public API: add, don't rename.
 
@@ -203,8 +244,11 @@ Each pool fires these events with its `entry_id` and name:
 - `homepool_target_recalculated`
 - `homepool_manual_action_due`
 - `homepool_chlorinator_season_start` / `_end`
+- `homepool_season_proposal` and `homepool_season_state_changed`
+- `homepool_treatment_started`, `homepool_treatment_phase` and
+  `homepool_treatment_ended`
 
 Alerts are also binary sensors. `notify_dispatcher.py` is optional: it
 forwards alerts to one `notify.*` service, filtered by severity and quiet hours.
-Reminders (tasks falling due, the season changing) pass the severity floor;
+Reminders (tasks falling due, a season proposal) pass the severity floor;
 one that falls in the quiet hours waits in `pending_reminders` until they end.
