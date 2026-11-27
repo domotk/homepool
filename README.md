@@ -191,7 +191,8 @@ the date says so.
   proposal shows as the `proposal` attribute of the select.
 - **An unanswered proposal keeps reminding every week**, an opening proposal
   through the whole season. `homepool.dismiss_season_proposal` stops it until
-  the calendar proposes something different.
+  the calendar proposes something different, and closes the checklist it
+  opened.
 - You confirm by choosing the state in the select or with
   `homepool.set_season_state`. For wintering you choose active or passive.
   Confirming passive with a closing step still to do (a shock or backwash needs

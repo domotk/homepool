@@ -480,3 +480,29 @@ async def test_a_stale_swimming_proposal_does_not_block_the_calendar(
     assert coordinator.season_proposal["to"] == "winter"
     assert coordinator.season_proposal_shown == "winter"
     assert "closing" in coordinator.checklists
+
+
+async def test_dismissing_the_winter_proposal_drops_the_closing_list(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
+) -> None:
+    _, coordinator = await closing_proposed(hass, freezer)
+    assert "closing" in coordinator.checklists
+    await coordinator.async_dismiss_season_proposal()
+    assert "closing" not in coordinator.checklists
+
+
+async def test_dismissing_the_opening_proposal_drops_the_opening_list(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
+) -> None:
+    freezer.move_to(local(2027, 5, 17, 12, 0))
+    SwitchRouter(hass)
+    entry = await setup_pool(hass)
+    coordinator = entry.runtime_data
+    await next_day(hass, freezer)
+    assert coordinator.season_proposal["to"] == "opening"
+    assert "opening" in coordinator.checklists
+    await hass.services.async_call(
+        DOMAIN, "dismiss_season_proposal",
+        {"entity_id": entity(entry, "season_state")}, blocking=True,
+    )
+    assert "opening" not in coordinator.checklists

@@ -2905,7 +2905,13 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         """Not now: the proposal is not brought up again until the calendar
         calls for another change."""
         if self.season_proposal is not None:
-            self.season_proposal["dismissed_for"] = self.season_proposal["to"]
+            to = self.season_proposal["to"]
+            self.season_proposal["dismissed_for"] = to
+            # The list opened with the proposal goes with it.
+            if to == "winter":
+                self.checklists.pop(CLOSING, None)
+            elif to == "opening":
+                self.checklists.pop(OPENING, None)
         self._save()
         await self.async_refresh()
 
