@@ -77,6 +77,31 @@ BUTTONS: tuple[PoolButtonDescription, ...] = (
         press_fn=lambda c: c.async_record_action(ManualAction.SKIMMER_BASKETS_EMPTIED),
     ),
     PoolButtonDescription(
+        key="start_shock",
+        icon="mdi:flash",
+        press_fn=lambda c: c.async_start_treatment("shock"),
+    ),
+    PoolButtonDescription(
+        key="start_clarifier",
+        icon="mdi:water-opacity",
+        press_fn=lambda c: c.async_start_treatment("clarifier"),
+    ),
+    PoolButtonDescription(
+        key="start_flocculant",
+        icon="mdi:arrow-collapse-down",
+        press_fn=lambda c: c.async_start_treatment("flocculant"),
+    ),
+    PoolButtonDescription(
+        key="advance_treatment",
+        icon="mdi:skip-next",
+        press_fn=lambda c: c.async_advance_treatment(),
+    ),
+    PoolButtonDescription(
+        key="end_treatment",
+        icon="mdi:stop-circle-outline",
+        press_fn=lambda c: c.async_end_treatment(),
+    ),
+    PoolButtonDescription(
         key="recalculate_target",
         icon="mdi:calculator-variant",
         press_fn=lambda c: c.async_recalculate(),

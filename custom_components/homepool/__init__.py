@@ -21,19 +21,24 @@ from .const import (
     ATTR_CHECKLIST,
     ATTR_DATE,
     ATTR_DURATION,
+    ATTR_HOURS,
     ATTR_KIND,
     ATTR_NOTES,
+    ATTR_SEVERITY,
     ATTR_STATE,
     ATTR_STEP,
     ATTR_TASK,
+    ATTR_TYPE,
     ATTR_VALUE,
     CONFIG_VERSION,
     DOMAIN,
     PLATFORMS,
+    SERVICE_ADVANCE_TREATMENT,
     SERVICE_COMPLETE_STEP,
     SERVICE_COMPLETE_TASK,
     SERVICE_DISMISS_CHECKLIST,
     SERVICE_DISMISS_SEASON_PROPOSAL,
+    SERVICE_END_TREATMENT,
     SERVICE_FORCE_PH_WINDOW,
     SERVICE_RECALCULATE,
     SERVICE_RECORD_FREE_CHLORINE,
@@ -43,14 +48,17 @@ from .const import (
     SERVICE_RESET_DAILY,
     SERVICE_SET_SEASON_STATE,
     SERVICE_START_CYCLE,
+    SERVICE_START_TREATMENT,
     SERVICE_STOP_CYCLE,
     ManualAction,
 )
 from .coordinator import PoolCoordinator
 from .pool.checklists import LIST_IDS
+from .pool.dosing import SHOCK_RISE
 from .pool.readings import KINDS
 from .pool.season import SeasonState
 from .pool.tasks import TASKS_BY_KEY
+from .pool.treatment import TreatmentType
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -84,6 +92,13 @@ SALT_SCHEMA = cv.make_entity_service_schema(
 )
 CHLORINE_SCHEMA = cv.make_entity_service_schema(
     {vol.Required(ATTR_VALUE): vol.All(vol.Coerce(float), vol.Range(min=0, max=20))}
+)
+TREATMENT_SCHEMA = cv.make_entity_service_schema(
+    {
+        vol.Required(ATTR_TYPE): vol.In([t.value for t in TreatmentType]),
+        vol.Optional(ATTR_SEVERITY, default="green"): vol.In(list(SHOCK_RISE)),
+        vol.Optional(ATTR_HOURS): vol.All(vol.Coerce(float), vol.Range(min=0.5, max=168)),
+    }
 )
 READING_SCHEMA = cv.make_entity_service_schema(
     {vol.Required(ATTR_KIND): vol.In(KINDS), vol.Required(ATTR_VALUE): vol.Coerce(float)}
@@ -135,6 +150,9 @@ async def async_unload_entry(hass: HomeAssistant, entry: HomePoolConfigEntry) ->
             SERVICE_DISMISS_SEASON_PROPOSAL,
             SERVICE_COMPLETE_STEP,
             SERVICE_DISMISS_CHECKLIST,
+            SERVICE_START_TREATMENT,
+            SERVICE_ADVANCE_TREATMENT,
+            SERVICE_END_TREATMENT,
         ):
             hass.services.async_remove(DOMAIN, service)
     return unloaded
@@ -247,6 +265,29 @@ def _async_register_services(hass: HomeAssistant) -> None:
         for pool in await _pools(call):
             await pool.async_dismiss_checklist(call.data[ATTR_CHECKLIST])
 
+    async def _start_treatment(call: ServiceCall) -> None:
+        pools = await _pools(call)
+        # Every pool first, so a call that one of them refuses changes none.
+        for pool in pools:
+            if pool.winter_passive or pool.treatment is not None:
+                raise ServiceValidationError(
+                    translation_domain=DOMAIN,
+                    translation_key="treatment_not_allowed",
+                    translation_placeholders={"pool": pool.pool_name},
+                )
+        for pool in pools:
+            await pool.async_start_treatment(
+                call.data[ATTR_TYPE], call.data[ATTR_SEVERITY], call.data.get(ATTR_HOURS)
+            )
+
+    async def _advance_treatment(call: ServiceCall) -> None:
+        for pool in await _pools(call):
+            await pool.async_advance_treatment()
+
+    async def _end_treatment(call: ServiceCall) -> None:
+        for pool in await _pools(call):
+            await pool.async_end_treatment()
+
     async def _record_salt(call: ServiceCall) -> None:
         for pool in await _pools(call):
             await pool.async_record_reading("salt", call.data[ATTR_VALUE])
@@ -286,6 +327,9 @@ def _async_register_services(hass: HomeAssistant) -> None:
         SERVICE_RESET_DAILY: (_reset, EMPTY_SCHEMA),
         SERVICE_SET_SEASON_STATE: (_set_season_state, SEASON_SCHEMA),
         SERVICE_DISMISS_SEASON_PROPOSAL: (_dismiss_season_proposal, EMPTY_SCHEMA),
+        SERVICE_START_TREATMENT: (_start_treatment, TREATMENT_SCHEMA),
+        SERVICE_ADVANCE_TREATMENT: (_advance_treatment, EMPTY_SCHEMA),
+        SERVICE_END_TREATMENT: (_end_treatment, EMPTY_SCHEMA),
     }
     for name, (handler, schema) in handlers.items():
         hass.services.async_register(DOMAIN, name, handler, schema=schema)

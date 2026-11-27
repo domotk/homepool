@@ -143,6 +143,12 @@ steps_fields = {
       "winter_product_dose_per_m3": T("Winter product, dose per m³", "Producto de invierno, dosis por m³"),
       "winter_product_interval_days": T("Top up the winter product every", "Reponer el producto de invierno cada"),
       **reading_data,
+      "shock_product": T("Shock product", "Producto de choque"),
+      "shock_concentration": T("Shock product concentration", "Concentración del producto de choque"),
+      "clarifier_dose_per_10m3": T("Clarifier, dose per 10 m³", "Clarificante, dosis por 10 m³"),
+      "clarifier_dose_unit": T("Clarifier, unit", "Clarificante, unidad"),
+      "flocculant_dose_per_10m3": T("Flocculant, dose per 10 m³", "Floculante, dosis por 10 m³"),
+      "flocculant_dose_unit": T("Flocculant, unit", "Floculante, unidad"),
     },
     "data_description": {
       "swimming_months": T("HomePool proposes wintering when they end and opening two weeks before they start.", "HomePool propone invernar cuando terminan y la puesta en marcha dos semanas antes de que empiecen."),
@@ -150,6 +156,10 @@ steps_fields = {
       "winter_product_dose_per_m3": T("Units per m³ (litres per m³ for a liquid), as on the label. One floater for 50 m³ is 0.02.", "Unidades por m³ (litros por m³ si es líquido), según la etiqueta. Un flotador por cada 50 m³ son 0,02."),
       "winter_product_interval_days": T("Days between top-ups.", "Días entre reposiciones."),
       "has_ph_dosing": T("When the pH is too high, the pump is run for a while so the doser can work.", "Si el pH está alto, la bomba se pone en marcha un rato para que la dosificadora pueda trabajar."),
+      "shock_product": T("What you shock green water with. HomePool works out the dose from the pool's volume.", "Con qué haces el choque al agua verde. HomePool calcula la dosis con el volumen de la piscina."),
+      "shock_concentration": T("Per cent of chlorine for a granular product, g/L for a liquid one, as on the label. Empty: 65 % calcium hypochlorite, 150 g/L sodium hypochlorite, 56 % dichlor.", "Por ciento de cloro si es granulado, g/L si es líquido, según la etiqueta. Vacío: hipoclorito cálcico al 65 %, hipoclorito sódico a 150 g/L, dicloro al 56 %."),
+      "clarifier_dose_per_10m3": T("As on the label. Empty, the dose says to follow the label.", "Según la etiqueta. Vacío, la dosis dice que sigas el envase."),
+      "flocculant_dose_per_10m3": T("As on the label. Empty, the dose says to follow the label.", "Según la etiqueta. Vacío, la dosis dice que sigas el envase."),
     },
   },
   "chlorinator_model": {
@@ -310,6 +320,15 @@ selectors = {
             "liquid": T("Liquid chlorine", "Cloro líquido"), "other": T("Other", "Otro")},
   "winter_product_type": {"none": T("None", "Ninguno"), "floater": T("Floater", "Flotador"),
             "liquid": T("Liquid", "Líquido"), "tablets": T("Tablets", "Pastillas")},
+  "shock_product": {"calcium_hypochlorite": T("Calcium hypochlorite (granular)", "Hipoclorito cálcico (granulado)"),
+            "sodium_hypochlorite": T("Sodium hypochlorite (liquid)", "Hipoclorito sódico (líquido)"),
+            "dichlor": T("Dichlor (granular, raises the cyanuric acid)", "Dicloro (granulado, sube el ácido cianúrico)")},
+  "dose_unit": {"mL": T("mL", "mL"), "g": T("g", "g")},
+  "treatment_type": {"shock": T("Shock (green water)", "Choque (agua verde)"),
+            "clarifier": T("Clarifier (cloudy water)", "Clarificante (agua turbia)"),
+            "flocculant": T("Flocculant (cloudy water)", "Floculante (agua turbia)")},
+  "shock_severity": {"light": T("Light green", "Verde claro"), "green": T("Green", "Verde"),
+            "dark": T("Dark green or black", "Verde oscuro o negro")},
   "month": {str(i): T(en, es) for i, (en, es) in enumerate([
       ("January","Enero"),("February","Febrero"),("March","Marzo"),("April","Abril"),("May","Mayo"),("June","Junio"),
       ("July","Julio"),("August","Agosto"),("September","Septiembre"),("October","Octubre"),("November","Noviembre"),("December","Diciembre")], start=1)},
@@ -338,7 +357,8 @@ control_states = {"hands_off": T("Hands off", "Manos fuera"), "maintenance_lock"
   "ph_correction": T("pH correction", "Corrección de pH"), "manual_cycle": T("Manual cycle", "Ciclo manual"),
   "manual_override": T("Switched by hand", "Accionada a mano"), "mode": T("Operation mode", "Modo de funcionamiento"),
   "unavailable": T("Pump unavailable", "Bomba no disponible"),
-  "winter_passive": T("Passive wintering", "Invernaje pasivo")}
+  "winter_passive": T("Passive wintering", "Invernaje pasivo"),
+  "treatment": T("Water treatment", "Tratamiento del agua")}
 
 entity = {
  "sensor": {
@@ -366,6 +386,8 @@ entity = {
         "filter_media_check": T("Check the filter media", "Revisar la arena o el vidrio")}),
   "overall_status": (T("Status", "Estado"), {"ok": T("OK", "Correcto"), "attention": T("Needs attention", "Requiere atención"),
         "action_required": T("Action required", "Acción necesaria")}),
+  "water_treatment": (T("Water treatment", "Tratamiento del agua"), {"none": T("None", "Ninguno"),
+        "shock": T("Shock", "Choque"), "clarifier": T("Clarifier", "Clarificante"), "flocculant": T("Flocculant", "Floculante")}),
   "ph_trend": (T("pH trend", "Tendencia del pH"), {"rising": T("Rising", "Subiendo"), "stable": T("Stable", "Estable"), "falling": T("Falling", "Bajando")}),
   "salinity": T("Salinity", "Salinidad"),
   "free_chlorine": T("Free chlorine", "Cloro libre"),
@@ -392,6 +414,7 @@ entity = {
   "safety_shutoff_active": T("Safety shutoff", "Parada de seguridad"),
   "freeze_protection_active": T("Freeze protection", "Protección antiheladas"),
   "chlorinator_in_season": T("Chlorinator in season", "Clorador en temporada"),
+  "swimming_not_advised": T("Swimming not advised", "Baño no recomendado"),
  },
  "switch": {
   "pump": T("Pump", "Bomba"),
@@ -419,6 +442,11 @@ entity = {
   "mark_winter_product_added": T("Winter product added", "Producto de invierno repuesto"),
   "mark_water_tested": T("Water tested", "Agua medida"),
   "mark_skimmer_baskets_emptied": T("Skimmer baskets emptied", "Cestos del skimmer vaciados"),
+  "start_shock": T("Start a shock", "Empezar un choque"),
+  "start_clarifier": T("Start a clarifier", "Empezar un clarificante"),
+  "start_flocculant": T("Start a flocculant", "Empezar un floculante"),
+  "advance_treatment": T("Next treatment phase (vacuuming done)", "Siguiente fase del tratamiento (aspirado terminado)"),
+  "end_treatment": T("End the treatment", "Terminar el tratamiento"),
   "recalculate_target": T("Recalculate target", "Recalcular objetivo"),
  },
 }
@@ -472,6 +500,12 @@ services = {
       {"step": (T("Step", "Paso"), T("The step id: the list, a dot and the step.", "El id del paso: la lista, un punto y el paso."))}),
   "dismiss_checklist": (T("Dismiss checklist", "Descartar lista"), T("Closes a checklist without finishing it.", "Cierra una lista sin terminarla."),
       {"checklist": (T("Checklist", "Lista"), T("Which list to close.", "Qué lista cerrar."))}),
+  "start_treatment": (T("Start water treatment", "Empezar tratamiento del agua"), T("Starts a shock, a clarifier or a flocculant. The pump follows it above pH, manual cycles and the mode; safety and freeze protection still win.", "Empieza un choque, un clarificante o un floculante. La bomba lo sigue por encima del pH, del ciclo manual y del modo; la seguridad y la antiheladas siguen mandando."),
+      {"type": (T("Treatment", "Tratamiento"), T("Shock for green water, clarifier or flocculant for cloudy water.", "Choque para el agua verde, clarificante o floculante para el agua turbia.")),
+       "severity": (T("How green", "Cuánto de verde"), T("For a shock: how much the free chlorine is raised (10, 15 or 20 mg/L).", "Para un choque: cuánto se sube el cloro libre (10, 15 o 20 mg/L).")),
+       "hours": (T("Hours", "Horas"), T("Hours of filtering, or of settling for a flocculant. The default if left out: 24 h shock, 48 h clarifier, 12 h settling.", "Horas de filtrado, o de reposo en el floculante. Si se omite, las de siempre: choque 24 h, clarificante 48 h, reposo 12 h."))}),
+  "advance_treatment": (T("Next treatment phase", "Siguiente fase del tratamiento"), T("Moves the treatment to its next phase now. For a flocculant that is vacuuming, it means the vacuuming is done.", "Pasa el tratamiento a su fase siguiente ahora. En un floculante que está aspirando, quiere decir que el aspirado ha terminado."), {}),
+  "end_treatment": (T("End water treatment", "Terminar tratamiento del agua"), T("Ends the treatment now. The filter is left due a backwash.", "Termina el tratamiento ahora. El filtro queda pendiente de contralavado."), {}),
   "reset_daily_counters": (T("Reset today's counters", "Reiniciar contadores de hoy"), T("Starts today's filtration count from zero.", "Vuelve a poner a cero la filtración de hoy."), {}),
 }
 
@@ -480,7 +514,9 @@ exceptions = {"invalid_reading": T("{value} is not a possible {kind} reading.", 
   "date_in_future": T("That date has not happened yet.", "Esa fecha todavía no ha llegado."),
   "task_not_in_pool": T("{pool} has no {task} task.", "{pool} no tiene la tarea {task}."),
   "step_not_open": T("{pool} has no open step {step}.", "{pool} no tiene abierto el paso {step}."),
-  "cycle_in_winter_passive": T("The pump does not start in passive wintering. Change the season state first.", "La bomba no arranca en el invernaje pasivo. Cambia antes el estado de temporada.")}
+  "cycle_in_winter_passive": T("The pump does not start in passive wintering. Change the season state first.", "La bomba no arranca en el invernaje pasivo. Cambia antes el estado de temporada."),
+  "treatment_not_allowed": T("{pool} cannot start a treatment now: it is in passive wintering, or another treatment is running.", "{pool} no puede empezar un tratamiento ahora: está en invernaje pasivo o ya hay otro en marcha."),
+  "no_treatment": T("{pool} has no treatment running.", "{pool} no tiene ningún tratamiento en marcha.")}
 
 def build(i):
     pick = lambda t: t[i]

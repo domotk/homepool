@@ -118,14 +118,24 @@
           "total_alkalinity_stale_days": "Total alkalinity reading, trusted for (days)",
           "calcium_hardness_stale_days": "Calcium hardness reading, trusted for (days)",
           "cyanuric_acid_stale_days": "Cyanuric acid reading, trusted for (days)",
-          "salt_stale_days": "Salt reading, trusted for (days)"
+          "salt_stale_days": "Salt reading, trusted for (days)",
+          "shock_product": "Shock product",
+          "shock_concentration": "Shock product concentration",
+          "clarifier_dose_per_10m3": "Clarifier, dose per 10 m³",
+          "clarifier_dose_unit": "Clarifier, unit",
+          "flocculant_dose_per_10m3": "Flocculant, dose per 10 m³",
+          "flocculant_dose_unit": "Flocculant, unit"
         },
         "data_description": {
           "swimming_months": "HomePool proposes wintering when they end and opening two weeks before they start.",
           "winter_product_type": "What goes in the water while the pool is wintering. HomePool works out the dose and reminds you to top it up.",
           "winter_product_dose_per_m3": "Units per m³ (litres per m³ for a liquid), as on the label. One floater for 50 m³ is 0.02.",
           "winter_product_interval_days": "Days between top-ups.",
-          "has_ph_dosing": "When the pH is too high, the pump is run for a while so the doser can work."
+          "has_ph_dosing": "When the pH is too high, the pump is run for a while so the doser can work.",
+          "shock_product": "What you shock green water with. HomePool works out the dose from the pool's volume.",
+          "shock_concentration": "Per cent of chlorine for a granular product, g/L for a liquid one, as on the label. Empty: 65 % calcium hypochlorite, 150 g/L sodium hypochlorite, 56 % dichlor.",
+          "clarifier_dose_per_10m3": "As on the label. Empty, the dose says to follow the label.",
+          "flocculant_dose_per_10m3": "As on the label. Empty, the dose says to follow the label."
         }
       },
       "chlorinator_model": {
@@ -423,14 +433,24 @@
           "total_alkalinity_stale_days": "Total alkalinity reading, trusted for (days)",
           "calcium_hardness_stale_days": "Calcium hardness reading, trusted for (days)",
           "cyanuric_acid_stale_days": "Cyanuric acid reading, trusted for (days)",
-          "salt_stale_days": "Salt reading, trusted for (days)"
+          "salt_stale_days": "Salt reading, trusted for (days)",
+          "shock_product": "Shock product",
+          "shock_concentration": "Shock product concentration",
+          "clarifier_dose_per_10m3": "Clarifier, dose per 10 m³",
+          "clarifier_dose_unit": "Clarifier, unit",
+          "flocculant_dose_per_10m3": "Flocculant, dose per 10 m³",
+          "flocculant_dose_unit": "Flocculant, unit"
         },
         "data_description": {
           "swimming_months": "HomePool proposes wintering when they end and opening two weeks before they start.",
           "winter_product_type": "What goes in the water while the pool is wintering. HomePool works out the dose and reminds you to top it up.",
           "winter_product_dose_per_m3": "Units per m³ (litres per m³ for a liquid), as on the label. One floater for 50 m³ is 0.02.",
           "winter_product_interval_days": "Days between top-ups.",
-          "has_ph_dosing": "When the pH is too high, the pump is run for a while so the doser can work."
+          "has_ph_dosing": "When the pH is too high, the pump is run for a while so the doser can work.",
+          "shock_product": "What you shock green water with. HomePool works out the dose from the pool's volume.",
+          "shock_concentration": "Per cent of chlorine for a granular product, g/L for a liquid one, as on the label. Empty: 65 % calcium hypochlorite, 150 g/L sodium hypochlorite, 56 % dichlor.",
+          "clarifier_dose_per_10m3": "As on the label. Empty, the dose says to follow the label.",
+          "flocculant_dose_per_10m3": "As on the label. Empty, the dose says to follow the label."
         }
       },
       "chlorinator_model": {
@@ -741,6 +761,33 @@
         "tablets": "Tablets"
       }
     },
+    "shock_product": {
+      "options": {
+        "calcium_hypochlorite": "Calcium hypochlorite (granular)",
+        "sodium_hypochlorite": "Sodium hypochlorite (liquid)",
+        "dichlor": "Dichlor (granular, raises the cyanuric acid)"
+      }
+    },
+    "dose_unit": {
+      "options": {
+        "mL": "mL",
+        "g": "g"
+      }
+    },
+    "treatment_type": {
+      "options": {
+        "shock": "Shock (green water)",
+        "clarifier": "Clarifier (cloudy water)",
+        "flocculant": "Flocculant (cloudy water)"
+      }
+    },
+    "shock_severity": {
+      "options": {
+        "light": "Light green",
+        "green": "Green",
+        "dark": "Dark green or black"
+      }
+    },
     "month": {
       "options": {
         "1": "January",
@@ -916,7 +963,8 @@
           "manual_override": "Switched by hand",
           "mode": "Operation mode",
           "unavailable": "Pump unavailable",
-          "winter_passive": "Passive wintering"
+          "winter_passive": "Passive wintering",
+          "treatment": "Water treatment"
         }
       },
       "chlorine_production_elapsed_today": {
@@ -963,6 +1011,15 @@
           "ok": "OK",
           "attention": "Needs attention",
           "action_required": "Action required"
+        }
+      },
+      "water_treatment": {
+        "name": "Water treatment",
+        "state": {
+          "none": "None",
+          "shock": "Shock",
+          "clarifier": "Clarifier",
+          "flocculant": "Flocculant"
         }
       },
       "ph_trend": {
@@ -1043,6 +1100,9 @@
       },
       "chlorinator_in_season": {
         "name": "Chlorinator in season"
+      },
+      "swimming_not_advised": {
+        "name": "Swimming not advised"
       }
     },
     "switch": {
@@ -1118,6 +1178,21 @@
       },
       "mark_skimmer_baskets_emptied": {
         "name": "Skimmer baskets emptied"
+      },
+      "start_shock": {
+        "name": "Start a shock"
+      },
+      "start_clarifier": {
+        "name": "Start a clarifier"
+      },
+      "start_flocculant": {
+        "name": "Start a flocculant"
+      },
+      "advance_treatment": {
+        "name": "Next treatment phase (vacuuming done)"
+      },
+      "end_treatment": {
+        "name": "End the treatment"
       },
       "recalculate_target": {
         "name": "Recalculate target"
@@ -1256,6 +1331,34 @@
         }
       }
     },
+    "start_treatment": {
+      "name": "Start water treatment",
+      "description": "Starts a shock, a clarifier or a flocculant. The pump follows it above pH, manual cycles and the mode; safety and freeze protection still win.",
+      "fields": {
+        "type": {
+          "name": "Treatment",
+          "description": "Shock for green water, clarifier or flocculant for cloudy water."
+        },
+        "severity": {
+          "name": "How green",
+          "description": "For a shock: how much the free chlorine is raised (10, 15 or 20 mg/L)."
+        },
+        "hours": {
+          "name": "Hours",
+          "description": "Hours of filtering, or of settling for a flocculant. The default if left out: 24 h shock, 48 h clarifier, 12 h settling."
+        }
+      }
+    },
+    "advance_treatment": {
+      "name": "Next treatment phase",
+      "description": "Moves the treatment to its next phase now. For a flocculant that is vacuuming, it means the vacuuming is done.",
+      "fields": {}
+    },
+    "end_treatment": {
+      "name": "End water treatment",
+      "description": "Ends the treatment now. The filter is left due a backwash.",
+      "fields": {}
+    },
     "reset_daily_counters": {
       "name": "Reset today's counters",
       "description": "Starts today's filtration count from zero.",
@@ -1280,6 +1383,12 @@
     },
     "cycle_in_winter_passive": {
       "message": "The pump does not start in passive wintering. Change the season state first."
+    },
+    "treatment_not_allowed": {
+      "message": "{pool} cannot start a treatment now: it is in passive wintering, or another treatment is running."
+    },
+    "no_treatment": {
+      "message": "{pool} has no treatment running."
     }
   }
 }

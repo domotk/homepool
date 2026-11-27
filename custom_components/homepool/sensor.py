@@ -34,6 +34,7 @@ from .const import (
 )
 from .coordinator import PoolCoordinator
 from .pool.readings import NEW_SENSOR_KINDS
+from .pool.treatment import TreatmentType
 from .entity import PoolEntity
 
 
@@ -157,7 +158,8 @@ SENSORS: tuple[PoolSensorDescription, ...] = (
         device_class=SensorDeviceClass.ENUM,
         options=[
             "hands_off", "maintenance_lock", "winter_passive", "safety", "freeze_protection",
-            "ph_correction", "manual_cycle", "manual_override", "mode", "unavailable",
+            "treatment", "ph_correction", "manual_cycle", "manual_override", "mode",
+            "unavailable",
         ],
         value_fn=lambda c: c.decision_source,
         attrs_fn=_control_attrs,
@@ -231,6 +233,13 @@ SENSORS: tuple[PoolSensorDescription, ...] = (
         options=[s.value for s in OverallStatus],
         value_fn=lambda c: c.overall_status,
         attrs_fn=lambda c: {"alerts": c.alerts},
+    ),
+    PoolSensorDescription(
+        key="water_treatment",
+        device_class=SensorDeviceClass.ENUM,
+        options=["none", *(t.value for t in TreatmentType)],
+        value_fn=lambda c: c.treatment["type"] if c.treatment else "none",
+        attrs_fn=lambda c: c.treatment_view(),
     ),
     PoolSensorDescription(
         key="ph_trend",

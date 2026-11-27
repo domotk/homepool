@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+import math
 
 from ..const import (
     DEFAULT_FREE_CHLORINE_RANGE_MAX,
@@ -76,6 +77,8 @@ def validate(kind: str, value: float) -> None:
     """Refuse a reading that cannot be real."""
     if kind not in KINDS:
         raise ValueError(f"unknown reading kind {kind!r}")
+    if not math.isfinite(value):
+        raise ValueError(f"{kind} must be a number")
     if value < 0:
         raise ValueError(f"{kind} cannot be negative")
     if kind == "ph" and value > 14:

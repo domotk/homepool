@@ -204,3 +204,45 @@ dismiss_checklist:
             - closing
             - opening
             - treatment
+
+start_treatment:
+  target:
+    entity:
+      integration: homepool
+  fields:
+    type:
+      required: true
+      selector:
+        select:
+          translation_key: treatment_type
+          options:
+            - shock
+            - clarifier
+            - flocculant
+    severity:
+      default: green
+      selector:
+        select:
+          translation_key: shock_severity
+          options:
+            - light
+            - green
+            - dark
+    hours:
+      selector:
+        number:
+          min: 0.5
+          max: 168
+          step: 0.5
+          unit_of_measurement: h
+          mode: box
+
+advance_treatment:
+  target:
+    entity:
+      integration: homepool
+
+end_treatment:
+  target:
+    entity:
+      integration: homepool

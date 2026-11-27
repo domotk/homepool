@@ -118,14 +118,24 @@
           "total_alkalinity_stale_days": "Lectura de alcalinidad total, válida durante (días)",
           "calcium_hardness_stale_days": "Lectura de dureza cálcica, válida durante (días)",
           "cyanuric_acid_stale_days": "Lectura de ácido cianúrico, válida durante (días)",
-          "salt_stale_days": "Lectura de sal, válida durante (días)"
+          "salt_stale_days": "Lectura de sal, válida durante (días)",
+          "shock_product": "Producto de choque",
+          "shock_concentration": "Concentración del producto de choque",
+          "clarifier_dose_per_10m3": "Clarificante, dosis por 10 m³",
+          "clarifier_dose_unit": "Clarificante, unidad",
+          "flocculant_dose_per_10m3": "Floculante, dosis por 10 m³",
+          "flocculant_dose_unit": "Floculante, unidad"
         },
         "data_description": {
           "swimming_months": "HomePool propone invernar cuando terminan y la puesta en marcha dos semanas antes de que empiecen.",
           "winter_product_type": "Lo que se pone en el agua durante el invernaje. HomePool calcula la dosis y te recuerda reponerlo.",
           "winter_product_dose_per_m3": "Unidades por m³ (litros por m³ si es líquido), según la etiqueta. Un flotador por cada 50 m³ son 0,02.",
           "winter_product_interval_days": "Días entre reposiciones.",
-          "has_ph_dosing": "Si el pH está alto, la bomba se pone en marcha un rato para que la dosificadora pueda trabajar."
+          "has_ph_dosing": "Si el pH está alto, la bomba se pone en marcha un rato para que la dosificadora pueda trabajar.",
+          "shock_product": "Con qué haces el choque al agua verde. HomePool calcula la dosis con el volumen de la piscina.",
+          "shock_concentration": "Por ciento de cloro si es granulado, g/L si es líquido, según la etiqueta. Vacío: hipoclorito cálcico al 65 %, hipoclorito sódico a 150 g/L, dicloro al 56 %.",
+          "clarifier_dose_per_10m3": "Según la etiqueta. Vacío, la dosis dice que sigas el envase.",
+          "flocculant_dose_per_10m3": "Según la etiqueta. Vacío, la dosis dice que sigas el envase."
         }
       },
       "chlorinator_model": {
@@ -423,14 +433,24 @@
           "total_alkalinity_stale_days": "Lectura de alcalinidad total, válida durante (días)",
           "calcium_hardness_stale_days": "Lectura de dureza cálcica, válida durante (días)",
           "cyanuric_acid_stale_days": "Lectura de ácido cianúrico, válida durante (días)",
-          "salt_stale_days": "Lectura de sal, válida durante (días)"
+          "salt_stale_days": "Lectura de sal, válida durante (días)",
+          "shock_product": "Producto de choque",
+          "shock_concentration": "Concentración del producto de choque",
+          "clarifier_dose_per_10m3": "Clarificante, dosis por 10 m³",
+          "clarifier_dose_unit": "Clarificante, unidad",
+          "flocculant_dose_per_10m3": "Floculante, dosis por 10 m³",
+          "flocculant_dose_unit": "Floculante, unidad"
         },
         "data_description": {
           "swimming_months": "HomePool propone invernar cuando terminan y la puesta en marcha dos semanas antes de que empiecen.",
           "winter_product_type": "Lo que se pone en el agua durante el invernaje. HomePool calcula la dosis y te recuerda reponerlo.",
           "winter_product_dose_per_m3": "Unidades por m³ (litros por m³ si es líquido), según la etiqueta. Un flotador por cada 50 m³ son 0,02.",
           "winter_product_interval_days": "Días entre reposiciones.",
-          "has_ph_dosing": "Si el pH está alto, la bomba se pone en marcha un rato para que la dosificadora pueda trabajar."
+          "has_ph_dosing": "Si el pH está alto, la bomba se pone en marcha un rato para que la dosificadora pueda trabajar.",
+          "shock_product": "Con qué haces el choque al agua verde. HomePool calcula la dosis con el volumen de la piscina.",
+          "shock_concentration": "Por ciento de cloro si es granulado, g/L si es líquido, según la etiqueta. Vacío: hipoclorito cálcico al 65 %, hipoclorito sódico a 150 g/L, dicloro al 56 %.",
+          "clarifier_dose_per_10m3": "Según la etiqueta. Vacío, la dosis dice que sigas el envase.",
+          "flocculant_dose_per_10m3": "Según la etiqueta. Vacío, la dosis dice que sigas el envase."
         }
       },
       "chlorinator_model": {
@@ -741,6 +761,33 @@
         "tablets": "Pastillas"
       }
     },
+    "shock_product": {
+      "options": {
+        "calcium_hypochlorite": "Hipoclorito cálcico (granulado)",
+        "sodium_hypochlorite": "Hipoclorito sódico (líquido)",
+        "dichlor": "Dicloro (granulado, sube el ácido cianúrico)"
+      }
+    },
+    "dose_unit": {
+      "options": {
+        "mL": "mL",
+        "g": "g"
+      }
+    },
+    "treatment_type": {
+      "options": {
+        "shock": "Choque (agua verde)",
+        "clarifier": "Clarificante (agua turbia)",
+        "flocculant": "Floculante (agua turbia)"
+      }
+    },
+    "shock_severity": {
+      "options": {
+        "light": "Verde claro",
+        "green": "Verde",
+        "dark": "Verde oscuro o negro"
+      }
+    },
     "month": {
       "options": {
         "1": "Enero",
@@ -916,7 +963,8 @@
           "manual_override": "Accionada a mano",
           "mode": "Modo de funcionamiento",
           "unavailable": "Bomba no disponible",
-          "winter_passive": "Invernaje pasivo"
+          "winter_passive": "Invernaje pasivo",
+          "treatment": "Tratamiento del agua"
         }
       },
       "chlorine_production_elapsed_today": {
@@ -963,6 +1011,15 @@
           "ok": "Correcto",
           "attention": "Requiere atención",
           "action_required": "Acción necesaria"
+        }
+      },
+      "water_treatment": {
+        "name": "Tratamiento del agua",
+        "state": {
+          "none": "Ninguno",
+          "shock": "Choque",
+          "clarifier": "Clarificante",
+          "flocculant": "Floculante"
         }
       },
       "ph_trend": {
@@ -1043,6 +1100,9 @@
       },
       "chlorinator_in_season": {
         "name": "Clorador en temporada"
+      },
+      "swimming_not_advised": {
+        "name": "Baño no recomendado"
       }
     },
     "switch": {
@@ -1118,6 +1178,21 @@
       },
       "mark_skimmer_baskets_emptied": {
         "name": "Cestos del skimmer vaciados"
+      },
+      "start_shock": {
+        "name": "Empezar un choque"
+      },
+      "start_clarifier": {
+        "name": "Empezar un clarificante"
+      },
+      "start_flocculant": {
+        "name": "Empezar un floculante"
+      },
+      "advance_treatment": {
+        "name": "Siguiente fase del tratamiento (aspirado terminado)"
+      },
+      "end_treatment": {
+        "name": "Terminar el tratamiento"
       },
       "recalculate_target": {
         "name": "Recalcular objetivo"
@@ -1256,6 +1331,34 @@
         }
       }
     },
+    "start_treatment": {
+      "name": "Empezar tratamiento del agua",
+      "description": "Empieza un choque, un clarificante o un floculante. La bomba lo sigue por encima del pH, del ciclo manual y del modo; la seguridad y la antiheladas siguen mandando.",
+      "fields": {
+        "type": {
+          "name": "Tratamiento",
+          "description": "Choque para el agua verde, clarificante o floculante para el agua turbia."
+        },
+        "severity": {
+          "name": "Cuánto de verde",
+          "description": "Para un choque: cuánto se sube el cloro libre (10, 15 o 20 mg/L)."
+        },
+        "hours": {
+          "name": "Horas",
+          "description": "Horas de filtrado, o de reposo en el floculante. Si se omite, las de siempre: choque 24 h, clarificante 48 h, reposo 12 h."
+        }
+      }
+    },
+    "advance_treatment": {
+      "name": "Siguiente fase del tratamiento",
+      "description": "Pasa el tratamiento a su fase siguiente ahora. En un floculante que está aspirando, quiere decir que el aspirado ha terminado.",
+      "fields": {}
+    },
+    "end_treatment": {
+      "name": "Terminar tratamiento del agua",
+      "description": "Termina el tratamiento ahora. El filtro queda pendiente de contralavado.",
+      "fields": {}
+    },
     "reset_daily_counters": {
       "name": "Reiniciar contadores de hoy",
       "description": "Vuelve a poner a cero la filtración de hoy.",
@@ -1280,6 +1383,12 @@
     },
     "cycle_in_winter_passive": {
       "message": "La bomba no arranca en el invernaje pasivo. Cambia antes el estado de temporada."
+    },
+    "treatment_not_allowed": {
+      "message": "{pool} no puede empezar un tratamiento ahora: está en invernaje pasivo o ya hay otro en marcha."
+    },
+    "no_treatment": {
+      "message": "{pool} no tiene ningún tratamiento en marcha."
     }
   }
 }

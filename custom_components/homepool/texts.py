@@ -85,6 +85,10 @@ TEXTS: dict[str, dict[str, str]] = {
             "{pool}: passive wintering was confirmed with closing steps that need the "
             "pump still open. The pump will no longer start."
         ),
+        "treatment_frost": (
+            "{pool}: freeze protection is running the pump, so the flocculant's "
+            "settling is interrupted. It carries on counting once the frost has passed."
+        ),
         "step_closing_shock": "Shock the water with the pH at 7.2–7.4.",
         "step_closing_cell": "Clean the salt cell and store it.",
         "step_closing_backwash": "Backwash the filter.",
@@ -191,6 +195,10 @@ TEXTS: dict[str, dict[str, str]] = {
             "{pool}: se ha confirmado el invernaje pasivo con pasos de cierre que "
             "necesitan la bomba sin hacer. La bomba ya no arrancará."
         ),
+        "treatment_frost": (
+            "{pool}: la antiheladas tiene la bomba en marcha, así que el reposo del "
+            "floculante se ha interrumpido. Sigue contando cuando pase la helada."
+        ),
         "step_closing_shock": "Choque con el pH en 7,2–7,4.",
         "step_closing_cell": "Limpia la célula y guárdala.",
         "step_closing_backwash": "Haz un contralavado.",
@@ -245,6 +253,10 @@ REASONS: dict[str, dict[str, str]] = {
         "freeze_protection": "Freeze protection: water near 0 °C",
         "ph_correction": "pH correction needs water flowing",
         "manual_cycle": "Manual cycle in progress",
+        "treatment_filtering": "Water treatment: filtering without a break",
+        "treatment_mixing": "Flocculant: mixing it in with the pump on",
+        "treatment_settling": "Flocculant: settling, the pump stays off",
+        "treatment_vacuuming": "Flocculant: vacuuming, the pump is yours to run",
         "manual_override_on": "Switched on by hand; respected for now",
         "manual_override_off": "Switched off by hand; respected for now",
         "automation_override_on": "Switched on by the automation «{name}»; respected for now",
@@ -256,6 +268,7 @@ REASONS: dict[str, dict[str, str]] = {
         "released_freeze_protection": "No longer needed for freeze protection",
         "released_ph_correction": "No longer needed for pH correction",
         "released_manual_cycle": "The manual cycle has ended",
+        "released_treatment": "The water treatment has ended",
         "no_mode": "No mode",
         "min_run": "{reason} (waiting {minutes} min: minimum run time)",
         "min_rest": "{reason} (waiting {minutes} min: minimum rest time)",
@@ -285,6 +298,10 @@ REASONS: dict[str, dict[str, str]] = {
         "freeze_protection": "Protección antiheladas: agua cerca de 0 °C",
         "ph_correction": "La corrección del pH necesita el agua en movimiento",
         "manual_cycle": "Ciclo manual en marcha",
+        "treatment_filtering": "Tratamiento del agua: filtrando sin parar",
+        "treatment_mixing": "Floculante: mezclándolo con la bomba en marcha",
+        "treatment_settling": "Floculante: en reposo, la bomba se queda parada",
+        "treatment_vacuuming": "Floculante: aspirando, la bomba la manejas tú",
         "manual_override_on": "Encendida a mano; se respeta por ahora",
         "manual_override_off": "Apagada a mano; se respeta por ahora",
         "automation_override_on": "Encendida por la automatización «{name}»; se respeta por ahora",
@@ -296,6 +313,7 @@ REASONS: dict[str, dict[str, str]] = {
         "released_freeze_protection": "Ya no hace falta para la protección antiheladas",
         "released_ph_correction": "Ya no hace falta para corregir el pH",
         "released_manual_cycle": "El ciclo manual ha terminado",
+        "released_treatment": "El tratamiento del agua ha terminado",
         "no_mode": "Sin modo",
         "min_run": "{reason} (esperando {minutes} min: tiempo mínimo en marcha)",
         "min_rest": "{reason} (esperando {minutes} min: tiempo mínimo de descanso)",

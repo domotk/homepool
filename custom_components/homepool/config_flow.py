@@ -36,6 +36,14 @@ from .const import (
     CONF_WINTER_PRODUCT_DOSE_PER_M3,
     CONF_WINTER_PRODUCT_INTERVAL_DAYS,
     CONF_WINTER_PRODUCT_TYPE,
+    CONF_SHOCK_PRODUCT,
+    CONF_SHOCK_CONCENTRATION,
+    CONF_CLARIFIER_DOSE_PER_10M3,
+    CONF_CLARIFIER_DOSE_UNIT,
+    CONF_FLOCCULANT_DOSE_PER_10M3,
+    CONF_FLOCCULANT_DOSE_UNIT,
+    DEFAULT_DOSE_UNIT,
+    DEFAULT_SHOCK_PRODUCT,
     CONF_CHLORINATOR_AUTO_TOGGLE,
     CONF_CHLORINATOR_CONTROLLABLE,
     CONF_CHLORINATOR_MIN_WATER_TEMP,
@@ -171,6 +179,7 @@ from .const import (
     PumpSpeedType,
     Severity,
 )
+from .pool.dosing import SHOCK_DEFAULT_CONCENTRATION
 from .pool.geometry import PoolDimensions, calculate_volume
 from .pool.hardware import find, load_hardware
 from .pool.tasks import TASKS, TASKS_BY_KEY, configured_days, task_applies
@@ -235,6 +244,13 @@ def _values(enum) -> list[str]:
 
 MONTHS = [str(m) for m in range(1, 13)]
 WINTER_PRODUCT_TYPES = ["none", "floater", "liquid", "tablets"]
+SHOCK_PRODUCTS = list(SHOCK_DEFAULT_CONCENTRATION)
+DOSE_UNITS = ["mL", "g"]
+
+
+def _or(value: Any, default: Any) -> Any:
+    """``value``, or ``default`` when it is unset: a stored None means "the default"."""
+    return default if value is None else value
 
 
 def _flatten(user_input: dict[str, Any]) -> dict[str, Any]:
@@ -571,6 +587,7 @@ class _Wizard:
             float(d.get(CONF_LATITUDE, self.hass.config.latitude) or 0),
         )
         is_salt = d.get(CONF_CHLORINATION_TYPE, ChlorinationType.SALT) == ChlorinationType.SALT
+        shock_product = d.get(CONF_SHOCK_PRODUCT) or DEFAULT_SHOCK_PRODUCT
         schema = vol.Schema(
             {
                 vol.Required(
@@ -622,6 +639,34 @@ class _Wizard:
                     or DEFAULT_WINTER_PRODUCT_INTERVAL_DAYS,
                 ): _number(7, 365, 1, "d"),
                 **self._readings_fields(is_salt),
+                vol.Required(CONF_SHOCK_PRODUCT, default=shock_product): _select(
+                    SHOCK_PRODUCTS, "shock_product"
+                ),
+                # Empty, it follows the product: per cent for the granular
+                # ones, g/L for the liquid.
+                vol.Optional(
+                    CONF_SHOCK_CONCENTRATION,
+                    description=self._sv(
+                        CONF_SHOCK_CONCENTRATION, SHOCK_DEFAULT_CONCENTRATION[shock_product]
+                    ),
+                ): _number(1, 1000, "any"),
+                # The label's dose per 10 m³; HomePool has no figure of its own.
+                vol.Optional(
+                    CONF_CLARIFIER_DOSE_PER_10M3,
+                    description=self._sv(CONF_CLARIFIER_DOSE_PER_10M3),
+                ): _number(0, 10000, "any"),
+                vol.Required(
+                    CONF_CLARIFIER_DOSE_UNIT,
+                    default=d.get(CONF_CLARIFIER_DOSE_UNIT) or DEFAULT_DOSE_UNIT,
+                ): _select(DOSE_UNITS, "dose_unit"),
+                vol.Optional(
+                    CONF_FLOCCULANT_DOSE_PER_10M3,
+                    description=self._sv(CONF_FLOCCULANT_DOSE_PER_10M3),
+                ): _number(0, 10000, "any"),
+                vol.Required(
+                    CONF_FLOCCULANT_DOSE_UNIT,
+                    default=d.get(CONF_FLOCCULANT_DOSE_UNIT) or DEFAULT_DOSE_UNIT,
+                ): _select(DOSE_UNITS, "dose_unit"),
             }
         )
         errors: dict[str, str] = {}
@@ -649,8 +694,23 @@ class _Wizard:
                 )
                 for kind in KINDS:
                     self._data[f"{kind}_stale_days"] = int(self._data[f"{kind}_stale_days"])
+                self._keep_only_changed(is_salt, shock_product)
                 return await self._after("water")
         return self._form("water", schema, errors)
+
+    def _keep_only_changed(self, is_salt: bool, shock_product: str) -> None:
+        """Forget the values left as the form showed them by default, so they
+        keep following what they depend on: the cyanuric acid range the
+        chlorination, the shock's concentration its product."""
+        d = self._data
+        for kind in NEW_SENSOR_KINDS:
+            for key, default in zip(
+                (f"{kind}_range_min", f"{kind}_range_max"), default_range(kind, is_salt)
+            ):
+                if d.get(key) is not None and default is not None and d[key] == default:
+                    d[key] = None
+        if d.get(CONF_SHOCK_CONCENTRATION) == SHOCK_DEFAULT_CONCENTRATION[shock_product]:
+            d[CONF_SHOCK_CONCENTRATION] = None
 
     def _readings_fields(self, is_salt: bool) -> dict[Any, Any]:
         """The ranges of the readings taken by hand, and how long each one is trusted."""
@@ -660,9 +720,13 @@ class _Wizard:
             low, high = default_range(kind, is_salt)
             if low is not None:
                 key = f"{kind}_range_min"
-                fields[vol.Required(key, default=d.get(key, low))] = _number(0, 5000, "any", "mg/L")
+                fields[vol.Required(key, default=_or(d.get(key), low))] = _number(
+                    0, 5000, "any", "mg/L"
+                )
             key = f"{kind}_range_max"
-            fields[vol.Required(key, default=d.get(key, high))] = _number(0, 5000, "any", "mg/L")
+            fields[vol.Required(key, default=_or(d.get(key), high))] = _number(
+                0, 5000, "any", "mg/L"
+            )
         for kind in KINDS:
             key = f"{kind}_stale_days"
             fields[vol.Required(key, default=d.get(key, DEFAULT_STALE_DAYS[kind]))] = _number(

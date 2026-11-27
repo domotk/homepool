@@ -2,7 +2,14 @@
 
 from __future__ import annotations
 
-from custom_components.homepool.pool.dosing import Dose, winter_product_dose
+from custom_components.homepool.pool.dosing import (
+    SHOCK_DEFAULT_CONCENTRATION,
+    SHOCK_RISE,
+    Dose,
+    label_dose,
+    shock_dose,
+    winter_product_dose,
+)
 
 
 def test_one_floater_for_45_m3() -> None:
@@ -28,3 +35,51 @@ def test_liquid_litres() -> None:
 
 def test_dose_is_a_plain_record() -> None:
     assert Dose(None, "units", "floater", None, 45, "", True).amount is None
+
+
+# ── water treatment ──
+
+
+def test_shock_dose_granular() -> None:
+    dose = shock_dose("calcium_hypochlorite", 65, 45, "green")
+    assert dose.amount == 1040
+    assert dose.unit == "g"
+    assert dose.product == "calcium_hypochlorite"
+    assert dose.concentration == 65
+    assert dose.volume_m3 == 45
+    assert "45 m³" in dose.basis and "15 mg/L" in dose.basis
+    assert dose.follow_label
+    assert dose.cya_rise_mg_l is None
+
+
+def test_shock_dose_liquid() -> None:
+    dose = shock_dose("sodium_hypochlorite", 150, 45, "green")
+    assert dose.amount == 4.5
+    assert dose.unit == "L"
+
+
+def test_shock_severity_sets_the_rise() -> None:
+    assert SHOCK_RISE == {"light": 10, "green": 15, "dark": 20}
+    # 45 m³ × 20 mg/L = 900 g of chlorine; at 65 % that is 1384.6 g.
+    assert shock_dose("calcium_hypochlorite", 65, 45, "dark").amount == 1380
+    assert shock_dose("sodium_hypochlorite", 150, 45, "light").amount == 3.0
+
+
+def test_dichlor_warns_of_cya() -> None:
+    dose = shock_dose("dichlor", SHOCK_DEFAULT_CONCENTRATION["dichlor"], 45, "green")
+    assert dose.cya_rise_mg_l == 13.5
+    assert dose.unit == "g"
+
+
+def test_label_dose_without_setting_says_follow_label() -> None:
+    dose = label_dose("clarifier", None, "mL", 45)
+    assert dose.amount is None and dose.follow_label
+    assert dose.unit == "mL"
+    assert dose.volume_m3 == 45
+
+
+def test_label_dose_per_10_m3() -> None:
+    dose = label_dose("flocculant", 40, "mL", 45)
+    assert dose.amount == 180
+    assert dose.follow_label
+    assert "45 m³" in dose.basis

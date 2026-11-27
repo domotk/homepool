@@ -17,13 +17,17 @@ Authority over the pump, highest first:
    more than it should. Forces it off.
 5. **Freeze protection** — water near freezing. Forces it *on*: moving water
    does not freeze in the pipes, still water does.
-6. **pH correction** — the dosing pump only works with water flowing, so a pH
+6. **Water treatment** — a shock, a clarifier or a flocculant the owner
+   started. On while it filters or mixes, off while the flocculant settles,
+   and left as it is while the owner vacuums. A person asked for it, so it
+   runs in ``off`` mode too.
+7. **pH correction** — the dosing pump only works with water flowing, so a pH
    that needs correcting forces the pump on for a while, capped per day so a
    faulty probe cannot run it all night.
-7. **Manual cycle** — a cycle started from HomePool (button or service).
-8. **Manual override** — someone switched the pump by hand, outside HomePool.
+8. **Manual cycle** — a cycle started from HomePool (button or service).
+9. **Manual override** — someone switched the pump by hand, outside HomePool.
    Respected for a while instead of being undone on the next tick.
-9. **The operation mode.**
+10. **The operation mode.**
 
 The last two are also subject to minimum on and off times: the motor and the
 relay both last longer when they are not cycled every few minutes.
@@ -52,6 +56,10 @@ class ControlInputs:
     safety_shutoff: bool = False
     safety_reason: str | None = None
     freeze_risk: bool = False
+    # What a running treatment wants of the pump, None meaning "leave it",
+    # and the phase's reason key. An empty key means no treatment.
+    treatment: bool | None = None
+    treatment_key: str = ""
 
     ph_correction: bool = False
 
@@ -76,7 +84,7 @@ class ControlInputs:
 
 
 # Reasons for which HomePool switches the pump on regardless of the mode.
-FORCING_SOURCES = ("freeze_protection", "ph_correction", "manual_cycle")
+FORCING_SOURCES = ("freeze_protection", "ph_correction", "manual_cycle", "treatment")
 
 
 @dataclass
@@ -112,6 +120,11 @@ def arbitrate(inp: ControlInputs) -> ControlDecision:
         )
     if inp.freeze_risk:
         return ControlDecision(True, "freeze_protection", "Freeze protection: water near 0 °C", "freeze_protection")
+    if inp.treatment_key:
+        # Decided on the key, not the pump: while vacuuming the pump is
+        # None, and the rung still holds the pump for the owner.
+        phase = inp.treatment_key.removeprefix("treatment_")
+        return ControlDecision(inp.treatment, "treatment", f"Water treatment: {phase}", inp.treatment_key)
     if inp.ph_correction:
         return ControlDecision(True, "ph_correction", "pH correction needs water flowing", "ph_correction")
     if inp.manual_cycle:
@@ -186,7 +199,9 @@ class ChlorinatorInputs:
     enabled: bool
     in_season: bool
     target_reached: bool
-    blocked: bool  # lock or safety
+    # The lock, a safety condition, passive wintering, or a treatment phase
+    # with no water through the cell.
+    blocked: bool
     water_temperature_c: float | None
     min_water_temperature_c: float
     flow_delay_s: float = 120
@@ -199,7 +214,7 @@ def chlorinator_wanted(inp: ChlorinatorInputs) -> tuple[bool, str]:
     if inp.pump_on_seconds is None or inp.pump_on_seconds < inp.flow_delay_s:
         return False, "Waiting for the flow to settle after the pump started"
     if inp.blocked:
-        return False, "Blocked by the maintenance lock or a safety condition"
+        return False, "Blocked: maintenance lock, safety, passive wintering or a treatment"
     if not inp.enabled:
         return False, "The chlorinator is disabled"
     if not inp.in_season:

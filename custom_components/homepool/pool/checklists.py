@@ -58,7 +58,7 @@ OPENING_STEPS: tuple[StepDef, ...] = (
     _step("opening.shock", needs_pump=True, starts_treatment=SHOCK),
 )
 
-_TREATMENT_BACKWASH = _step("treatment.backwash", needs_pump=True)
+_TREATMENT_BACKWASH = _step("treatment.backwash", completes_task="backwash", needs_pump=True)
 
 TREATMENT_SHOCK: tuple[StepDef, ...] = (
     _step("treatment.brush"),

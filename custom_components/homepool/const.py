@@ -105,6 +105,13 @@ CONF_SWIMMING_MONTHS = "swimming_months"
 CONF_WINTER_PRODUCT_TYPE = "winter_product_type"
 CONF_WINTER_PRODUCT_DOSE_PER_M3 = "winter_product_dose_per_m3"
 CONF_WINTER_PRODUCT_INTERVAL_DAYS = "winter_product_interval_days"
+# Water treatments: the shock product and the label doses per 10 m³.
+CONF_SHOCK_PRODUCT = "shock_product"
+CONF_SHOCK_CONCENTRATION = "shock_concentration"
+CONF_CLARIFIER_DOSE_PER_10M3 = "clarifier_dose_per_10m3"
+CONF_CLARIFIER_DOSE_UNIT = "clarifier_dose_unit"
+CONF_FLOCCULANT_DOSE_PER_10M3 = "flocculant_dose_per_10m3"
+CONF_FLOCCULANT_DOSE_UNIT = "flocculant_dose_unit"
 CONF_CHLORINATOR_MIN_WATER_TEMP = "chlorinator_min_water_temp"
 
 # Lighting and auxiliary
@@ -356,6 +363,8 @@ DEFAULT_USER_MULTIPLIER = 1.0
 DEFAULT_BACKWASH_INTERVAL_DAYS = 14
 DEFAULT_WINTER_PRODUCT_DOSE_PER_M3 = 0.02  # one floater for 50 m³
 DEFAULT_WINTER_PRODUCT_INTERVAL_DAYS = 56
+DEFAULT_SHOCK_PRODUCT = "calcium_hypochlorite"
+DEFAULT_DOSE_UNIT = "mL"
 DEFAULT_PH_CALIBRATION_INTERVAL_DAYS = 180
 DEFAULT_MANUAL_OVERRIDE_MINUTES = 120
 DEFAULT_FREEZE_THRESHOLD = 2.0
@@ -414,6 +423,9 @@ EVENT_CHLORINATOR_SEASON_START = f"{DOMAIN}_chlorinator_season_start"
 EVENT_CHLORINATOR_SEASON_END = f"{DOMAIN}_chlorinator_season_end"
 EVENT_SEASON_PROPOSAL = f"{DOMAIN}_season_proposal"
 EVENT_SEASON_STATE_CHANGED = f"{DOMAIN}_season_state_changed"
+EVENT_TREATMENT_STARTED = f"{DOMAIN}_treatment_started"
+EVENT_TREATMENT_PHASE = f"{DOMAIN}_treatment_phase"
+EVENT_TREATMENT_ENDED = f"{DOMAIN}_treatment_ended"
 
 # ──────────────────────────────────────────────
 # Services
@@ -433,6 +445,9 @@ SERVICE_SET_SEASON_STATE = "set_season_state"
 SERVICE_DISMISS_SEASON_PROPOSAL = "dismiss_season_proposal"
 SERVICE_COMPLETE_STEP = "complete_step"
 SERVICE_DISMISS_CHECKLIST = "dismiss_checklist"
+SERVICE_START_TREATMENT = "start_treatment"
+SERVICE_ADVANCE_TREATMENT = "advance_treatment"
+SERVICE_END_TREATMENT = "end_treatment"
 
 ATTR_DURATION = "duration"
 ATTR_ACTION_TYPE = "action_type"
@@ -444,3 +459,6 @@ ATTR_DATE = "date"
 ATTR_STATE = "state"
 ATTR_STEP = "step"
 ATTR_CHECKLIST = "checklist"
+ATTR_TYPE = "type"
+ATTR_SEVERITY = "severity"
+ATTR_HOURS = "hours"

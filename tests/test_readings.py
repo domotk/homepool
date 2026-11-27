@@ -401,3 +401,56 @@ async def test_no_reading_stale_in_passive_wintering(
     await next_day(hass, freezer, 31)
     await tick(hass, freezer, 1)
     assert "reading_stale" not in entry.runtime_data.alerts
+
+
+def test_validate_rejects_nan_and_infinity() -> None:
+    for value in (float("nan"), float("inf"), float("-inf")):
+        with pytest.raises(ValueError):
+            validate("free_chlorine", value)
+
+
+async def test_the_cyanuric_acid_range_follows_the_chlorination_unless_changed(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
+) -> None:
+    freezer.move_to(local(2026, 7, 15, 10, 0))
+    SwitchRouter(hass)
+    entry = await setup_pool(hass)
+
+    async def water_step(values):
+        result = await hass.config_entries.options.async_init(entry.entry_id)
+        result = await hass.config_entries.options.async_configure(
+            result["flow_id"], {"next_step_id": "water"}
+        )
+        done = await hass.config_entries.options.async_configure(result["flow_id"], values)
+        assert done["type"] is FlowResultType.CREATE_ENTRY
+        await hass.async_block_till_done()
+
+    # Saved with the salt range shown, untouched: nothing is written.
+    await water_step({})
+    assert entry.options.get("cyanuric_acid_range_max") is None
+    assert entry.runtime_data.reading_range("cyanuric_acid") == (30, 50)
+    # Leaving salt, the range follows it.
+    await water_step({"chlorination_type": "liquid"})
+    assert entry.runtime_data.reading_range("cyanuric_acid") == (30, 80)
+    # A range the owner changed is kept.
+    await water_step({"cyanuric_acid_range_max": 70})
+    assert entry.options["cyanuric_acid_range_max"] == 70
+    assert entry.runtime_data.reading_range("cyanuric_acid") == (30, 70)
+
+
+async def test_salt_is_not_stale_while_the_cell_is_not_in_use(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
+) -> None:
+    from .test_season import set_season
+
+    freezer.move_to(local(2026, 7, 1, 10, 0))
+    SwitchRouter(hass)
+    entry = await setup_pool(hass)
+    await _record(hass, "salt", 3.5)
+    await _record(hass, "total_alkalinity", 100)
+    await set_season(hass, entry, "winter_active")
+    await next_day(hass, freezer, 31)
+    await tick(hass, freezer, 1)
+    stale = entry.runtime_data.alerts["reading_stale"]["message"]
+    assert "total_alkalinity" in stale
+    assert "salt" not in stale
