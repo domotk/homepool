@@ -36,33 +36,39 @@ def _previous_month(month: int) -> int:
     return (month - 2) % 12 + 1
 
 
+def _days_to_next_run(today: date, months: set[int]) -> int:
+    """Days from ``today`` to the first day of the next run of months."""
+    starts = [m for m in months if _previous_month(m) not in months]
+    upcoming = [
+        date(year, m, 1)
+        for m in starts
+        for year in (today.year, today.year + 1)
+        if date(year, m, 1) > today
+    ]
+    return (min(upcoming) - today).days
+
+
 def season_proposal(today: date, swimming_months: list[int], state: str) -> str | None:
     """The change the calendar calls for today, if any.
 
     ``"winter"`` while swimming on the last day of a run of months, or on any
-    day after it that is out of season; ``"opening"`` while wintering, in the
-    fourteen days before a run starts. A calendar of no months or of all
-    twelve never changes, so it proposes nothing.
+    day after it that is out of season, except in the fourteen days before the
+    next run (a pool opened early); ``"opening"`` while wintering, in those
+    fourteen days. A calendar of no months or of all twelve never changes, so
+    it proposes nothing.
     """
     months = {int(m) for m in swimming_months if 1 <= int(m) <= 12}
     if not months or len(months) == 12:
         return None
+    lead_in = _days_to_next_run(today, months) <= OPENING_LEAD_DAYS
     if state == SeasonState.SWIMMING:
         if today.month not in months:
-            return "winter"
+            return None if lead_in else "winter"
         last_of_run = _next_month(today.month) not in months
         last_day = today.day == monthrange(today.year, today.month)[1]
         return "winter" if last_of_run and last_day else None
     if state in WINTER_STATES:
-        starts = [m for m in months if _previous_month(m) not in months]
-        upcoming = [
-            date(year, m, 1)
-            for m in starts
-            for year in (today.year, today.year + 1)
-            if date(year, m, 1) > today
-        ]
-        days = (min(upcoming) - today).days
-        return "opening" if days <= OPENING_LEAD_DAYS else None
+        return "opening" if lead_in else None
     return None
 
 

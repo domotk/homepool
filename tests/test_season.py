@@ -67,6 +67,9 @@ def test_proposal_dates() -> None:
 def test_proposal_edges() -> None:
     # Out of season and still swimming: winter is proposed.
     assert season_proposal(date(2026, 10, 15), SUMMER, "swimming") == "winter"
+    # Opened early, in the fortnight before the season: not sent back to winter.
+    assert season_proposal(date(2027, 5, 25), SUMMER, "swimming") is None
+    assert season_proposal(date(2027, 5, 17), SUMMER, "swimming") == "winter"
     # Already wintering: nothing to propose until the opening window.
     assert season_proposal(date(2026, 10, 15), SUMMER, "winter_passive") is None
     assert season_proposal(date(2027, 5, 31), SUMMER, "winter_passive") == "opening"
@@ -239,6 +242,29 @@ async def test_no_proposals_without_auto_toggle(
     assert coordinator.season_proposal is None
     # It no longer switches the cell with the calendar either.
     assert coordinator.chlorinator_enabled
+
+
+async def test_a_dismissed_proposal_comes_back_with_the_next_season(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
+) -> None:
+    freezer.move_to(local(2026, 9, 30, 21, 0))
+    SwitchRouter(hass)
+    events = []
+    hass.bus.async_listen("homepool_season_proposal", events.append)
+    entry = await setup_pool(hass)
+    coordinator = entry.runtime_data
+    await tick(hass, freezer, 4 * 60)
+    assert len(events) == 1
+    await coordinator.async_dismiss_season_proposal()
+    assert coordinator.season_proposal["dismissed_for"] == "winter"
+    # Still swimming next summer: the calendar has nothing to propose, which
+    # re-arms it; at the end of that season it proposes winter again.
+    await coordinator._async_season_proposal(local(2027, 7, 15, 0, 1))
+    assert coordinator.season_proposal is None
+    await coordinator._async_season_proposal(local(2027, 9, 30, 0, 1))
+    await hass.async_block_till_done()
+    assert len(events) == 2
+    assert coordinator.season_proposal_shown == "winter"
 
 
 async def test_the_calendar_no_longer_switches_the_cell(
