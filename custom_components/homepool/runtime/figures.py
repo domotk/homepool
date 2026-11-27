@@ -142,7 +142,8 @@ class FiguresMixin:
     @property
     def ph_out_of_range(self) -> bool:
         ph = self.ph
-        if ph is None:
+        if ph is None or (self.winter_passive and self.ph_probe is not None):
+            # Drained pipes in passive wintering: the probe reads air or a dry cup.
             return False
         low = float(self.opt(CONF_PH_RANGE_MIN, DEFAULT_PH_RANGE_MIN))
         high = float(self.opt(CONF_PH_RANGE_MAX, DEFAULT_PH_RANGE_MAX))

@@ -223,3 +223,23 @@ async def test_a_reload_does_not_repeat_a_reminder(
     await tick(hass, freezer, 5)
     assert "backwash_due" in entry.runtime_data.alerts
     assert len([c for c in calls if "backwash" in c.data["message"]]) == sent
+
+
+async def test_a_reminder_composed_while_starting_waits_for_home_assistant(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
+) -> None:
+    from homeassistant.core import CoreState
+
+    freezer.move_to(local(2026, 7, 15, 12, 0))
+    SwitchRouter(hass)
+    calls = await _notified(hass)
+    entry = await setup_pool(hass, **{**NOTIFY, "notification_quiet_hours_start": None,
+                                      "notification_quiet_hours_end": None})
+    coordinator = entry.runtime_data
+    hass.set_state(CoreState.starting)
+    await coordinator._async_remind("Pool", "do the thing")
+    assert not calls
+    assert coordinator.pending_reminders == [{"title": "Pool", "message": "do the thing"}]
+    hass.set_state(CoreState.running)
+    await tick(hass, freezer, 1)
+    assert [c.data["message"] for c in calls] == ["do the thing"]

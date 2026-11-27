@@ -336,7 +336,12 @@ async def async_setup_entry(
     hass: HomeAssistant, entry, async_add_entities: AddEntitiesCallback
 ) -> None:
     coordinator: PoolCoordinator = entry.runtime_data
-    classes = {"daily_filtration_target": TargetSensor, "pump_control": ControlSensor}
+    classes = {
+        "daily_filtration_target": TargetSensor,
+        "pump_control": ControlSensor,
+        "next_manual_task": TasksSensor,
+        "water_treatment": TreatmentSensor,
+    }
     async_add_entities(
         classes.get(d.key, PoolSensor)(coordinator, d) for d in SENSORS if d.exists_fn(coordinator)
     )
@@ -378,3 +383,17 @@ class ControlSensor(PoolSensor):
     """
 
     _unrecorded_attributes = frozenset({"surplus_w", "reason", "chlorinator"})
+
+
+class TasksSensor(PoolSensor):
+    """The tasks and the step lists: whole tables, for the card. A task's pump
+    hours move every few minutes while the pump runs; recording them would
+    write the lot each time."""
+
+    _unrecorded_attributes = frozenset({"tasks", "checklists", "recent_actions", "winter_product"})
+
+
+class TreatmentSensor(PoolSensor):
+    """The phase's end moves on every minute while its clock is paused."""
+
+    _unrecorded_attributes = frozenset({"phase_until"})

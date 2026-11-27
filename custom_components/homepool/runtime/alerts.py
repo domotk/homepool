@@ -109,11 +109,13 @@ class AlertsMixin:
             await self.notifier.async_send(title, message, severity, dt_util.now())
 
     async def _async_remind(self, title: str, message: str) -> None:
-        """Notify a reminder now, or keep it until the quiet hours end."""
+        """Notify a reminder now, or keep it until the quiet hours end, or
+        until Home Assistant runs: while it starts, the notify service may not
+        be registered yet."""
         if not self.notifier or not self.notifier.service:
             return
         now = dt_util.now()
-        if self.notifier.quiet(now):
+        if self.notifier.quiet(now) or self.hass.state is not CoreState.running:
             entry = {"title": title, "message": message}
             if entry not in self.pending_reminders:
                 self.pending_reminders.append(entry)
@@ -195,7 +197,7 @@ class AlertsMixin:
         if frost:
             self.treatment["frost_interrupted"] = True
         await self._async_set("treatment_frost", frost, Severity.WARNING)
-        await self._async_vacuuming_reminder()
+        await self._async_vacuuming_alert()
         if self.after_shock_since is not None:
             probe = self._number(CONF_FREE_CHLORINE_SENSOR)
             if probe is not None and not self._outside("free_chlorine", probe):
@@ -220,28 +222,31 @@ class AlertsMixin:
             self.closing_needs_pump_notified = True
             self._save()
 
-    async def _async_vacuuming_reminder(self) -> None:
-        """Vacuuming never ends by itself: remind the owner 3 h into it, then
-        once a day. The time of the last reminder is kept with the treatment,
-        so a restart does not repeat it."""
+    async def _async_vacuuming_alert(self) -> None:
+        """Vacuuming never ends by itself, and meanwhile nothing filters the
+        pool: 3 h into it that is an alert, raised again and notified once a
+        day. The time of the last one is kept with the treatment, so a
+        restart raises it without notifying it again."""
         t = self.treatment
         if t is None or self.treatment_phase != Phase.VACUUMING:
+            await self._async_clear("treatment_vacuuming")
             return
         now = dt_util.utcnow()
         reminded = _parse_dt(t.get("vacuuming_reminded"))
         if reminded is None:
             started = _parse_dt(t.get("phase_started")) or now
-            due = now - started >= VACUUMING_REMINDER_FIRST
+            if now - started < VACUUMING_REMINDER_FIRST:
+                return
+            due = True
         else:
             due = now - reminded >= VACUUMING_REMINDER_EVERY
-        if not due:
-            return
-        t["vacuuming_reminded"] = now.isoformat()
-        self._save()
-        language = self.hass.config.language
-        await self._async_remind(
-            text(language, "title") + f" · {self.pool_name}",
-            text(language, "treatment_vacuuming_reminder", pool=self.pool_name),
+        if due:
+            t["vacuuming_reminded"] = now.isoformat()
+            self._save()
+            # Raised anew: the event and the notification go out again.
+            await self._async_clear("treatment_vacuuming")
+        await self._async_raise(
+            "treatment_vacuuming", Severity.WARNING, {}, reminder=True, notify=due
         )
 
     async def _async_alerts(self, now: datetime) -> None:
@@ -334,8 +339,11 @@ class AlertsMixin:
         for kind in RANGE_ALERT_KINDS:
             alert = f"{kind}_out_of_range"
             if kind == "free_chlorine":
-                value, _ = self.free_chlorine
+                value, source = self.free_chlorine
                 out = value is not None and self._outside(kind, value)
+                if self.winter_passive and source == "free_chlorine_sensor":
+                    # Drained pipes: the probe reads air or a dry cup.
+                    out = False
                 _, high = self.reading_range(kind)
                 if (
                     out
@@ -366,14 +374,20 @@ class AlertsMixin:
         ]
         if not stale:
             await self._async_clear("reading_stale")
+            self._stale_kinds = []
             return
         values = {"kinds": ", ".join(stale)}
         current = self.alerts.get("reading_stale")
-        message = text(self.hass.config.language, "reading_stale", pool=self.pool_name, **values)
-        if current and current["message"] != message:
+        if current and set(stale) <= set(self._stale_kinds):
+            # Fewer than before, one measured again: not news, the text follows.
+            current["message"] = text(
+                self.hass.config.language, "reading_stale", pool=self.pool_name, **values
+            )
+        else:
             # Another reading went stale: say so again, with the new list.
             await self._async_clear("reading_stale")
-        await self._async_raise("reading_stale", Severity.INFO, values)
+            await self._async_raise("reading_stale", Severity.INFO, values)
+        self._stale_kinds = stale
 
     def _outside(self, kind: str, value: float) -> bool:
         low, high = self.reading_range(kind)

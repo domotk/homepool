@@ -22,7 +22,7 @@ from ..const import (
 from ..pool.chlorine_calculator import is_chlorinator_in_season
 from ..pool.checklists import CLOSING, OPENING, TREATMENT, StepDef, build, step_def
 from ..pool.season import WINTER_STATES, SeasonState, season_proposal
-from ..pool.tasks import TASKS_BY_KEY, task_applies
+from ..pool.tasks import FILTER_TASKS, TASKS_BY_KEY, task_applies
 from ..texts import text
 from .common import _parse_dt
 
@@ -285,7 +285,11 @@ class SeasonMixin:
         d = await self._async_tick_step(list_id, entry)
         self._save()
         if d is not None and d.completes_task:
-            await self.async_record_action(TASKS_BY_KEY[d.completes_task].action)
+            task = d.completes_task
+            if task in FILTER_TASKS:
+                # The filter's own job: a cartridge is cleaned, not backwashed.
+                task = next((k for k in FILTER_TASKS if task_applies(k, self.conf)), task)
+            await self.async_record_action(TASKS_BY_KEY[task].action)
         elif step == "opening.reconnect_cell":
             await self.async_set_setting("chlorinator_enabled", True)
         else:

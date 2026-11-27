@@ -538,3 +538,60 @@ async def test_a_nan_reading_counts_as_unavailable(
     await tick(hass, freezer, 1)
     assert coordinator.water_temperature is None
     assert coordinator.freeze_active
+
+
+async def test_probes_raise_no_range_alerts_in_passive_wintering(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
+) -> None:
+    """Drained pipes: an in-line probe reads air or a dry cup."""
+    from .test_season import set_season
+
+    freezer.move_to(local(2026, 12, 15, 10, 0))
+    SwitchRouter(hass)
+    hass.states.async_set("sensor.ph", "5.0")
+    hass.states.async_set("sensor.fc", "0")
+    entry = await setup_pool(hass, ph_sensor="sensor.ph", free_chlorine_sensor="sensor.fc")
+    coordinator = entry.runtime_data
+    await tick(hass, freezer, 1)
+    assert "ph_out_of_range" in coordinator.alerts
+    assert "free_chlorine_out_of_range" in coordinator.alerts
+    await set_season(hass, entry, "winter_passive")
+    await tick(hass, freezer, 1)
+    assert "ph_out_of_range" not in coordinator.alerts
+    assert "free_chlorine_out_of_range" not in coordinator.alerts
+    assert not coordinator.ph_out_of_range
+    assert hass.states.get("binary_sensor.pool_ph_out_of_range").state == "off"
+
+
+async def test_a_reading_measured_again_does_not_raise_reading_stale_anew(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
+) -> None:
+    freezer.move_to(local(2026, 7, 15, 10, 0))
+    SwitchRouter(hass)
+    events = []
+    hass.bus.async_listen(
+        "homepool_alert",
+        lambda e: events.append(e) if e.data["type"] == "reading_stale" else None,
+    )
+    entry = await setup_pool(hass)
+    coordinator = entry.runtime_data
+    await _record(hass, "ph", 7.4)
+    await _record(hass, "free_chlorine", 1.0)
+    await next_day(hass, freezer, 15)
+    await tick(hass, freezer, 1)
+    await hass.async_block_till_done()
+    assert len(events) == 1
+    assert "ph" in coordinator.alerts["reading_stale"]["message"]
+    # One measured again: the list shrinks, and that is not news.
+    await _record(hass, "ph", 7.4)
+    await tick(hass, freezer, 1)
+    await hass.async_block_till_done()
+    message = coordinator.alerts["reading_stale"]["message"]
+    assert "free_chlorine" in message and "ph," not in message
+    assert len(events) == 1
+    # Another going stale is.
+    await next_day(hass, freezer, 15)
+    await tick(hass, freezer, 1)
+    await hass.async_block_till_done()
+    assert len(events) == 2
+    assert "ph" in coordinator.alerts["reading_stale"]["message"]

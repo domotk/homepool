@@ -191,6 +191,8 @@ class PoolCoordinator(
         self.alerts: dict[str, dict[str, Any]] = {}
         # Which wording each raised alert used, when it has more than one.
         self._alert_text_keys: dict[str, str] = {}
+        # The kinds reading_stale was last raised or updated for.
+        self._stale_kinds: list[str] = []
         self.due_notified: dict[str, str] = {}
         # Reminders held back by the quiet hours, sent when they end.
         self.pending_reminders: list[dict[str, str]] = []

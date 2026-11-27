@@ -255,3 +255,13 @@ async def test_a_manual_action_needs_a_finite_value_and_short_notes(hass: HomeAs
         {**target, "action_type": "backwash", "value": 2, "notes": "x" * 500}, blocking=True,
     )
     assert entry.runtime_data.actions[-1]["notes"] == "x" * 500
+
+
+async def test_bulky_attributes_are_not_recorded(hass: HomeAssistant) -> None:
+    SwitchRouter(hass)
+    entry = await setup_pool(hass)
+    own = entry.runtime_data.own_entities()
+    tasks = hass.data["sensor"].get_entity(own["next_manual_task"])
+    assert {"tasks", "checklists", "recent_actions", "winter_product"} <= tasks._unrecorded_attributes
+    treatment = hass.data["sensor"].get_entity(own["water_treatment"])
+    assert "phase_until" in treatment._unrecorded_attributes

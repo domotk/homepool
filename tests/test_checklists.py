@@ -665,3 +665,15 @@ async def test_an_opening_left_unconfirmed_is_proposed_swimming_then_winter(
     await tick(hass, freezer, 2 * 60)
     assert coordinator.season_proposal_shown == "winter"
     assert "closing" in coordinator.checklists
+
+
+async def test_a_backwash_step_cleans_a_cartridge(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
+) -> None:
+    """A cartridge filter has no backwash task: the step is its cleaning."""
+    entry, coordinator = await closing_proposed(hass, freezer, filter_type="cartridge")
+    await coordinator.async_complete_step("closing.backwash")
+    assert coordinator.tasks.get("filter_cleaned")
+    assert "backwash" not in coordinator.tasks
+    row = next(t for t in coordinator.task_status() if t["task"] == "filter_cleaning")
+    assert row["last_done"] is not None and not row["overdue"]

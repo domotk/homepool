@@ -762,3 +762,56 @@ async def test_high_free_chlorine_is_no_alert_during_or_after_a_shock(
     assert coordinator.after_shock_since is None
     await coordinator.async_record_reading("free_chlorine", 8.0)
     assert "free_chlorine_out_of_range" in coordinator.alerts
+
+
+# ── review round 2 ──
+
+
+async def test_vacuuming_is_an_alert_even_without_notifications(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
+) -> None:
+    """Forgotten, vacuuming would leave the pool unfiltered with nothing
+    saying so: past 3 h it is an alert (event, attention), raised again daily."""
+    freezer.move_to(local(2026, 7, 15, 10, 0))
+    SwitchRouter(hass)
+    events = []
+    hass.bus.async_listen(
+        "homepool_alert",
+        lambda e: events.append(e) if e.data["type"] == "treatment_vacuuming" else None,
+    )
+    entry = await setup_pool(hass)
+    coordinator = entry.runtime_data
+    await set_mode(hass, "off")
+    await _to_vacuuming(hass, freezer, entry)
+    await advance(hass, freezer, 3 * 60 - 5)
+    assert "treatment_vacuuming" not in coordinator.alerts
+    await advance(hass, freezer, 10, step=1)
+    alert = coordinator.alerts["treatment_vacuuming"]
+    assert alert["severity"] == "warning"
+    assert "vacuum" in alert["message"]
+    assert hass.states.get(entity(entry, "overall_status")).state == "attention"
+    await hass.async_block_till_done()
+    assert len(events) == 1
+    await advance(hass, freezer, 23 * 60)
+    await hass.async_block_till_done()
+    assert len(events) == 1
+    await advance(hass, freezer, 60)
+    await hass.async_block_till_done()
+    assert len(events) == 2
+    # Still waiting for the owner: it never ends by itself.
+    assert treatment_state(hass, entry).attributes["phase"] == "vacuuming"
+    await press(hass, entry, "advance_treatment")
+    assert "treatment_vacuuming" not in coordinator.alerts
+
+
+async def test_vacuuming_alert_in_spanish(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
+) -> None:
+    freezer.move_to(local(2026, 7, 15, 10, 0))
+    SwitchRouter(hass)
+    entry = await setup_pool(hass)
+    hass.config.language = "es"
+    await set_mode(hass, "off")
+    await _to_vacuuming(hass, freezer, entry)
+    await advance(hass, freezer, 3 * 60 + 5)
+    assert "aspires" in entry.runtime_data.alerts["treatment_vacuuming"]["message"]
