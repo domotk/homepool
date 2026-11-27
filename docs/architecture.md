@@ -76,7 +76,8 @@ matter. Import `PoolCoordinator` from `coordinator.py`, as before.
 3. **`_async_maybe_recalculate`** — at most once every `RECALC_INTERVAL_MIN`
    (60 min): fetches the forecast, runs `calculate_target`, and **never lets
    the target fall during the day** (`held_at_previous`). The
-   `recalculate_schedule` service forces it, up or down.
+   `recalculate_schedule` service forces it, up or down. A season change
+   forces it too, but with `may_lower=False`: it only goes up.
 4. **`_async_control`** — evaluates safety and pH, asks the current mode, then
    `arbitrate()`; sends the pump command if the decision changes the pump, and
    then drives the chlorinator from the result.
