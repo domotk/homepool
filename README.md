@@ -160,11 +160,15 @@ Three set-ups, three behaviours:
   produce exactly what the water needs.
 - **The cell regulates itself** (ORP or chlorine probe). HomePool only watches.
 
-The season is a list of months (June–September by default in the northern
-hemisphere). At its start and end you get an event with what to check, and the
-chlorinator follows the calendar unless you tell it not to. With *Chlorinator
-in use* off, the cell adds no minutes to the target and low salt is not an
-alert; out of season, neither does it.
+The chlorinator's months (June–September by default in the northern
+hemisphere) seed the swimming months, and at their start and end you get an
+event with what to check. They no longer switch the cell: **the season state
+decides** (below). In `swimming`, and in `opening` once *Chlorinator in use* is
+on, the cell works with water flowing, adds its minutes to the target and its
+salt and cell alerts count, whatever the month; in either wintering it does
+not. The water-temperature minimum and the day's chlorine target still stop
+it. With *Chlorinator in use* off, the cell adds no minutes to the target and
+low salt is not an alert.
 
 ## The year: season state
 
@@ -199,7 +203,8 @@ the date says so.
   the pump) is allowed, but warns you: from then on the pump will not start.
 - The option `chlorinator_auto_toggle` now means "propose by the calendar".
   Off, the calendar proposes nothing and the state changes only by hand (the
-  `swimming` proposal made when the opening list is done still reminds).
+  `swimming` proposal made when the opening list is done in `opening` still
+  reminds).
 - *Chlorinator in use* follows the state: on in `swimming` (or when you
   reconnect the cell in the opening list), off in either wintering. You can
   still flip it by hand, and the last change wins.
@@ -245,15 +250,19 @@ in the options step *Recurring tasks*. Mark a task done with `homepool.complete_
 (`task`, optional `date`), `homepool.record_manual_action`, or the buttons for
 the frequent ones.
 
-**A task never logged counts from when it first appeared.** Tasks new in 0.2
-start counting when they first show up, so an update does not make them overdue.
+**A task never logged counts from when it first appeared.** The three tasks
+0.1.4 already had (backwash, filter cleaning and pH calibration) count from
+`tasks_since`, when HomePool started keeping tasks, as they did. Tasks new in
+0.2, and any task that appears later (say, pH calibration once you add a probe),
+start counting when they first show up, so neither an update nor a new probe
+makes them overdue.
 
 Closing, opening and each treatment have a **checklist** of steps, shown in the
 `checklists` attribute of `sensor.<pool>_next_manual_task`, one per source.
 `homepool.complete_step` (`step`, like `closing.backwash`) ticks a step and
 `homepool.dismiss_checklist` closes a list. Ticking a step that is also a task
 (backwash, pH calibration, winter product) marks the task done. Finishing the
-opening list proposes `swimming`. A "shock" step of a closing or opening list
+opening list while the pool is in `opening` proposes `swimming`. A "shock" step of a closing or opening list
 does not start the treatment by itself; ending a shock treatment while the list
 is open ticks it.
 
@@ -300,13 +309,24 @@ restarts and midnight, and does not change the season state.
   clock time only while the pump is off (if freeze protection runs it, the
   alert says the settling was interrupted), and **downtime of Home Assistant does not
   count towards settling**.
-- **Flocculant vacuuming: HomePool's own pump switch and cycle are refused.**
-  The pump is left alone and you run it with the relay's own switch, so
-  HomePool does not take it for an outside change. Press *Next treatment phase*
-  ("vacuuming done") to finish.
+- **During a treatment HomePool's own pump switch and cycle are refused**, in
+  every phase: the treatment decides the pump until it ends.
+- **The relay's own switch is undone too**, except while vacuuming: the
+  treatment is above a change made outside HomePool. To work on the equipment
+  during a treatment, turn on the **maintenance lock**, which is above it.
+- **Flocculant vacuuming:** the pump is left alone and you run it with the
+  relay's own switch, so HomePool does not take it for an outside change.
+  HomePool reminds you 3 hours into it, then once a day; vacuuming never ends
+  by itself. Press *Next treatment phase* ("vacuuming done") to finish. A day
+  spent settling or vacuuming is not a missed target.
 - A pump that was already on when the treatment started is let go when it ends.
-- During a shock the cell runs whenever it is in use with water flowing, and, if
-  HomePool controls its production, at 100 %, going back to normal after. Settling and vacuuming leave it off.
+- During a shock in `swimming` (or in `opening` with the cell in use) the cell
+  runs whenever water flows, past the day's chlorine target, as long as the water
+  is above its minimum temperature; in `winter_active` it stays off. If HomePool
+  controls its production, it runs at 100 % and goes back to normal after.
+  Settling and vacuuming leave it off.
+- A backwash ticked from the treatment's list counts: the filter is then not
+  left due one when the treatment ends.
 - `homepool.advance_treatment` moves to the next phase; `homepool.end_treatment`
   ends it at any time.
 
@@ -316,7 +336,7 @@ chlorine to add is volume times the rise for the `severity`: `light` 10 mg/L,
 `green` 15 (default), `dark` 20 (general guides). A 45 m³ pool at 65 % granular
 needs about 1,040 g. Dichlor warns that it raises cyanuric acid. Clarifier and
 flocculant take a dose per 10 m³ from the label; without one the dose says
-"follow the container". The `dose` attribute of `sensor.<pool>_water_treatment`
+"follow the container". Without a pool volume, every dose says so. The `dose` attribute of `sensor.<pool>_water_treatment`
 shows the amount, unit, product, concentration and volume used, with "check
 the container label". **Check it before you pour:** it is only as right as
 the figures you gave.
