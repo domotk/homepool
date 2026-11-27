@@ -738,3 +738,27 @@ async def test_homepool_pump_controls_are_refused_in_every_treatment_phase(
         "homepool", "start_cycle", {"entity_id": entity(entry, "overall_status")}, blocking=True
     )
     assert coordinator.cycle_until is not None
+
+
+async def test_high_free_chlorine_is_no_alert_during_or_after_a_shock(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
+) -> None:
+    """M7: a shock raises the chlorine on purpose; only the low side is judged."""
+    freezer.move_to(local(2026, 7, 15, 10, 0))
+    SwitchRouter(hass)
+    entry = await setup_pool(hass)
+    coordinator = entry.runtime_data
+    await start(hass, entry, "shock")
+    await coordinator.async_record_reading("free_chlorine", 10.0)
+    assert "free_chlorine_out_of_range" not in coordinator.alerts
+    await coordinator.async_record_reading("free_chlorine", 0.2)
+    assert "free_chlorine_out_of_range" in coordinator.alerts  # too low still counts
+    await press(hass, entry, "end_treatment")
+    await coordinator.async_record_reading("free_chlorine", 8.0)
+    assert coordinator.after_shock_since is not None
+    assert "free_chlorine_out_of_range" not in coordinator.alerts
+    # Back in range, the after-shock period is over: high is an alert again.
+    await coordinator.async_record_reading("free_chlorine", 1.0)
+    assert coordinator.after_shock_since is None
+    await coordinator.async_record_reading("free_chlorine", 8.0)
+    assert "free_chlorine_out_of_range" in coordinator.alerts

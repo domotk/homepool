@@ -2762,6 +2762,16 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             if kind == "free_chlorine":
                 value, _ = self.free_chlorine
                 out = value is not None and self._outside(kind, value)
+                _, high = self.reading_range(kind)
+                if (
+                    out
+                    and (self.treatment is not None or self.after_shock_since is not None)
+                    and high is not None
+                    and value > high
+                ):
+                    # A treatment raises it on purpose; swimming_not_advised
+                    # already says the water is not for swimming.
+                    out = False
             else:
                 status = self.manual_status(kind)
                 value, out = status.value, status.out_of_range
