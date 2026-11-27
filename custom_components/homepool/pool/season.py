@@ -48,6 +48,18 @@ def _days_to_next_run(today: date, months: set[int]) -> int:
     return (min(upcoming) - today).days
 
 
+def _days_since_run_ended(today: date, months: set[int]) -> int:
+    """Days from the first day after the last run of months that ended to ``today``."""
+    ends = [_next_month(m) for m in months if _next_month(m) not in months]
+    past = [
+        date(year, m, 1)
+        for m in ends
+        for year in (today.year - 1, today.year)
+        if date(year, m, 1) <= today
+    ]
+    return (today - max(past)).days
+
+
 def season_proposal(today: date, swimming_months: list[int], state: str) -> str | None:
     """The change the calendar calls for today, if any.
 
@@ -56,8 +68,9 @@ def season_proposal(today: date, swimming_months: list[int], state: str) -> str 
     next run (a pool opened early); ``"opening"`` while wintering, from those
     fourteen days until the run ends, so a missed reminder does not leave a
     pool wintering all summer; from the opening state, ``"swimming"`` once the
-    run has started and ``"winter"`` out of season as from swimming, so an
-    opening whose list was dismissed is not left there for good. A calendar
+    run has started and ``"winter"`` once that run is over (nearer its end than
+    the next start), so an opening whose list was dismissed is not left there
+    for good, and an opening begun early in spring is left alone. A calendar
     of no months or of all twelve never changes, so it proposes nothing.
     """
     months = {int(m) for m in swimming_months if 1 <= int(m) <= 12}
@@ -67,7 +80,12 @@ def season_proposal(today: date, swimming_months: list[int], state: str) -> str 
     if state == SeasonState.OPENING:
         if today.month in months:
             return "swimming"
-        return None if lead_in else "winter"
+        # Out of season: winter only for a pool left in opening through a
+        # season (nearer the run that ended than the next one), never for a
+        # pool opened early in spring.
+        if lead_in or _days_since_run_ended(today, months) > _days_to_next_run(today, months):
+            return None
+        return "winter"
     if state == SeasonState.SWIMMING:
         if today.month not in months:
             return None if lead_in else "winter"

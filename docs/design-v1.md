@@ -1220,9 +1220,10 @@ quien lo construyese, está en
   una automatización que repite «baño» cada día ya no la borra para que se
   anuncie de nuevo cada medianoche.
 - **Desde `opening` el calendario propone una salida**: el baño una vez
-  empezados los meses de baño, y el invernaje fuera de ellos, igual que desde
-  el baño (también si se pone `opening` más de catorce días antes de la
-  temporada). Una propuesta de baño descartada sigue descartada mientras el
+  empezados los meses de baño, y el invernaje cuando ya han terminado (más
+  cerca del final de la temporada que del principio de la siguiente). Una
+  puesta en marcha empezada pronto en primavera no recibe propuesta hasta que
+  empieza la temporada: abrir la piscina lleva semanas. Una propuesta de baño descartada sigue descartada mientras el
   calendario proponga lo mismo.
 - **El aspirado del floculante es una alerta**, `treatment_vacuuming`
   (aviso), a las 3 h y de nuevo cada día, con o sin notificaciones: olvidado,

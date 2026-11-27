@@ -635,8 +635,8 @@ def test_the_calendar_proposes_a_way_out_of_opening() -> None:
     assert season_proposal(date(2027, 9, 30), summer, "opening") == "swimming"
     # Past it: winter, as from swimming.
     assert season_proposal(date(2027, 10, 6), summer, "opening") == "winter"
-    # Like swimming, an opening set long before the season is sent back to winter.
-    assert season_proposal(date(2027, 3, 1), summer, "opening") == "winter"
+    # An opening begun early in spring takes weeks: it is left alone.
+    assert season_proposal(date(2027, 3, 1), summer, "opening") is None
 
 
 async def test_an_opening_left_unconfirmed_is_proposed_swimming_then_winter(

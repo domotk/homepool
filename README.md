@@ -191,8 +191,8 @@ the date says so.
   pool starts from its chlorinator season).
 - The day swimming season ends, HomePool proposes wintering. Fourteen days
   before it starts, it proposes opening. From `opening` it proposes swimming
-  once the season has started, and wintering once it is over (or more than
-  fourteen days before it, as from swimming). Each proposal fires
+  once the season has started, and wintering once it is over. An opening begun
+  early in spring is left alone until the season starts. Each proposal fires
   `homepool_season_proposal`, sends a reminder and opens a checklist. The
   proposal shows as the `proposal` attribute of the select.
 - **An unanswered proposal keeps reminding every week**, an opening proposal

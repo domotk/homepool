@@ -585,3 +585,19 @@ async def test_chlorination_mode_in_winter_with_a_product(
     assert state(hass, mode) == "salt"
     await set_season(hass, entry, "winter_active")
     assert state(hass, mode) == "winter_product"
+
+
+def test_an_early_opening_is_not_sent_back_to_winter() -> None:
+    from custom_components.homepool.pool.season import season_proposal
+
+    months = [6, 7, 8, 9]
+    # Opened on 1 April for a June season: nothing, all spring.
+    assert season_proposal(date(2027, 4, 1), months, "opening") is None
+    assert season_proposal(date(2027, 2, 15), months, "opening") is None
+    # Left in opening through the season: winter once it is over.
+    assert season_proposal(date(2026, 10, 6), months, "opening") == "winter"
+    assert season_proposal(date(2026, 12, 20), months, "opening") == "winter"
+    # The southern hemisphere, across the new year.
+    south = [12, 1, 2, 3]
+    assert season_proposal(date(2026, 10, 1), south, "opening") is None
+    assert season_proposal(date(2026, 5, 1), south, "opening") == "winter"
