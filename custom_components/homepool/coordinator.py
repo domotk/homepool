@@ -967,6 +967,20 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         return is_chlorinator_in_season(dt_util.now().date(), self.active_months)
 
     @property
+    def cell_in_season(self) -> bool:
+        """Whether the season state has the cell working (ruling 24).
+
+        Swimming, and opening once "Chlorinator in use" is on; never in
+        winter. ``chlorinator_active_months`` no longer decides this: it only
+        seeds the swimming months and fires the calendar's season events.
+        """
+        if self.season_state == SeasonState.SWIMMING:
+            return True
+        if self.season_state == SeasonState.OPENING:
+            return self.chlorinator_enabled
+        return False
+
+    @property
     def chlorination_mode(self) -> str:
         if (
             self.season_state in WINTER_STATES
@@ -975,7 +989,7 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             return ChlorinationMode.WINTER_PRODUCT
         if not self.is_salt:
             return ChlorinationMode.TABLETS
-        if self.in_season and self.chlorinator_enabled:
+        if self.cell_in_season and self.chlorinator_enabled:
             return ChlorinationMode.SALT
         return ChlorinationMode.OFF
 
@@ -1986,10 +2000,11 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 ),
                 "chlorinator_production_pct": self.chlorinator_production,
                 "chlorinator_self_regulating": self.self_regulating,
-                # With "Chlorinator in use" off the cell produces nothing, so
-                # it is treated as out of season and adds no minutes.
+                # The season state decides whether the cell works today
+                # (ruling 24); with "Chlorinator in use" off it produces
+                # nothing either. Out of season it adds no minutes.
                 "chlorinator_active_months": (
-                    self.active_months if self.chlorinator_enabled else []
+                    [today.month] if self.cell_in_season and self.chlorinator_enabled else []
                 ),
                 "water_temperature_c": water,
                 "air_temperature_c": air,
@@ -2319,7 +2334,7 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 pump_is_on=self._pump_was_on and pump_will_be_on,
                 pump_on_seconds=on_seconds,
                 enabled=self.chlorinator_enabled,
-                in_season=self.in_season,
+                in_season=self.cell_in_season,
                 # A shock runs the cell all the time the water flows.
                 target_reached=self.chlorine_target_reached and not shock_filtering,
                 # Vacuuming to waste sends no water through the cell.
@@ -2584,9 +2599,7 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             },
         )
         if self.is_salt:
-            in_season_on = (
-                self.season_state == SeasonState.SWIMMING and self.chlorinator_enabled
-            )
+            in_season_on = self.cell_in_season and self.chlorinator_enabled
             salt, _ = self.salinity
             low = float(self.opt(CONF_SALT_RANGE_MIN, DEFAULT_SALT_RANGE_MIN))
             # Salt only matters while the cell is working: out of season an old
@@ -2698,7 +2711,7 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             return (
                 self.is_salt
                 and self._number(CONF_SALINITY_SENSOR) is None
-                and self.season_state == SeasonState.SWIMMING
+                and self.cell_in_season
                 and self.chlorinator_enabled
             )
         return True

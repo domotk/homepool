@@ -373,6 +373,54 @@ async def test_confirming_winter_active_turns_the_cell_off(
     assert len(changed) == 2
 
 
+async def test_the_season_state_decides_the_cell_outside_its_months(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
+) -> None:
+    """Ruling 24: swimming on 3 October, past the chlorinator's months, the
+    cell still runs with flow and counts in the target; in winter it is off."""
+    freezer.move_to(local(2026, 10, 3, 12, 0))
+    SwitchRouter(hass)
+    entry = await setup_pool(hass, chlorinator_switch=CHLORINATOR)
+    coordinator = entry.runtime_data
+    await set_season(hass, entry, "swimming")
+    assert coordinator.chlorinator_enabled
+    await coordinator.async_start_cycle(120)
+    await tick(hass, freezer, 3)  # past the flow delay
+    assert state(hass, PUMP) == "on"
+    assert state(hass, CHLORINATOR) == "on"
+    assert (coordinator.target.get("target_chlorine_minutes") or 0) > 0
+    assert "chlorinator_not_producing" not in coordinator.alerts
+    assert coordinator.chlorination_mode == "salt"
+
+    await set_season(hass, entry, "winter_active")
+    await tick(hass, freezer, 1)
+    assert state(hass, PUMP) == "on"  # the cycle still runs
+    assert state(hass, CHLORINATOR) == "off"
+    assert not coordinator.target.get("target_chlorine_minutes")
+
+
+async def test_in_opening_the_cell_counts_once_it_is_in_use(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
+) -> None:
+    freezer.move_to(local(2027, 5, 20, 12, 0))
+    SwitchRouter(hass)
+    entry = await setup_pool(hass, chlorinator_switch=CHLORINATOR)
+    coordinator = entry.runtime_data
+    await set_season(hass, entry, "opening")
+    await coordinator.async_record_reading("salt", 2.8)
+    await coordinator.async_start_cycle(120)
+    await tick(hass, freezer, 3)
+    assert not coordinator.chlorinator_enabled
+    assert state(hass, CHLORINATOR) == "off"
+    assert "salt_low" not in coordinator.alerts
+
+    await coordinator.async_complete_step("opening.reconnect_cell")
+    await tick(hass, freezer, 1)
+    assert state(hass, CHLORINATOR) == "on"
+    assert (coordinator.target.get("target_chlorine_minutes") or 0) > 0
+    assert "salt_low" in coordinator.alerts
+
+
 async def test_a_bad_season_state_is_refused(hass: HomeAssistant) -> None:
     SwitchRouter(hass)
     entry = await setup_pool(hass)
