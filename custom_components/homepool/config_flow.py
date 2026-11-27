@@ -33,6 +33,9 @@ from .const import (
     CONF_CHLORINATION_TYPE,
     CONF_CHLORINATOR_ACTIVE_MONTHS,
     CONF_SWIMMING_MONTHS,
+    CONF_WINTER_PRODUCT_DOSE_PER_M3,
+    CONF_WINTER_PRODUCT_INTERVAL_DAYS,
+    CONF_WINTER_PRODUCT_TYPE,
     CONF_CHLORINATOR_AUTO_TOGGLE,
     CONF_CHLORINATOR_CONTROLLABLE,
     CONF_CHLORINATOR_MIN_WATER_TEMP,
@@ -144,6 +147,8 @@ from .const import (
     DEFAULT_PH_RANGE_MAX,
     DEFAULT_PH_RANGE_MIN,
     DEFAULT_PH_TARGET,
+    DEFAULT_WINTER_PRODUCT_DOSE_PER_M3,
+    DEFAULT_WINTER_PRODUCT_INTERVAL_DAYS,
     DEFAULT_RETURNS_COUNT,
     DEFAULT_SALT_RANGE_MAX,
     DEFAULT_SALT_RANGE_MIN,
@@ -228,6 +233,7 @@ def _values(enum) -> list[str]:
 
 
 MONTHS = [str(m) for m in range(1, 13)]
+WINTER_PRODUCT_TYPES = ["none", "floater", "liquid", "tablets"]
 
 
 def _flatten(user_input: dict[str, Any]) -> dict[str, Any]:
@@ -600,6 +606,19 @@ class _Wizard:
                 vol.Required(
                     CONF_SWIMMING_MONTHS, default=[str(m) for m in swimming]
                 ): _select(MONTHS, "month", multiple=True),
+                vol.Required(
+                    CONF_WINTER_PRODUCT_TYPE, default=d.get(CONF_WINTER_PRODUCT_TYPE) or "none"
+                ): _select(WINTER_PRODUCT_TYPES, "winter_product_type"),
+                vol.Required(
+                    CONF_WINTER_PRODUCT_DOSE_PER_M3,
+                    default=d.get(CONF_WINTER_PRODUCT_DOSE_PER_M3)
+                    or DEFAULT_WINTER_PRODUCT_DOSE_PER_M3,
+                ): _number(0.001, 1, 0.001),
+                vol.Required(
+                    CONF_WINTER_PRODUCT_INTERVAL_DAYS,
+                    default=d.get(CONF_WINTER_PRODUCT_INTERVAL_DAYS)
+                    or DEFAULT_WINTER_PRODUCT_INTERVAL_DAYS,
+                ): _number(7, 365, 1, "d"),
             }
         )
         errors: dict[str, str] = {}
@@ -616,6 +635,9 @@ class _Wizard:
                 self._store(schema, user_input)
                 self._data[CONF_PH_CALIBRATION_INTERVAL_DAYS] = int(
                     self._data[CONF_PH_CALIBRATION_INTERVAL_DAYS]
+                )
+                self._data[CONF_WINTER_PRODUCT_INTERVAL_DAYS] = int(
+                    self._data[CONF_WINTER_PRODUCT_INTERVAL_DAYS]
                 )
                 self._data[CONF_SWIMMING_MONTHS] = sorted(
                     int(m) for m in self._data[CONF_SWIMMING_MONTHS]

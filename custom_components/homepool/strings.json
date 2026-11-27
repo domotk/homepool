@@ -101,10 +101,16 @@
           "free_chlorine_target": "Free chlorine target",
           "free_chlorine_range_min": "Free chlorine, lowest",
           "free_chlorine_range_max": "Free chlorine, highest",
-          "swimming_months": "Months the pool is used"
+          "swimming_months": "Months the pool is used",
+          "winter_product_type": "Winter product",
+          "winter_product_dose_per_m3": "Winter product, dose per m³",
+          "winter_product_interval_days": "Top up the winter product every"
         },
         "data_description": {
           "swimming_months": "HomePool proposes wintering when they end and opening two weeks before they start.",
+          "winter_product_type": "What goes in the water while the pool is wintering. HomePool works out the dose and reminds you to top it up.",
+          "winter_product_dose_per_m3": "Units per m³ (litres per m³ for a liquid), as on the label. One floater for 50 m³ is 0.02.",
+          "winter_product_interval_days": "Days between top-ups.",
           "has_ph_dosing": "When the pH is too high, the pump is run for a while so the doser can work."
         }
       },
@@ -385,10 +391,16 @@
           "free_chlorine_target": "Free chlorine target",
           "free_chlorine_range_min": "Free chlorine, lowest",
           "free_chlorine_range_max": "Free chlorine, highest",
-          "swimming_months": "Months the pool is used"
+          "swimming_months": "Months the pool is used",
+          "winter_product_type": "Winter product",
+          "winter_product_dose_per_m3": "Winter product, dose per m³",
+          "winter_product_interval_days": "Top up the winter product every"
         },
         "data_description": {
           "swimming_months": "HomePool proposes wintering when they end and opening two weeks before they start.",
+          "winter_product_type": "What goes in the water while the pool is wintering. HomePool works out the dose and reminds you to top it up.",
+          "winter_product_dose_per_m3": "Units per m³ (litres per m³ for a liquid), as on the label. One floater for 50 m³ is 0.02.",
+          "winter_product_interval_days": "Days between top-ups.",
           "has_ph_dosing": "When the pH is too high, the pump is run for a while so the doser can work."
         }
       },
@@ -689,6 +701,14 @@
         "tablets": "Tablets",
         "liquid": "Liquid chlorine",
         "other": "Other"
+      }
+    },
+    "winter_product_type": {
+      "options": {
+        "none": "None",
+        "floater": "Floater",
+        "liquid": "Liquid",
+        "tablets": "Tablets"
       }
     },
     "month": {

@@ -20,9 +20,11 @@ from ..const import (
     CONF_HAS_PH_PROBE_OUTSIDE,
     CONF_PH_CALIBRATION_INTERVAL_DAYS,
     CONF_PH_SENSOR,
+    CONF_WINTER_PRODUCT_INTERVAL_DAYS,
     CONF_WINTER_PRODUCT_TYPE,
     DEFAULT_BACKWASH_INTERVAL_DAYS,
     DEFAULT_PH_CALIBRATION_INTERVAL_DAYS,
+    DEFAULT_WINTER_PRODUCT_INTERVAL_DAYS,
     FilterType,
 )
 
@@ -111,6 +113,10 @@ def configured_days(defn: TaskDef, conf: Mapping[str, Any], season_state: str) -
     if defn.key == "ph_calibration":
         return int(
             _set(conf, CONF_PH_CALIBRATION_INTERVAL_DAYS, DEFAULT_PH_CALIBRATION_INTERVAL_DAYS)
+        )
+    if defn.key == "winter_product":
+        return int(
+            _set(conf, CONF_WINTER_PRODUCT_INTERVAL_DAYS, DEFAULT_WINTER_PRODUCT_INTERVAL_DAYS)
         )
     return default_days(defn, season_state)
 

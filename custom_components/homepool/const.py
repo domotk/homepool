@@ -103,6 +103,8 @@ CONF_CHLORINATOR_AUTO_TOGGLE = "chlorinator_auto_toggle"
 # The months the pool is used, for every pool: what the season state follows.
 CONF_SWIMMING_MONTHS = "swimming_months"
 CONF_WINTER_PRODUCT_TYPE = "winter_product_type"
+CONF_WINTER_PRODUCT_DOSE_PER_M3 = "winter_product_dose_per_m3"
+CONF_WINTER_PRODUCT_INTERVAL_DAYS = "winter_product_interval_days"
 CONF_CHLORINATOR_MIN_WATER_TEMP = "chlorinator_min_water_temp"
 
 # Lighting and auxiliary
@@ -352,6 +354,8 @@ DEFAULT_RETURNS_COUNT = 2
 DEFAULT_ROBOT_CYCLE_HOURS = 2.0
 DEFAULT_USER_MULTIPLIER = 1.0
 DEFAULT_BACKWASH_INTERVAL_DAYS = 14
+DEFAULT_WINTER_PRODUCT_DOSE_PER_M3 = 0.02  # one floater for 50 m³
+DEFAULT_WINTER_PRODUCT_INTERVAL_DAYS = 56
 DEFAULT_PH_CALIBRATION_INTERVAL_DAYS = 180
 DEFAULT_MANUAL_OVERRIDE_MINUTES = 120
 DEFAULT_FREEZE_THRESHOLD = 2.0

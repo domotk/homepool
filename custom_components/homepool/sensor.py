@@ -208,6 +208,7 @@ SENSORS: tuple[PoolSensorDescription, ...] = (
             "tasks": c.task_status(),
             "checklists": c.checklist_view(),
             "recent_actions": c.actions[-10:],
+            **({"winter_product": c.winter_product} if c.winter_product else {}),
         },
     ),
     PoolSensorDescription(

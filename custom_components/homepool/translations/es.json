@@ -101,10 +101,16 @@
           "free_chlorine_target": "Cloro libre objetivo",
           "free_chlorine_range_min": "Cloro libre mínimo",
           "free_chlorine_range_max": "Cloro libre máximo",
-          "swimming_months": "Meses de baño"
+          "swimming_months": "Meses de baño",
+          "winter_product_type": "Producto de invierno",
+          "winter_product_dose_per_m3": "Producto de invierno, dosis por m³",
+          "winter_product_interval_days": "Reponer el producto de invierno cada"
         },
         "data_description": {
           "swimming_months": "HomePool propone invernar cuando terminan y la puesta en marcha dos semanas antes de que empiecen.",
+          "winter_product_type": "Lo que se pone en el agua durante el invernaje. HomePool calcula la dosis y te recuerda reponerlo.",
+          "winter_product_dose_per_m3": "Unidades por m³ (litros por m³ si es líquido), según la etiqueta. Un flotador por cada 50 m³ son 0,02.",
+          "winter_product_interval_days": "Días entre reposiciones.",
           "has_ph_dosing": "Si el pH está alto, la bomba se pone en marcha un rato para que la dosificadora pueda trabajar."
         }
       },
@@ -385,10 +391,16 @@
           "free_chlorine_target": "Cloro libre objetivo",
           "free_chlorine_range_min": "Cloro libre mínimo",
           "free_chlorine_range_max": "Cloro libre máximo",
-          "swimming_months": "Meses de baño"
+          "swimming_months": "Meses de baño",
+          "winter_product_type": "Producto de invierno",
+          "winter_product_dose_per_m3": "Producto de invierno, dosis por m³",
+          "winter_product_interval_days": "Reponer el producto de invierno cada"
         },
         "data_description": {
           "swimming_months": "HomePool propone invernar cuando terminan y la puesta en marcha dos semanas antes de que empiecen.",
+          "winter_product_type": "Lo que se pone en el agua durante el invernaje. HomePool calcula la dosis y te recuerda reponerlo.",
+          "winter_product_dose_per_m3": "Unidades por m³ (litros por m³ si es líquido), según la etiqueta. Un flotador por cada 50 m³ son 0,02.",
+          "winter_product_interval_days": "Días entre reposiciones.",
           "has_ph_dosing": "Si el pH está alto, la bomba se pone en marcha un rato para que la dosificadora pueda trabajar."
         }
       },
@@ -689,6 +701,14 @@
         "tablets": "Pastillas",
         "liquid": "Cloro líquido",
         "other": "Otro"
+      }
+    },
+    "winter_product_type": {
+      "options": {
+        "none": "Ninguno",
+        "floater": "Flotador",
+        "liquid": "Líquido",
+        "tablets": "Pastillas"
       }
     },
     "month": {

@@ -24,6 +24,7 @@ have no Home Assistant in them and are tested on their own.
 from __future__ import annotations
 
 from collections import deque
+from dataclasses import asdict
 from datetime import date, datetime, time, timedelta
 import logging
 from typing import Any
@@ -119,11 +120,13 @@ from .const import (
     CONF_VOLUME,
     CONF_WATER_TEMPERATURE_SENSOR,
     CONF_WEATHER_ENTITY,
+    CONF_WINTER_PRODUCT_DOSE_PER_M3,
     CONF_WINTER_PRODUCT_TYPE,
     DEFAULT_CHLORINATOR_MIN_WATER_TEMP,
     DEFAULT_CHLORINATOR_PRODUCTION_PCT,
     DEFAULT_EQUIPMENT_ROOM_MAX_TEMP,
     DEFAULT_FILTER_PRESSURE_CRITICAL,
+    DEFAULT_WINTER_PRODUCT_DOSE_PER_M3,
     DEFAULT_FILTER_PRESSURE_NORMAL_MAX,
     DEFAULT_FREEZE_THRESHOLD,
     DEFAULT_MANUAL_OVERRIDE_MINUTES,
@@ -172,6 +175,7 @@ from .pool.chlorine_calculator import (
     is_chlorinator_in_season,
 )
 from .pool.checklists import CLOSING, OPENING, build, step_def
+from .pool.dosing import winter_product_dose
 from .pool.filtration_calculator import FiltrationInputs, calculate_filtration_target
 from .pool.geometry import calculate_cycle_duration_minutes
 from .pool.safety import evaluate_safety
@@ -340,6 +344,9 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # When a task row first showed up without a date: rows added after 0.1.4
         # count from then, so an upgrade does not make them overdue at once.
         self.task_first_seen: dict[str, str] = {}
+        # When the pool last went into wintering from another state: the winter
+        # product falls due that day, whatever was done in an earlier winter.
+        self.winter_entered: datetime | None = None
         self.manual_readings: dict[str, dict[str, Any]] = {}
         self.actions: list[dict[str, Any]] = []
         self.history: list[dict[str, Any]] = []
@@ -501,6 +508,7 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.tasks_since = _parse_dt(data.get("tasks_since")) or dt_util.utcnow()
         self.task_pump_s = {k: float(v) for k, v in (data.get("task_pump_s") or {}).items()}
         self.task_first_seen = data.get("task_first_seen") or {}
+        self.winter_entered = _parse_dt(data.get("winter_entered"))
         self._seed_task_dates()
         self.manual_readings = data.get("manual_readings") or {}
         self.actions = data.get("actions") or []
@@ -656,6 +664,7 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "tasks_since": _iso(self.tasks_since),
             "task_pump_s": {k: round(v, 1) for k, v in self.task_pump_s.items()},
             "task_first_seen": self.task_first_seen,
+            "winter_entered": _iso(self.winter_entered),
             "manual_readings": self.manual_readings,
             "actions": self.actions[-ACTIONS_KEPT:],
             "history": self.history[-HISTORY_DAYS:],
@@ -934,6 +943,12 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 first_seen = dt_util.utcnow()
                 self.task_first_seen[defn.key] = first_seen.isoformat()
             counted_from = max(counted_from, first_seen) if counted_from else first_seen
+        days = self._task_days(defn)
+        task_days = days
+        if defn.key == "winter_product" and self.winter_entered is not None:
+            if done is None or done < self.winter_entered:
+                # Not done since going into winter: it is due that very day.
+                done, counted_from, days = None, self.winter_entered, 0
         state = task_state(
             defn,
             last_done=dt_util.as_local(done) if done else None,
@@ -941,14 +956,14 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             today=dt_util.now().date(),
             season_state=self.season_state,
             pump_seconds_since=self.task_pump_s.get(defn.key, 0.0),
-            days=self._task_days(defn),
+            days=days,
             pump_hours=self._task_pump_hours(defn),
             force=self.pressure_high and defn.key in FILTER_TASKS,
         )
         return {
             "task": defn.key,
             "last_done": _iso(done),
-            "interval_days": state.interval_days,
+            "interval_days": None if state.interval_days is None else task_days,
             "interval_pump_hours": state.interval_pump_hours,
             "pump_hours_since": state.pump_hours_since,
             "counted_from": _iso(counted_from),
@@ -956,6 +971,17 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "overdue": state.overdue,
             "paused": state.paused,
         }
+
+    @property
+    def winter_product(self) -> dict[str, Any] | None:
+        """What the winter product is and how much of it the pool takes."""
+        product = self.opt(CONF_WINTER_PRODUCT_TYPE, "none")
+        if product in (None, "", "none") or self.volume <= 0:
+            return None
+        per_m3 = float(
+            self.opt(CONF_WINTER_PRODUCT_DOSE_PER_M3, DEFAULT_WINTER_PRODUCT_DOSE_PER_M3)
+        )
+        return {"type": product, "dose": asdict(winter_product_dose(product, per_m3, self.volume))}
 
     @property
     def backwash_needed(self) -> bool:
@@ -1272,7 +1298,13 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         again every week until it is confirmed or dismissed."""
         current = self.season_proposal
         if current is not None and current.get("to") not in CALENDAR_PROPOSALS:
-            # The finished opening list proposes swimming: not the calendar's.
+            # The finished opening list proposes swimming, not the calendar:
+            # it is brought up again every week, until confirmed or dismissed.
+            if current.get("dismissed_for") != current.get("to") and self._proposal_due(
+                current, now
+            ):
+                await self._async_announce_proposal(current, now)
+                self._save()
             return
         to = None
         if self.conf.get(CONF_CHLORINATOR_AUTO_TOGGLE, True):
@@ -1293,12 +1325,25 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         elif current.get("dismissed_for") == to:
             return
         else:
-            reminded = _parse_dt(current.get("reminded"))
-            if reminded is not None and now.date() < (
-                dt_util.as_local(reminded).date() + timedelta(days=PROPOSAL_REMIND_DAYS)
-            ):
+            if not self._proposal_due(current, now):
                 return
-        current["reminded"] = now.isoformat()
+        await self._async_announce_proposal(current, now)
+        if is_new:
+            self._open_season_checklist(to)
+        self._save()
+
+    @staticmethod
+    def _proposal_due(proposal: dict[str, Any], now: datetime) -> bool:
+        """Whether a proposal has gone a week without being brought up."""
+        reminded = _parse_dt(proposal.get("reminded"))
+        return reminded is None or now.date() >= (
+            dt_util.as_local(reminded).date() + timedelta(days=PROPOSAL_REMIND_DAYS)
+        )
+
+    async def _async_announce_proposal(self, proposal: dict[str, Any], now: datetime) -> None:
+        """Fire the proposal's event and remind the owner of it."""
+        to = proposal["to"]
+        proposal["reminded"] = now.isoformat()
         self.hass.bus.async_fire(
             EVENT_SEASON_PROPOSAL,
             {"entry_id": self.entry.entry_id, "pool": self.pool_name, "to": to},
@@ -1308,9 +1353,6 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             text(language, "title") + f" · {self.pool_name}",
             text(language, f"season_proposal_{to}", pool=self.pool_name),
         )
-        if is_new:
-            self._open_season_checklist(to)
-        self._save()
 
     # ──────────────────────────────────────────
     # Checklists
@@ -1434,22 +1476,10 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.season_proposal = {
             "to": SeasonState.SWIMMING.value,
             "since": now.isoformat(),
-            "reminded": now.isoformat(),
+            "reminded": None,
             "dismissed_for": None,
         }
-        self.hass.bus.async_fire(
-            EVENT_SEASON_PROPOSAL,
-            {
-                "entry_id": self.entry.entry_id,
-                "pool": self.pool_name,
-                "to": SeasonState.SWIMMING.value,
-            },
-        )
-        language = self.hass.config.language
-        await self._async_remind(
-            text(language, "title") + f" · {self.pool_name}",
-            text(language, "season_proposal_swimming", pool=self.pool_name),
-        )
+        await self._async_announce_proposal(self.season_proposal, now)
         self._save()
 
     def _sample_inputs(self, now: datetime) -> None:
@@ -2312,8 +2342,12 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self.override = None
         if new != old:
             if new in WINTER_STATES and old not in WINTER_STATES:
+                self.winter_entered = dt_util.utcnow()
+                # An opening list left open belongs to a season that is over.
+                self.checklists.pop(OPENING, None)
                 self._open_season_checklist("winter")
             elif new == SeasonState.OPENING:
+                self.checklists.pop(CLOSING, None)
                 self._open_season_checklist("opening")
         if new == SeasonState.WINTER_ACTIVE:
             self._prune_passive_steps()

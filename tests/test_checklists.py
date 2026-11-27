@@ -328,3 +328,54 @@ async def test_a_withdrawn_calendar_proposal_is_saved(
     await coordinator._async_season_proposal(local(2027, 7, 15, 0, 1))
     assert coordinator.season_proposal is None
     assert saved
+
+
+async def test_an_unconfirmed_swimming_proposal_is_reminded_every_7_days(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
+) -> None:
+    freezer.move_to(local(2027, 7, 15, 12, 0))
+    SwitchRouter(hass)
+    events = []
+    hass.bus.async_listen("homepool_season_proposal", events.append)
+    entry = await setup_pool(hass)
+    coordinator = entry.runtime_data
+    await set_season(hass, entry, "opening")
+    for step in step_ids(coordinator, "opening"):
+        await coordinator.async_complete_step(step)
+    await hass.async_block_till_done()
+    assert [e.data["to"] for e in events] == ["swimming"]
+    await next_day(hass, freezer, 6)
+    assert len(events) == 1
+    await next_day(hass, freezer, 1)
+    assert [e.data["to"] for e in events] == ["swimming", "swimming"]
+    assert coordinator.season_proposal["to"] == "swimming"
+    # Dismissed, it is not brought up again.
+    await coordinator.async_dismiss_season_proposal()
+    await next_day(hass, freezer, 8)
+    assert len(events) == 2
+
+
+async def test_entering_opening_drops_an_open_closing_list(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
+) -> None:
+    entry, coordinator = await closing_proposed(hass, freezer)
+    assert "closing" in coordinator.checklists
+    await set_season(hass, entry, "winter_active")
+    assert "closing" in coordinator.checklists
+    await set_season(hass, entry, "opening")
+    assert "closing" not in coordinator.checklists
+    assert "opening" in coordinator.checklists
+
+
+async def test_entering_winter_drops_an_open_opening_list(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
+) -> None:
+    freezer.move_to(local(2027, 7, 15, 12, 0))
+    SwitchRouter(hass)
+    entry = await setup_pool(hass)
+    coordinator = entry.runtime_data
+    await set_season(hass, entry, "opening")
+    assert "opening" in coordinator.checklists
+    await set_season(hass, entry, "winter_passive")
+    assert "opening" not in coordinator.checklists
+    assert "closing" in coordinator.checklists

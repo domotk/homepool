@@ -13,6 +13,7 @@ from custom_components.homepool.pool.tasks import TASKS, TASKS_BY_KEY, default_d
 
 from .helpers import PUMP, SwitchRouter, setup_pool
 from .test_control import local, madrid, state, tick  # noqa: F401
+from .test_season import entity, set_season
 
 
 def _state(key, *, season_state="swimming", today=date(2026, 7, 1), last_done=None,
@@ -347,3 +348,103 @@ async def test_tasks_step_refuses_a_future_date(
         result["flow_id"], {"water_test_last_done": "2026-07-16"}
     )
     assert result["errors"] == {"water_test_last_done": "date_in_future"}
+
+
+# ── winter product ──
+
+
+async def test_winter_product_due_on_entering_winter(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
+) -> None:
+    freezer.move_to(local(2026, 7, 15, 10, 0))
+    SwitchRouter(hass)
+    entry = await setup_pool(hass, winter_product_type="floater")
+    coordinator = entry.runtime_data
+    assert _task(coordinator, "winter_product")["paused"]
+    freezer.move_to(local(2026, 10, 2, 10, 0))
+    await set_season(hass, entry, "winter_active")
+    row = _task(coordinator, "winter_product")
+    assert row["overdue"]
+    assert row["due"] == "2026-10-02"
+    assert coordinator.next_manual_task == "winter_product"
+    await hass.services.async_call(
+        "button", "press", {"entity_id": "button.pool_winter_product_added"}, blocking=True
+    )
+    await hass.async_block_till_done()
+    row = _task(coordinator, "winter_product")
+    assert not row["overdue"]
+    assert row["due"] == "2026-11-27"
+    assert row["interval_days"] == 56
+
+
+async def test_winter_product_interval_is_an_option(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
+) -> None:
+    freezer.move_to(local(2026, 10, 2, 10, 0))
+    SwitchRouter(hass)
+    entry = await setup_pool(
+        hass, winter_product_type="floater", winter_product_interval_days=30
+    )
+    await set_season(hass, entry, "winter_passive")
+    await entry.runtime_data.async_record_action("winter_product_added")
+    assert _task(entry.runtime_data, "winter_product")["due"] == "2026-11-01"
+
+
+async def test_winter_product_is_due_again_on_the_next_winter(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
+) -> None:
+    freezer.move_to(local(2026, 10, 2, 10, 0))
+    SwitchRouter(hass)
+    entry = await setup_pool(hass, winter_product_type="floater")
+    coordinator = entry.runtime_data
+    await set_season(hass, entry, "winter_active")
+    await coordinator.async_record_action("winter_product_added")
+    await set_season(hass, entry, "winter_passive")  # not a new entry
+    assert not _task(coordinator, "winter_product")["overdue"]
+    await set_season(hass, entry, "opening")
+    await set_season(hass, entry, "swimming")
+    freezer.move_to(local(2027, 10, 5, 10, 0))
+    await set_season(hass, entry, "winter_active")
+    row = _task(coordinator, "winter_product")
+    assert row["overdue"]
+    assert row["due"] == "2027-10-05"
+
+
+async def test_next_manual_task_carries_the_winter_product_dose(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
+) -> None:
+    freezer.move_to(local(2026, 10, 2, 10, 0))
+    SwitchRouter(hass)
+    entry = await setup_pool(hass, winter_product_type="floater", volume=45.0)
+    attrs = hass.states.get(entity(entry, "next_manual_task")).attributes
+    assert attrs["winter_product"]["type"] == "floater"
+    assert attrs["winter_product"]["dose"]["amount"] == 1
+    assert attrs["winter_product"]["dose"]["basis"] == "45 m³ × 0.02/m³"
+
+
+async def test_no_winter_product_attribute_without_a_product(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
+) -> None:
+    freezer.move_to(local(2026, 10, 2, 10, 0))
+    SwitchRouter(hass)
+    entry = await setup_pool(hass)
+    assert "winter_product" not in hass.states.get(entity(entry, "next_manual_task")).attributes
+
+
+async def test_chlorination_mode_winter_product(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
+) -> None:
+    freezer.move_to(local(2026, 10, 2, 10, 0))
+    SwitchRouter(hass)
+    entry = await setup_pool(hass, winter_product_type="liquid")
+    mode = entity(entry, "chlorination_mode")
+    await set_season(hass, entry, "winter_active")
+    assert state(hass, mode) == "winter_product"
+    await set_season(hass, entry, "winter_passive")
+    assert state(hass, mode) == "winter_product"
+    await set_season(hass, entry, "opening")
+    assert state(hass, mode) != "winter_product"
+
+
+def _task(coordinator, key: str) -> dict:
+    return next(t for t in coordinator.task_status() if t["task"] == key)
