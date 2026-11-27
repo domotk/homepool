@@ -190,13 +190,17 @@ the date says so.
   to September by default, December to March with a southern latitude; a salt
   pool starts from its chlorinator season).
 - The day swimming season ends, HomePool proposes wintering. Fourteen days
-  before it starts, it proposes opening. Each proposal fires
+  before it starts, it proposes opening. From `opening` it proposes swimming
+  once the season has started, and wintering once it is over (or more than
+  fourteen days before it, as from swimming). Each proposal fires
   `homepool_season_proposal`, sends a reminder and opens a checklist. The
   proposal shows as the `proposal` attribute of the select.
 - **An unanswered proposal keeps reminding every week**, an opening proposal
   through the whole season. `homepool.dismiss_season_proposal` stops it until
   the calendar proposes something different, and closes the checklist it
-  opened.
+  opened. A proposal the calendar no longer makes (an autumn's wintering that
+  is still unanswered in spring) goes, with its checklist. Choosing the state
+  the pool is already in leaves a proposal alone.
 - You confirm by choosing the state in the select or with
   `homepool.set_season_state`. For wintering you choose active or passive.
   Confirming passive with a closing step still to do (a shock or backwash needs
@@ -263,8 +267,13 @@ Closing, opening and each treatment have a **checklist** of steps, shown in the
 `checklists` attribute of `sensor.<pool>_next_manual_task`, one per source.
 `homepool.complete_step` (`step`, like `closing.backwash`) ticks a step and
 `homepool.dismiss_checklist` closes a list. Ticking a step that is also a task
-(backwash, pH calibration, winter product) marks the task done. Finishing the
-opening list while the pool is in `opening` proposes `swimming`. A "shock" step of a closing or opening list
+(backwash, pH calibration, winter product) marks the task done; with a
+cartridge filter, a backwash step marks the filter cleaning. A finished list
+leaves the attribute but is kept until the next change of season, so ticking
+every closing step before confirming wintering does not bring back a blank
+one. Finishing the opening list in `opening` proposes `swimming`; finished
+while still wintering, `swimming` is proposed as soon as you choose `opening`.
+The closing list goes when the pool leaves winter. A "shock" step of a closing or opening list
 does not start the treatment by itself; ending a shock treatment while the list
 is open ticks it.
 
@@ -282,7 +291,9 @@ rejected. `record_salt_level` and `record_free_chlorine` still work.
 - Ranges (water step): alkalinity 80–120 mg/L, hardness 200–400, cyanuric acid
   30–50 with a salt chlorinator and 30–80 without, combined chlorine up to 0.6,
   plus the pH, free chlorine and salt ranges. Out of range raises
-  `<kind>_out_of_range` (warning), only on a fresh reading.
+  `<kind>_out_of_range` (warning), only on a fresh reading. In passive
+  wintering the pH and free chlorine **probes** raise no range alert, nor
+  `attention`: with the pipes drained they read air.
 - A reading goes **stale** after a time per kind (pH and chlorine 7 days, salt
   and alkalinity 30, hardness and cyanuric acid 90, combined chlorine 14;
   editable). A stale reading stops being used for the target and for range
@@ -318,8 +329,10 @@ restarts and midnight, and does not change the season state.
   during a treatment, turn on the **maintenance lock**, which is above it.
 - **Flocculant vacuuming:** the pump is left alone and you run it with the
   relay's own switch, so HomePool does not take it for an outside change.
-  HomePool reminds you 3 hours into it, then once a day; vacuuming never ends
-  by itself. Press *Next treatment phase* ("vacuuming done") to finish. A day
+  3 hours into it HomePool raises the `treatment_vacuuming` alert (warning,
+  so the status shows `attention`, with notifications on or off) and notifies
+  it again once a day; vacuuming never ends by itself, and until it does the
+  pool is not filtered. Press *Next treatment phase* ("vacuuming done") to finish. A day
   spent settling or vacuuming is not a missed target.
 - A pump that was already on when the treatment started is let go when it ends.
 - During a shock in `swimming` (or in `opening` with the cell in use) the cell
@@ -407,7 +420,9 @@ target sensor's attributes for the card.
 | `homepool.start_treatment` · `homepool.advance_treatment` · `homepool.end_treatment` | Water treatment, see above |
 
 All of them take the usual target picker: a pool's device, any of its
-entities, an area.
+entities, an area. Called by a person, they need control of the pool's
+entities, as the entities' own services do: a read-only user is refused.
+Automations and scripts are not checked.
 
 ## Events
 

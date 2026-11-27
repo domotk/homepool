@@ -50,7 +50,7 @@ Each file in `runtime/` holds one part of the rest:
 | `figures.py` | Minutes, targets reached, status, energy and cost |
 | `tasks.py` | Maintenance tasks, and recording them done |
 | `season.py` | The season state, the calendar's proposals, the step lists |
-| `treatment.py` | Water treatments and their phases |
+| `treatment.py` | Water treatments, their phases and their alerts (frost in settling, vacuuming left waiting, the after-shock clearing) |
 | `target.py` | The forecast and `calculate_target` |
 | `control.py` | Safety, pH, `_async_control`, the cell and the commands |
 | `alerts.py` | Raising and clearing alerts, reminders |
@@ -225,9 +225,11 @@ it.
   appears, so neither an update nor a new probe makes it overdue);
 - `winter_entered`, `winter_top_up_from` (a winter product added while closing
   counts for that winter) and `in_season_last`;
-- `season_proposal` (with `dismissed_for`), `checklists` (by id), `treatment`
-  (type, phase, pump-time and settle counters, when vacuuming was last
-  reminded), `backwash_after_treatment`, `treatment_rest_today` (a day spent
+- `season_proposal` (with `dismissed_for`), `checklists` (by id; a finished
+  closing or opening list carries `completed` and is kept, hidden, until the
+  next change of season, while a finished treatment list is deleted), `treatment`
+  (type, phase, pump-time and settle counters, when the vacuuming alert was
+  last notified), `backwash_after_treatment`, `treatment_rest_today` (a day spent
   settling or vacuuming misses no target), `closing_needs_pump_notified` and `after_shock_since` (swimming
   stays not advised after a shock);
 - a short `history` of closed days;
@@ -244,7 +246,8 @@ Every entity derives from `entity.PoolEntity` with unique id
 ids from Home Assistant's language at creation. Most sensors are a
 `PoolSensorDescription` with a `value_fn` and an optional `attrs_fn`. Large
 or fast-changing attributes go in `_unrecorded_attributes` so the recorder does
-not store them every minute.
+not store them every minute (`TargetSensor`, `ControlSensor`, `TasksSensor`,
+`TreatmentSensor` in `sensor.py`).
 
 ## The card's contract
 
@@ -261,6 +264,7 @@ daily-target sensor and reads:
   is its steps in order, each with `id`, `text`, `done`, `done_at`,
   `starts_treatment` (the treatment the card offers to start, or `null`) and
   `needs_pump`; a treatment's `treatment.dose` step also carries `dose`.
+  Only open lists are there: a finished one is left out.
 
 Treat these as a public API: add, don't rename.
 

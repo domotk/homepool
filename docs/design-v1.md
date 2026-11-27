@@ -1203,3 +1203,46 @@ agua, con dos escalones nuevos en la escalera de autoridad (`winter_passive` y
 `treatment`). El diseño completo, con lo que decidió Rubén y lo que se dejó a
 quien lo construyese, está en
 [superpowers/specs/2026-11-27-homepool-0.2-design.md](superpowers/specs/2026-11-27-homepool-0.2-design.md).
+
+### 23.1 Tras la revisión de la 0.2
+
+- **Las listas de cierre y puesta en marcha duran una temporada.** Una lista
+  terminada no se borra: se marca `completed`, deja de mostrarse y se quita en
+  el siguiente cambio de temporada. Así, quien hace todos los pasos de cierre
+  y luego confirma el invernaje pasivo no recibe una lista en blanco ni el
+  aviso `closing_needs_pump` por trabajo ya hecho; y una lista de puesta en
+  marcha terminada aún en invierno propone el baño en cuanto se elige
+  `opening`. Una lista se va con su propuesta cuando el calendario la retira
+  (un invernaje sin responder en otoño, en primavera), y la de cierre se va
+  al salir del invierno directamente al baño: el año siguiente no hereda las
+  marcas ni las fechas del anterior.
+- **Confirmar el estado en el que ya está la piscina no toca la propuesta**:
+  una automatización que repite «baño» cada día ya no la borra para que se
+  anuncie de nuevo cada medianoche.
+- **Desde `opening` el calendario propone una salida**: el baño una vez
+  empezados los meses de baño, y el invernaje fuera de ellos, igual que desde
+  el baño (también si se pone `opening` más de catorce días antes de la
+  temporada). Una propuesta de baño descartada sigue descartada mientras el
+  calendario proponga lo mismo.
+- **El aspirado del floculante es una alerta**, `treatment_vacuuming`
+  (aviso), a las 3 h y de nuevo cada día, con o sin notificaciones: olvidado,
+  la piscina se quedaba sin filtrar sin que nada lo dijera. No termina solo.
+- **En invernaje pasivo las sondas de pH y cloro libre no dan alertas de
+  rango**: con las tuberías vacías miden aire.
+- **Un recordatorio compuesto mientras Home Assistant arranca se guarda** y se
+  envía cuando ya funciona, como el de la 0.2 sobre el estado de temporada.
+- `reading_stale` solo se vuelve a lanzar cuando caduca otra lectura; medir
+  una de las caducadas solo acorta su texto.
+- En una piscina con filtro de cartucho, el paso de contralavado de una lista
+  marca la limpieza del filtro, que es la tarea que tiene.
+- Las tablas del sensor de tareas y el `phase_until` del tratamiento ya no se
+  guardan en el histórico.
+- **Los servicios `homepool.*` comprueban al usuario**: quien los llama
+  necesita poder controlar las entidades de la piscina, como en los servicios
+  de las propias entidades. Antes un usuario de solo lectura podía poner el
+  invernaje pasivo o arrancar la bomba con ellos. Las automatizaciones no se
+  comprueban.
+- Un sensor que da `nan` o `inf` cuenta como no disponible, así que la
+  antiheladas usa la temperatura del aire (antes un `nan` del agua rompía la
+  evaluación). `record_manual_action` exige un valor finito y notas de 500
+  caracteres como mucho.
