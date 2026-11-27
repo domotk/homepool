@@ -70,3 +70,21 @@ def test_treatment_rung_order() -> None:
     assert "treatment" in FORCING_SOURCES
     released = arbitrate(_inputs(started_by="treatment"))
     assert (released.pump, released.key) == (False, "released_treatment")
+
+
+
+def test_vacuuming_releases_a_pump_homepool_started() -> None:
+    vacuuming = {"treatment": None, "treatment_key": "treatment_vacuuming"}
+    # A frost that has passed: HomePool started it, HomePool stops it.
+    frost = arbitrate(_inputs(started_by="freeze_protection", **vacuuming))
+    assert (frost.pump, frost.source, frost.key) == (
+        False, "treatment", "released_freeze_protection",
+    )
+    # The owner's pump is left alone, on or off.
+    assert arbitrate(_inputs(started_by=None, **vacuuming)).pump is None
+    assert arbitrate(_inputs(pump_is_on=False, started_by="freeze_protection", **vacuuming)).pump is None
+    # A phase that wants the pump keeps it, whoever started it.
+    filtering = arbitrate(
+        _inputs(started_by="freeze_protection", treatment=True, treatment_key="treatment_filtering")
+    )
+    assert filtering.pump is True

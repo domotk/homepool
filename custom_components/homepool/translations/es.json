@@ -305,6 +305,7 @@
       "pressure_order": "La presión máxima debe ser mayor que la mínima.",
       "ph_order": "El objetivo debe estar dentro del rango aceptable.",
       "no_months": "Elige al menos un mes.",
+      "concentration_range": "Esa concentración no puede ser: hasta el 100 % si es granulado, hasta 300 g/L si es líquido.",
       "same_switch": "El interruptor del clorador debe ser distinto del de la bomba. Si la célula va conectada con la bomba, déjalo vacío.",
       "bad_slots": "Escribe las franjas como HH:MM-HH:MM, separadas por comas.",
       "date_in_future": "Esa fecha todavía no ha llegado.",
@@ -636,6 +637,7 @@
       "pressure_order": "La presión máxima debe ser mayor que la mínima.",
       "ph_order": "El objetivo debe estar dentro del rango aceptable.",
       "no_months": "Elige al menos un mes.",
+      "concentration_range": "Esa concentración no puede ser: hasta el 100 % si es granulado, hasta 300 g/L si es líquido.",
       "same_switch": "El interruptor del clorador debe ser distinto del de la bomba. Si la célula va conectada con la bomba, déjalo vacío.",
       "bad_slots": "Escribe las franjas como HH:MM-HH:MM, separadas por comas.",
       "date_in_future": "Esa fecha todavía no ha llegado.",
@@ -1380,6 +1382,9 @@
     },
     "treatment_not_allowed": {
       "message": "{pool} no puede empezar un tratamiento ahora: está en invernaje pasivo o ya hay otro en marcha."
+    },
+    "pump_in_owner_hands": {
+      "message": "{pool} está aspirando: la bomba la manejas tú con su propio interruptor. Pulsa antes «aspirado terminado» para devolvérsela a HomePool."
     },
     "no_treatment": {
       "message": "{pool} no tiene ningún tratamiento en marcha."

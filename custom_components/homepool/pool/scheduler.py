@@ -123,6 +123,15 @@ def arbitrate(inp: ControlInputs) -> ControlDecision:
     if inp.treatment_key:
         # Decided on the key, not the pump: while vacuuming the pump is
         # None, and the rung still holds the pump for the owner.
+        if inp.treatment is None and inp.pump_is_on and inp.started_by in FORCING_SOURCES:
+            # Except a pump HomePool itself started (a frost that has passed):
+            # HomePool started it, so HomePool stops it.
+            return ControlDecision(
+                False,
+                "treatment",
+                f"No longer needed for {inp.started_by.replace('_', ' ')}",
+                f"released_{inp.started_by}",
+            )
         phase = inp.treatment_key.removeprefix("treatment_")
         return ControlDecision(inp.treatment, "treatment", f"Water treatment: {phase}", inp.treatment_key)
     if inp.ph_correction:

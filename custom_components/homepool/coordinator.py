@@ -1676,16 +1676,25 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         )
         self._treatment_event(EVENT_TREATMENT_PHASE, kind.value, phase=following.value)
 
-    async def _async_finish_treatment(self, now: datetime, tick_steps: bool = True) -> None:
+    async def _async_finish_treatment(self, now: datetime, cut_short: bool = False) -> None:
         """End the treatment: the cell's production back, the backwash due and,
-        after a shock, its closing or opening step ticked."""
+        after a shock, its closing or opening step ticked.
+
+        ``cut_short`` (passive wintering) only stops it: the treatment did not
+        run, so it leaves nothing due and the shock step stays open.
+        """
         t, self.treatment = self.treatment, None
+        # Nothing asked of HomePool during the treatment acts after it: a
+        # cycle or a hold left from vacuuming would switch the pump on its own.
+        self.cycle_until = None
+        self.override = None
         if t.get("previous_production") is not None:
-            await self._async_push_production(t["previous_production"])
-        self.backwash_after_treatment = True
-        if t["type"] == TreatmentType.SHOCK:
-            self.after_shock_since = now
-            if tick_steps:
+            # The setting as it is now, in case the owner changed it meanwhile.
+            await self._async_push_production(self.chlorinator_production)
+        if not cut_short:
+            self.backwash_after_treatment = True
+            if t["type"] == TreatmentType.SHOCK:
+                self.after_shock_since = now
                 await self._async_tick_shock_steps()
         await self._async_clear("treatment_frost")
         self._treatment_event(
@@ -2219,6 +2228,11 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         )
         self.decision_source = decision.source
         self.decision_key = decision.key
+        if decision.source == "treatment" and decision.pump and self._pump_was_on:
+            # Already running when the treatment wanted it: the treatment
+            # adopts it, so it is let go when the treatment ends, like one it
+            # started. A mode that wants it on keeps it on.
+            self.started_by = "treatment"
         self.decision_reason = reason_text(
             self.hass.config.language, decision.key, decision.args, decision.reason
         )
@@ -2690,7 +2704,7 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 now = dt_util.utcnow()
                 self._account(now)
                 # Cut short, not done: a shock does not tick its closing step.
-                await self._async_finish_treatment(now, tick_steps=False)
+                await self._async_finish_treatment(now, cut_short=True)
         if new != old:
             if new in WINTER_STATES and old not in WINTER_STATES:
                 self.winter_entered = dt_util.utcnow()
@@ -2761,11 +2775,23 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         except Exception:  # noqa: BLE001
             _LOGGER.warning("%s: could not set production on %s", self.pool_name, entity_id)
 
+    def _refuse_while_vacuuming(self) -> None:
+        """While vacuuming the pump is the owner's, at its own switch: a cycle
+        or a hold asked of HomePool would outlive the treatment and act on
+        its own afterwards, perhaps with the valve still on waste."""
+        if self.treatment_phase == Phase.VACUUMING:
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="pump_in_owner_hands",
+                translation_placeholders={"pool": self.pool_name},
+            )
+
     async def async_start_cycle(self, minutes: float | None = None) -> None:
         if self.winter_passive:
             raise ServiceValidationError(
                 translation_domain=DOMAIN, translation_key="cycle_in_winter_passive"
             )
+        self._refuse_while_vacuuming()
         duration = minutes or self.cycle_duration or 60
         self.cycle_until = dt_util.utcnow() + timedelta(minutes=float(duration))
         self.override = None
@@ -2849,6 +2875,7 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     async def async_stop_cycle(self) -> None:
         """Stop a manual cycle, and stop the pump now if nothing else needs it."""
+        self._refuse_while_vacuuming()
         self.cycle_until = None
         until = dt_util.utcnow() + timedelta(
             minutes=float(self.opt(CONF_MANUAL_OVERRIDE_MINUTES, DEFAULT_MANUAL_OVERRIDE_MINUTES))

@@ -28,22 +28,11 @@ from homeassistant.helpers import selector as sel
 from homeassistant.util import dt as dt_util
 
 from .const import (
+    CONFIG_VERSION,
     CONF_AIR_TEMPERATURE_SENSOR,
     CONF_BACKWASH_INTERVAL_DAYS,
     CONF_CHLORINATION_TYPE,
     CONF_CHLORINATOR_ACTIVE_MONTHS,
-    CONF_SWIMMING_MONTHS,
-    CONF_WINTER_PRODUCT_DOSE_PER_M3,
-    CONF_WINTER_PRODUCT_INTERVAL_DAYS,
-    CONF_WINTER_PRODUCT_TYPE,
-    CONF_SHOCK_PRODUCT,
-    CONF_SHOCK_CONCENTRATION,
-    CONF_CLARIFIER_DOSE_PER_10M3,
-    CONF_CLARIFIER_DOSE_UNIT,
-    CONF_FLOCCULANT_DOSE_PER_10M3,
-    CONF_FLOCCULANT_DOSE_UNIT,
-    DEFAULT_DOSE_UNIT,
-    DEFAULT_SHOCK_PRODUCT,
     CONF_CHLORINATOR_AUTO_TOGGLE,
     CONF_CHLORINATOR_CONTROLLABLE,
     CONF_CHLORINATOR_MIN_WATER_TEMP,
@@ -53,6 +42,8 @@ from .const import (
     CONF_CHLORINATOR_PRODUCTION_ENTITY,
     CONF_CHLORINATOR_SELF_REGULATING,
     CONF_CHLORINATOR_SWITCH,
+    CONF_CLARIFIER_DOSE_PER_10M3,
+    CONF_CLARIFIER_DOSE_UNIT,
     CONF_CONSTRUCTION_TYPE,
     CONF_COVER_ENTITY,
     CONF_CRITICAL_IGNORE_QUIET_HOURS,
@@ -69,13 +60,15 @@ from .const import (
     CONF_FILTER_PRESSURE_NORMAL_MIN,
     CONF_FILTER_PRESSURE_SENSOR,
     CONF_FILTER_TYPE,
+    CONF_FLOCCULANT_DOSE_PER_10M3,
+    CONF_FLOCCULANT_DOSE_UNIT,
     CONF_FLOOD_SENSOR,
+    CONF_FREEZE_PROTECTION,
+    CONF_FREEZE_THRESHOLD,
     CONF_FREE_CHLORINE_RANGE_MAX,
     CONF_FREE_CHLORINE_RANGE_MIN,
     CONF_FREE_CHLORINE_SENSOR,
     CONF_FREE_CHLORINE_TARGET,
-    CONF_FREEZE_PROTECTION,
-    CONF_FREEZE_THRESHOLD,
     CONF_HANDS_OFF_ENTITY,
     CONF_HAS_AUTOFILL_SKIMMER,
     CONF_HAS_COVER,
@@ -122,30 +115,36 @@ from .const import (
     CONF_SALT_RANGE_MIN,
     CONF_SALT_TARGET,
     CONF_SHAPE,
+    CONF_SHOCK_CONCENTRATION,
+    CONF_SHOCK_PRODUCT,
     CONF_SKIMMERS_COUNT,
     CONF_SOLAR_EXCESS_SENSOR,
     CONF_SOLAR_EXCESS_SIGN,
     CONF_SOLAR_IMPORT_TOLERANCE,
+    CONF_SWIMMING_MONTHS,
     CONF_TIMER_SLOTS,
     CONF_UV_SENSOR,
     CONF_VOLUME,
     CONF_VOLUME_OVERRIDE,
     CONF_WATER_TEMPERATURE_SENSOR,
     CONF_WEATHER_ENTITY,
-    CONFIG_VERSION,
+    CONF_WINTER_PRODUCT_DOSE_PER_M3,
+    CONF_WINTER_PRODUCT_INTERVAL_DAYS,
+    CONF_WINTER_PRODUCT_TYPE,
     DEFAULT_BACKWASH_INTERVAL_DAYS,
     DEFAULT_CHLORINATOR_ACTIVE_MONTHS_NORTH,
     DEFAULT_CHLORINATOR_ACTIVE_MONTHS_SOUTH,
     DEFAULT_CHLORINATOR_MIN_WATER_TEMP,
     DEFAULT_CHLORINATOR_PRODUCTION_PCT,
+    DEFAULT_DOSE_UNIT,
     DEFAULT_EQUIPMENT_ROOM_MAX_TEMP,
     DEFAULT_FILTER_PRESSURE_CRITICAL,
     DEFAULT_FILTER_PRESSURE_NORMAL_MAX,
     DEFAULT_FILTER_PRESSURE_NORMAL_MIN,
+    DEFAULT_FREEZE_THRESHOLD,
     DEFAULT_FREE_CHLORINE_RANGE_MAX,
     DEFAULT_FREE_CHLORINE_RANGE_MIN,
     DEFAULT_FREE_CHLORINE_TARGET,
-    DEFAULT_FREEZE_THRESHOLD,
     DEFAULT_MANUAL_OVERRIDE_MINUTES,
     DEFAULT_NAME,
     DEFAULT_NOTIFICATION_SEVERITY,
@@ -155,14 +154,15 @@ from .const import (
     DEFAULT_PH_RANGE_MAX,
     DEFAULT_PH_RANGE_MIN,
     DEFAULT_PH_TARGET,
-    DEFAULT_WINTER_PRODUCT_DOSE_PER_M3,
-    DEFAULT_WINTER_PRODUCT_INTERVAL_DAYS,
     DEFAULT_RETURNS_COUNT,
     DEFAULT_SALT_RANGE_MAX,
     DEFAULT_SALT_RANGE_MIN,
     DEFAULT_SALT_TARGET,
+    DEFAULT_SHOCK_PRODUCT,
     DEFAULT_SKIMMERS_COUNT,
     DEFAULT_SOLAR_IMPORT_TOLERANCE_W,
+    DEFAULT_WINTER_PRODUCT_DOSE_PER_M3,
+    DEFAULT_WINTER_PRODUCT_INTERVAL_DAYS,
     DIMENSION_KEYS,
     DOMAIN,
     ChlorinationType,
@@ -179,7 +179,7 @@ from .const import (
     PumpSpeedType,
     Severity,
 )
-from .pool.dosing import SHOCK_DEFAULT_CONCENTRATION
+from .pool.dosing import SHOCK_DEFAULT_CONCENTRATION, SHOCK_LIQUIDS
 from .pool.geometry import PoolDimensions, calculate_volume
 from .pool.hardware import find, load_hardware
 from .pool.tasks import TASKS, TASKS_BY_KEY, configured_days, task_applies
@@ -245,6 +245,10 @@ def _values(enum) -> list[str]:
 MONTHS = [str(m) for m in range(1, 13)]
 WINTER_PRODUCT_TYPES = ["none", "floater", "liquid", "tablets"]
 SHOCK_PRODUCTS = list(SHOCK_DEFAULT_CONCENTRATION)
+# The highest concentration that can be real: per cent of chlorine for a
+# granular product, g/L for a liquid one.
+SHOCK_MAX_GRANULAR = 100
+SHOCK_MAX_LIQUID = 300
 # The units read the same in every language, and "mL" could not be a
 # translation key (they are lower case).
 _DOSE_UNIT_SELECTOR = sel.SelectSelector(
@@ -255,6 +259,28 @@ _DOSE_UNIT_SELECTOR = sel.SelectSelector(
 def _or(value: Any, default: Any) -> Any:
     """``value``, or ``default`` when it is unset: a stored None means "the default"."""
     return default if value is None else value
+
+
+def _shock_concentration(
+    user_input: dict[str, Any], shown_product: str, shown: float
+) -> float | None | bool:
+    """The shock concentration to store: None to follow the product, or
+    False when it cannot be right for the product chosen.
+
+    A figure is per cent for one product and g/L for another, so one left as
+    shown when the product changes is dropped rather than carried over: a
+    custom 70 % read as 70 g/L would double the litres.
+    """
+    product = user_input.get(CONF_SHOCK_PRODUCT, shown_product)
+    value = user_input.get(CONF_SHOCK_CONCENTRATION)
+    if value is not None and product != shown_product and value == shown:
+        value = None
+    if value is None or value == SHOCK_DEFAULT_CONCENTRATION[product]:
+        return None
+    highest = SHOCK_MAX_LIQUID if product in SHOCK_LIQUIDS else SHOCK_MAX_GRANULAR
+    if not 1 <= value <= highest:
+        return False
+    return float(value)
 
 
 def _flatten(user_input: dict[str, Any]) -> dict[str, Any]:
@@ -592,6 +618,9 @@ class _Wizard:
         )
         is_salt = d.get(CONF_CHLORINATION_TYPE, ChlorinationType.SALT) == ChlorinationType.SALT
         shock_product = d.get(CONF_SHOCK_PRODUCT) or DEFAULT_SHOCK_PRODUCT
+        shown_concentration = _or(
+            d.get(CONF_SHOCK_CONCENTRATION), SHOCK_DEFAULT_CONCENTRATION[shock_product]
+        )
         schema = vol.Schema(
             {
                 vol.Required(
@@ -650,10 +679,8 @@ class _Wizard:
                 # ones, g/L for the liquid.
                 vol.Optional(
                     CONF_SHOCK_CONCENTRATION,
-                    description=self._sv(
-                        CONF_SHOCK_CONCENTRATION, SHOCK_DEFAULT_CONCENTRATION[shock_product]
-                    ),
-                ): _number(1, 1000, "any"),
+                    description={"suggested_value": shown_concentration},
+                ): _number(1, 1000, "any"),  # judged per product below
                 # The label's dose per 10 m³; HomePool has no figure of its own.
                 vol.Optional(
                     CONF_CLARIFIER_DOSE_PER_10M3,
@@ -675,8 +702,11 @@ class _Wizard:
         )
         errors: dict[str, str] = {}
         if user_input is not None:
+            concentration = _shock_concentration(user_input, shock_product, shown_concentration)
             if not user_input.get(CONF_SWIMMING_MONTHS):
                 errors[CONF_SWIMMING_MONTHS] = "no_months"
+            elif concentration is False:
+                errors[CONF_SHOCK_CONCENTRATION] = "concentration_range"
             elif bad := self._reading_range_error(user_input):
                 errors[bad] = "range_order"
             elif not (
@@ -698,14 +728,14 @@ class _Wizard:
                 )
                 for kind in KINDS:
                     self._data[f"{kind}_stale_days"] = int(self._data[f"{kind}_stale_days"])
-                self._keep_only_changed(is_salt, shock_product)
+                self._keep_only_changed(is_salt)
+                self._data[CONF_SHOCK_CONCENTRATION] = concentration
                 return await self._after("water")
         return self._form("water", schema, errors)
 
-    def _keep_only_changed(self, is_salt: bool, shock_product: str) -> None:
-        """Forget the values left as the form showed them by default, so they
-        keep following what they depend on: the cyanuric acid range the
-        chlorination, the shock's concentration its product."""
+    def _keep_only_changed(self, is_salt: bool) -> None:
+        """Forget the ranges left as the form showed them by default, so they
+        keep following the chlorination (the cyanuric acid's does)."""
         d = self._data
         for kind in NEW_SENSOR_KINDS:
             for key, default in zip(
@@ -713,8 +743,6 @@ class _Wizard:
             ):
                 if d.get(key) is not None and default is not None and d[key] == default:
                     d[key] = None
-        if d.get(CONF_SHOCK_CONCENTRATION) == SHOCK_DEFAULT_CONCENTRATION[shock_product]:
-            d[CONF_SHOCK_CONCENTRATION] = None
 
     def _readings_fields(self, is_salt: bool) -> dict[Any, Any]:
         """The ranges of the readings taken by hand, and how long each one is trusted."""

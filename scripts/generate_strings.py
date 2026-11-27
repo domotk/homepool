@@ -280,6 +280,7 @@ errors = {
   "pressure_order": T("The high pressure must be above the low one.", "La presión máxima debe ser mayor que la mínima."),
   "ph_order": T("The target must be inside the acceptable range.", "El objetivo debe estar dentro del rango aceptable."),
   "no_months": T("Pick at least one month.", "Elige al menos un mes."),
+  "concentration_range": T("That concentration cannot be right: up to 100 % for a granular product, up to 300 g/L for a liquid one.", "Esa concentración no puede ser: hasta el 100 % si es granulado, hasta 300 g/L si es líquido."),
   "same_switch": T("The chlorinator switch must be a different entity from the pump switch. If the cell is wired with the pump, leave it empty.", "El interruptor del clorador debe ser distinto del de la bomba. Si la célula va conectada con la bomba, déjalo vacío."),
   "bad_slots": T("Write the slots as HH:MM-HH:MM, separated by commas.", "Escribe las franjas como HH:MM-HH:MM, separadas por comas."),
   "date_in_future": T("That date has not happened yet.", "Esa fecha todavía no ha llegado."),
@@ -515,6 +516,7 @@ exceptions = {"invalid_reading": T("{value} is not a possible {kind} reading.", 
   "step_not_open": T("{pool} has no open step {step}.", "{pool} no tiene abierto el paso {step}."),
   "cycle_in_winter_passive": T("The pump does not start in passive wintering. Change the season state first.", "La bomba no arranca en el invernaje pasivo. Cambia antes el estado de temporada."),
   "treatment_not_allowed": T("{pool} cannot start a treatment now: it is in passive wintering, or another treatment is running.", "{pool} no puede empezar un tratamiento ahora: está en invernaje pasivo o ya hay otro en marcha."),
+  "pump_in_owner_hands": T("{pool} is vacuuming: the pump is yours to run at its own switch. Press \"vacuuming done\" first to hand it back to HomePool.", "{pool} está aspirando: la bomba la manejas tú con su propio interruptor. Pulsa antes «aspirado terminado» para devolvérsela a HomePool."),
   "no_treatment": T("{pool} has no treatment running.", "{pool} no tiene ningún tratamiento en marcha.")}
 
 def build(i):

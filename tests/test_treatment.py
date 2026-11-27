@@ -8,8 +8,9 @@ from freezegun.api import FrozenDateTimeFactory
 import pytest
 from pytest_homeassistant_custom_component.common import async_fire_time_changed
 
-from homeassistant.core import Context, HomeAssistant
+from homeassistant.core import Context, HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.util import dt as dt_util
 
 from custom_components.homepool.pool.treatment import (
@@ -63,6 +64,22 @@ async def press(hass: HomeAssistant, entry, key: str) -> None:
 def control(hass: HomeAssistant, entry) -> tuple[str, str]:
     st = hass.states.get(entity(entry, "pump_control"))
     return st.state, st.attributes["reason_key"]
+
+
+def reason_keys(hass: HomeAssistant, entry) -> list[str]:
+    """Every reason key the control sensor shows from now on, in order."""
+    seen: list[str] = []
+    entity_id = entity(entry, "pump_control")
+
+    @callback
+    def _changed(event) -> None:
+        new = event.data["new_state"]
+        key = new.attributes.get("reason_key") if new else None
+        if key and (not seen or seen[-1] != key):
+            seen.append(key)
+
+    async_track_state_change_event(hass, [entity_id], _changed)
+    return seen
 
 
 def treatment_state(hass: HomeAssistant, entry):
@@ -130,10 +147,12 @@ async def test_shock_runs_24h_of_pump_time_across_midnight(
     assert state(hass, PUMP_SWITCH) == "on"
     assert treatment_state(hass, entry).state == "shock"
 
+    keys = reason_keys(hass, entry)
     await advance(hass, freezer, 2, step=1)  # 20:01
     assert treatment_state(hass, entry).state == "none"
     assert state(hass, PUMP_SWITCH) == "off"
-    assert control(hass, entry)[1] in ("released_treatment", "off_mode")
+    # The treatment started it, so the treatment's end let it go.
+    assert keys[0] == "released_treatment"
     assert backwash_overdue(entry)
     assert fired == ["started", "ended"]
     advised = not_advised(hass, entry)
@@ -468,3 +487,114 @@ async def test_the_options_set_the_doses(
     await start(hass, entry, "clarifier")
     dose = treatment_state(hass, entry).attributes["dose"]
     assert dose["amount"] is None and dose["follow_label"]
+
+
+# ── review round 1 ──
+
+
+async def _to_vacuuming(hass, freezer, entry) -> None:
+    await _to_settling(hass, freezer, entry)
+    await press(hass, entry, "advance_treatment")
+    assert treatment_state(hass, entry).attributes["phase"] == "vacuuming"
+
+
+async def test_homepool_pump_controls_are_refused_while_vacuuming(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
+) -> None:
+    freezer.move_to(local(2026, 7, 15, 10, 0))
+    SwitchRouter(hass)
+    entry = await setup_pool(hass)
+    await set_mode(hass, "off")
+    await _to_vacuuming(hass, freezer, entry)
+    coordinator = entry.runtime_data
+
+    for service in ("turn_on", "turn_off"):
+        with pytest.raises(HomeAssistantError):
+            await hass.services.async_call(
+                "switch", service, {"entity_id": entity(entry, "pump")}, blocking=True
+            )
+    with pytest.raises(HomeAssistantError):
+        await hass.services.async_call(
+            "homepool", "start_cycle", {"entity_id": entity(entry, "overall_status")},
+            blocking=True,
+        )
+    assert coordinator.cycle_until is None and coordinator.override is None
+
+    # The owner runs it at its own switch, then says the vacuuming is done.
+    await hass.services.async_call(
+        "input_boolean", "turn_on", {"entity_id": PUMP_SWITCH}, blocking=True, context=Context()
+    )
+    await hass.async_block_till_done()
+    await press(hass, entry, "advance_treatment")
+    await advance(hass, freezer, 5, step=1)
+    assert treatment_state(hass, entry).state == "none"
+    # Left as the owner left it: not stopped, not taken over.
+    assert state(hass, PUMP_SWITCH) == "on"
+    assert coordinator.cycle_until is None and coordinator.override is None
+
+
+async def test_the_end_drops_a_cycle_asked_for_during_the_treatment(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
+) -> None:
+    freezer.move_to(local(2026, 7, 15, 10, 0))
+    SwitchRouter(hass)
+    entry = await setup_pool(hass)
+    await set_mode(hass, "off")
+    await _to_settling(hass, freezer, entry)
+    await entry.runtime_data.async_start_cycle(600)  # below the treatment: waits
+    assert state(hass, PUMP_SWITCH) == "off"
+    await press(hass, entry, "end_treatment")
+    await advance(hass, freezer, 2, step=1)
+    assert entry.runtime_data.cycle_until is None
+    assert state(hass, PUMP_SWITCH) == "off"
+
+
+async def test_frost_in_vacuuming_is_released_when_it_passes(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
+) -> None:
+    freezer.move_to(local(2026, 7, 15, 10, 0))
+    SwitchRouter(hass)
+    hass.states.async_set("sensor.water", "20")
+    entry = await setup_pool(hass, water_temperature_sensor="sensor.water")
+    await set_mode(hass, "off")
+    await _to_vacuuming(hass, freezer, entry)
+
+    hass.states.async_set("sensor.water", "1")
+    await hass.async_block_till_done()
+    assert state(hass, PUMP_SWITCH) == "on"
+    assert control(hass, entry)[0] == "freeze_protection"
+
+    await advance(hass, freezer, 30)
+    keys = reason_keys(hass, entry)
+    hass.states.async_set("sensor.water", "5")
+    # The refresh the sensor asks for waits out the coordinator's cooldown.
+    await advance(hass, freezer, 1, step=1)
+    assert state(hass, PUMP_SWITCH) == "off"
+    assert keys[0] == "released_freeze_protection"
+    await advance(hass, freezer, 2, step=1)
+    assert control(hass, entry) == ("treatment", "treatment_vacuuming")
+    assert state(hass, PUMP_SWITCH) == "off"
+
+
+async def test_a_pump_already_on_is_let_go_when_the_shock_ends(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
+) -> None:
+    freezer.move_to(local(2026, 7, 15, 20, 0))
+    SwitchRouter(hass)
+    entry = await setup_pool(hass)
+    await set_mode(hass, "off")
+    await hass.services.async_call(
+        "input_boolean", "turn_on", {"entity_id": PUMP_SWITCH}, blocking=True, context=Context()
+    )
+    await hass.async_block_till_done()
+    assert control(hass, entry)[0] == "manual_override"
+
+    await start(hass, entry, "shock")
+    assert control(hass, entry) == ("treatment", "treatment_filtering")
+    await advance(hass, freezer, 24 * 60 - 1)
+    assert state(hass, PUMP_SWITCH) == "on"
+    keys = reason_keys(hass, entry)
+    await advance(hass, freezer, 2, step=1)
+    assert treatment_state(hass, entry).state == "none"
+    assert state(hass, PUMP_SWITCH) == "off"
+    assert keys[0] == "released_treatment"

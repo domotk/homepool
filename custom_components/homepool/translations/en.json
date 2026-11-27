@@ -305,6 +305,7 @@
       "pressure_order": "The high pressure must be above the low one.",
       "ph_order": "The target must be inside the acceptable range.",
       "no_months": "Pick at least one month.",
+      "concentration_range": "That concentration cannot be right: up to 100 % for a granular product, up to 300 g/L for a liquid one.",
       "same_switch": "The chlorinator switch must be a different entity from the pump switch. If the cell is wired with the pump, leave it empty.",
       "bad_slots": "Write the slots as HH:MM-HH:MM, separated by commas.",
       "date_in_future": "That date has not happened yet.",
@@ -636,6 +637,7 @@
       "pressure_order": "The high pressure must be above the low one.",
       "ph_order": "The target must be inside the acceptable range.",
       "no_months": "Pick at least one month.",
+      "concentration_range": "That concentration cannot be right: up to 100 % for a granular product, up to 300 g/L for a liquid one.",
       "same_switch": "The chlorinator switch must be a different entity from the pump switch. If the cell is wired with the pump, leave it empty.",
       "bad_slots": "Write the slots as HH:MM-HH:MM, separated by commas.",
       "date_in_future": "That date has not happened yet.",
@@ -1380,6 +1382,9 @@
     },
     "treatment_not_allowed": {
       "message": "{pool} cannot start a treatment now: it is in passive wintering, or another treatment is running."
+    },
+    "pump_in_owner_hands": {
+      "message": "{pool} is vacuuming: the pump is yours to run at its own switch. Press \"vacuuming done\" first to hand it back to HomePool."
     },
     "no_treatment": {
       "message": "{pool} has no treatment running."
