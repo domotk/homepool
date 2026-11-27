@@ -12,6 +12,7 @@
       },
       "shape": {
         "title": "Shape",
+        "description": "Pick the shape. The next page asks for its measurements, then shows the volume they give.",
         "data": {
           "shape": "Shape of the pool"
         }
@@ -41,7 +42,7 @@
       },
       "volume": {
         "title": "Volume",
-        "description": "From those measurements the pool holds about **{volume} m³**. If you know the real figure, from the builder or from filling it, enter it here; otherwise leave it empty.",
+        "description": "From those measurements the pool holds about **{volume} m³**. If you know the real figure, from the builder or from filling it, enter it here; otherwise leave it empty.\n\nA real volume written here is used instead of the measurements, even after you change them. Clear it to use the calculated one.",
         "data": {
           "volume_override": "Real volume"
         }
@@ -56,7 +57,7 @@
           "heating_type": "Heating",
           "liner_type": "Finish",
           "liner_color": "Colour of the finish",
-          "orientation": "Orientation"
+          "orientation": "Which way the pool faces"
         },
         "data_description": {
           "cover_entity": "Only for an automatic cover: closed means covered.",
@@ -65,13 +66,14 @@
       },
       "pump": {
         "title": "Pump",
-        "description": "Pick your pump to fill in its figures, or enter them yourself.",
+        "description": "Pick your pump to fill in its figures, or leave it custom. The next page shows the figures, to check or enter yourself, and the filter.",
         "data": {
           "pump_model": "Model"
         }
       },
       "filtration": {
         "title": "Filtration",
+        "description": "The pump, then the filter, then the skimmers and returns. How often the filter is cleaned is set in the recurring tasks.",
         "data": {
           "pump_nominal_flow_rate": "Pump flow rate",
           "pump_nominal_power": "Pump power",
@@ -81,8 +83,7 @@
           "returns_count": "Returns",
           "has_autofill_skimmer": "Has an auto-fill skimmer",
           "filter_pressure_normal_min": "Normal filter pressure, low",
-          "filter_pressure_normal_max": "Normal filter pressure, high",
-          "backwash_interval_days": "Backwash or clean every"
+          "filter_pressure_normal_max": "Normal filter pressure, high"
         },
         "data_description": {
           "pump_nominal_flow_rate": "The one figure the daily target cannot do without.",
@@ -91,56 +92,92 @@
       },
       "water": {
         "title": "Water treatment",
+        "description": "The closed groups open when you tap them. How often the pH probe is calibrated and the winter product topped up is set in the recurring tasks.",
         "data": {
-          "chlorination_type": "Chlorination",
-          "ph_target": "pH target",
-          "ph_range_min": "pH, lowest acceptable",
-          "ph_range_max": "pH, highest acceptable",
-          "has_ph_dosing": "A pH dosing pump that works only with water flowing",
-          "ph_calibration_interval_days": "Calibrate the pH probe every",
-          "free_chlorine_target": "Free chlorine target",
-          "free_chlorine_range_min": "Free chlorine, lowest",
-          "free_chlorine_range_max": "Free chlorine, highest",
-          "swimming_months": "Months the pool is used",
-          "winter_product_type": "Winter product",
-          "winter_product_dose_per_m3": "Winter product, dose per m³",
-          "winter_product_interval_days": "Top up the winter product every",
-          "combined_chlorine_range_max": "Combined chlorine, highest",
-          "total_alkalinity_range_min": "Total alkalinity, lowest",
-          "total_alkalinity_range_max": "Total alkalinity, highest",
-          "calcium_hardness_range_min": "Calcium hardness, lowest",
-          "calcium_hardness_range_max": "Calcium hardness, highest",
-          "cyanuric_acid_range_min": "Cyanuric acid, lowest",
-          "cyanuric_acid_range_max": "Cyanuric acid, highest",
-          "ph_stale_days": "pH reading, trusted for (days)",
-          "free_chlorine_stale_days": "Free chlorine reading, trusted for (days)",
-          "combined_chlorine_stale_days": "Combined chlorine reading, trusted for (days)",
-          "total_alkalinity_stale_days": "Total alkalinity reading, trusted for (days)",
-          "calcium_hardness_stale_days": "Calcium hardness reading, trusted for (days)",
-          "cyanuric_acid_stale_days": "Cyanuric acid reading, trusted for (days)",
-          "salt_stale_days": "Salt reading, trusted for (days)",
-          "shock_product": "Shock product",
-          "shock_concentration": "Shock product concentration",
-          "clarifier_dose_per_10m3": "Clarifier, dose per 10 m³",
-          "clarifier_dose_unit": "Clarifier, unit",
-          "flocculant_dose_per_10m3": "Flocculant, dose per 10 m³",
-          "flocculant_dose_unit": "Flocculant, unit"
+          "chlorination_type": "Chlorination"
         },
-        "data_description": {
-          "swimming_months": "HomePool proposes wintering when they end and opening two weeks before they start.",
-          "winter_product_type": "What goes in the water while the pool is wintering. HomePool works out the dose and reminds you to top it up.",
-          "winter_product_dose_per_m3": "Units per m³ (litres per m³ for a liquid), as on the label. One floater for 50 m³ is 0.02.",
-          "winter_product_interval_days": "Days between top-ups.",
-          "has_ph_dosing": "When the pH is too high, the pump is run for a while so the doser can work.",
-          "shock_product": "What you shock green water with. HomePool works out the dose from the pool's volume.",
-          "shock_concentration": "Per cent of chlorine for a granular product, g/L for a liquid one, as on the label. Empty: 65 % calcium hypochlorite, 150 g/L sodium hypochlorite, 56 % dichlor.",
-          "clarifier_dose_per_10m3": "As on the label. Empty, the dose says to follow the label.",
-          "flocculant_dose_per_10m3": "As on the label. Empty, the dose says to follow the label."
+        "sections": {
+          "ph": {
+            "name": "pH",
+            "data": {
+              "ph_target": "pH target",
+              "ph_range_min": "pH, lowest acceptable",
+              "ph_range_max": "pH, highest acceptable",
+              "has_ph_dosing": "A pH dosing pump that works only with water flowing",
+              "has_ph_probe_outside": "I check the pH with a probe or kit of my own"
+            },
+            "data_description": {
+              "has_ph_dosing": "When the pH is too high, the pump is run for a while so the doser can work.",
+              "has_ph_probe_outside": "Turns on the pH calibration reminder when HomePool has no pH sensor. Its interval is in the recurring tasks."
+            }
+          },
+          "free_chlorine": {
+            "name": "Free chlorine",
+            "data": {
+              "free_chlorine_target": "Free chlorine target",
+              "free_chlorine_range_min": "Free chlorine, lowest",
+              "free_chlorine_range_max": "Free chlorine, highest"
+            }
+          },
+          "season": {
+            "name": "Season and wintering",
+            "data": {
+              "swimming_months": "Months the pool is used",
+              "winter_product_type": "Winter product",
+              "winter_product_dose_per_m3": "Winter product, dose per m³"
+            },
+            "data_description": {
+              "swimming_months": "HomePool proposes wintering when they end and opening two weeks before they start.",
+              "winter_product_type": "What goes in the water while the pool is wintering. HomePool works out the dose and reminds you to top it up.",
+              "winter_product_dose_per_m3": "Units per m³ (litres per m³ for a liquid), as on the label. One floater for 50 m³ is 0.02."
+            }
+          },
+          "ranges": {
+            "name": "Other readings: acceptable ranges",
+            "data": {
+              "combined_chlorine_range_max": "Combined chlorine, highest",
+              "total_alkalinity_range_min": "Total alkalinity, lowest",
+              "total_alkalinity_range_max": "Total alkalinity, highest",
+              "calcium_hardness_range_min": "Calcium hardness, lowest",
+              "calcium_hardness_range_max": "Calcium hardness, highest",
+              "cyanuric_acid_range_min": "Cyanuric acid, lowest",
+              "cyanuric_acid_range_max": "Cyanuric acid, highest"
+            }
+          },
+          "validity": {
+            "name": "How long a reading is trusted",
+            "data": {
+              "ph_stale_days": "pH reading, trusted for (days)",
+              "free_chlorine_stale_days": "Free chlorine reading, trusted for (days)",
+              "combined_chlorine_stale_days": "Combined chlorine reading, trusted for (days)",
+              "total_alkalinity_stale_days": "Total alkalinity reading, trusted for (days)",
+              "calcium_hardness_stale_days": "Calcium hardness reading, trusted for (days)",
+              "cyanuric_acid_stale_days": "Cyanuric acid reading, trusted for (days)",
+              "salt_stale_days": "Salt reading, trusted for (days)"
+            }
+          },
+          "treatments": {
+            "name": "Treatment products",
+            "data": {
+              "shock_product": "Shock product",
+              "shock_concentration": "Shock product concentration",
+              "clarifier_dose_per_10m3": "Clarifier, dose per 10 m³",
+              "clarifier_dose_unit": "Clarifier, unit",
+              "flocculant_dose_per_10m3": "Flocculant, dose per 10 m³",
+              "flocculant_dose_unit": "Flocculant, unit"
+            },
+            "data_description": {
+              "shock_product": "What you shock green water with. HomePool works out the dose from the pool's volume.",
+              "shock_concentration": "Per cent of chlorine for a granular product, g/L for a liquid one, as on the label. Empty: 65 % calcium hypochlorite, 150 g/L sodium hypochlorite, 56 % dichlor.",
+              "clarifier_dose_per_10m3": "As on the label. Empty, the dose says to follow the label.",
+              "flocculant_dose_per_10m3": "As on the label. Empty, the dose says to follow the label."
+            }
+          }
         }
       },
       "chlorinator_model": {
         "title": "Salt chlorinator",
-        "description": "Pick your chlorinator to fill in its figures, or enter them yourself.",
+        "description": "Pick your chlorinator to fill in its figures, or leave it custom. The next page shows them, to check or enter yourself.",
         "data": {
           "chlorinator_model": "Model"
         }
@@ -235,25 +272,54 @@
       },
       "control": {
         "title": "Control",
-        "data": {
-          "timer_slots": "Timer mode slots",
-          "manual_override_minutes": "Respect a hand-switched pump for",
-          "freeze_protection": "Run the pump when the water is near freezing",
-          "freeze_threshold": "Freezing threshold",
-          "ph_correction_minutes": "pH correction window",
-          "ph_correction_max_daily": "pH correction, most per day",
-          "equipment_room_max_temp": "Room too hot above",
-          "filter_pressure_critical": "Filter pressure that stops the pump",
-          "energy_price": "Energy price per kWh",
-          "energy_price_entity": "Energy price entity",
-          "light_entities": "Pool lights",
-          "pool_cleaner_type": "Pool cleaner",
-          "robot_entity": "Robot entity"
-        },
-        "data_description": {
-          "timer_slots": "For example 08:00-12:00, 18:00-20:00",
-          "energy_price_entity": "Takes precedence over the fixed price.",
-          "freeze_protection": "Switches the pump on even in off mode: still water freezes in the pipes, moving water does not. Uses the water temperature, or the air below zero without a water probe."
+        "sections": {
+          "schedule": {
+            "name": "Timer and switching by hand",
+            "data": {
+              "timer_slots": "Timer mode slots",
+              "manual_override_minutes": "Respect a hand-switched pump for"
+            },
+            "data_description": {
+              "timer_slots": "For example 08:00-12:00, 18:00-20:00"
+            }
+          },
+          "protection": {
+            "name": "Protection",
+            "data": {
+              "freeze_protection": "Run the pump when the water is near freezing",
+              "freeze_threshold": "Freezing threshold",
+              "equipment_room_max_temp": "Room too hot above",
+              "filter_pressure_critical": "Filter pressure that stops the pump"
+            },
+            "data_description": {
+              "freeze_protection": "Switches the pump on even in off mode: still water freezes in the pipes, moving water does not. Uses the water temperature, or the air below zero without a water probe."
+            }
+          },
+          "ph_correction": {
+            "name": "pH correction",
+            "data": {
+              "ph_correction_minutes": "pH correction window",
+              "ph_correction_max_daily": "pH correction, most per day"
+            }
+          },
+          "energy": {
+            "name": "Energy",
+            "data": {
+              "energy_price": "Energy price per kWh",
+              "energy_price_entity": "Energy price entity"
+            },
+            "data_description": {
+              "energy_price_entity": "Takes precedence over the fixed price."
+            }
+          },
+          "accessories": {
+            "name": "Lights and pool cleaner",
+            "data": {
+              "light_entities": "Pool lights",
+              "pool_cleaner_type": "Pool cleaner",
+              "robot_entity": "Robot entity"
+            }
+          }
         }
       },
       "notifications": {
@@ -292,20 +358,16 @@
           "cell_cleaning_last_done": "Cell cleaning: last done",
           "filter_media_check_days": "Filter media check: every (days)",
           "filter_media_check_enabled": "Filter media check: remind me",
-          "filter_media_check_last_done": "Filter media check: last done",
-          "has_ph_probe_outside": "I check the pH with a probe or kit of my own"
-        },
-        "data_description": {
-          "has_ph_probe_outside": "Turns on the pH calibration reminder when HomePool has no pH sensor. Save, then open this page again to set its interval."
+          "filter_media_check_last_done": "Filter media check: last done"
         }
       }
     },
     "error": {
-      "range_order": "The lowest value cannot be above the highest.",
+      "range_order": "In one of these readings the lowest value is above the highest.",
       "depth_order": "The deepest depth cannot be less than the shallowest.",
       "cover_entity_required": "An automatic cover needs its entity.",
       "pressure_order": "The high pressure must be above the low one.",
-      "ph_order": "The target must be inside the acceptable range.",
+      "ph_order": "The pH target must be inside the acceptable range.",
       "no_months": "Pick at least one month.",
       "concentration_range": "That concentration cannot be right: up to 100 % for a granular product, up to 300 g/L for a liquid one.",
       "same_switch": "The chlorinator switch must be a different entity from the pump switch. If the cell is wired with the pump, leave it empty.",
@@ -330,6 +392,7 @@
       },
       "shape": {
         "title": "Shape",
+        "description": "Pick the shape. The next page asks for its measurements, then shows the volume they give.",
         "data": {
           "shape": "Shape of the pool"
         }
@@ -359,7 +422,7 @@
       },
       "volume": {
         "title": "Volume",
-        "description": "From those measurements the pool holds about **{volume} m³**. If you know the real figure, from the builder or from filling it, enter it here; otherwise leave it empty.",
+        "description": "From those measurements the pool holds about **{volume} m³**. If you know the real figure, from the builder or from filling it, enter it here; otherwise leave it empty.\n\nA real volume written here is used instead of the measurements, even after you change them. Clear it to use the calculated one.",
         "data": {
           "volume_override": "Real volume"
         }
@@ -374,7 +437,7 @@
           "heating_type": "Heating",
           "liner_type": "Finish",
           "liner_color": "Colour of the finish",
-          "orientation": "Orientation"
+          "orientation": "Which way the pool faces"
         },
         "data_description": {
           "cover_entity": "Only for an automatic cover: closed means covered.",
@@ -383,13 +446,14 @@
       },
       "pump": {
         "title": "Pump",
-        "description": "Pick your pump to fill in its figures, or enter them yourself.",
+        "description": "Pick your pump to fill in its figures, or leave it custom. The next page shows the figures, to check or enter yourself, and the filter.",
         "data": {
           "pump_model": "Model"
         }
       },
       "filtration": {
         "title": "Filtration",
+        "description": "The pump, then the filter, then the skimmers and returns. How often the filter is cleaned is set in the recurring tasks.",
         "data": {
           "pump_nominal_flow_rate": "Pump flow rate",
           "pump_nominal_power": "Pump power",
@@ -399,8 +463,7 @@
           "returns_count": "Returns",
           "has_autofill_skimmer": "Has an auto-fill skimmer",
           "filter_pressure_normal_min": "Normal filter pressure, low",
-          "filter_pressure_normal_max": "Normal filter pressure, high",
-          "backwash_interval_days": "Backwash or clean every"
+          "filter_pressure_normal_max": "Normal filter pressure, high"
         },
         "data_description": {
           "pump_nominal_flow_rate": "The one figure the daily target cannot do without.",
@@ -409,56 +472,92 @@
       },
       "water": {
         "title": "Water treatment",
+        "description": "The closed groups open when you tap them. How often the pH probe is calibrated and the winter product topped up is set in the recurring tasks.",
         "data": {
-          "chlorination_type": "Chlorination",
-          "ph_target": "pH target",
-          "ph_range_min": "pH, lowest acceptable",
-          "ph_range_max": "pH, highest acceptable",
-          "has_ph_dosing": "A pH dosing pump that works only with water flowing",
-          "ph_calibration_interval_days": "Calibrate the pH probe every",
-          "free_chlorine_target": "Free chlorine target",
-          "free_chlorine_range_min": "Free chlorine, lowest",
-          "free_chlorine_range_max": "Free chlorine, highest",
-          "swimming_months": "Months the pool is used",
-          "winter_product_type": "Winter product",
-          "winter_product_dose_per_m3": "Winter product, dose per m³",
-          "winter_product_interval_days": "Top up the winter product every",
-          "combined_chlorine_range_max": "Combined chlorine, highest",
-          "total_alkalinity_range_min": "Total alkalinity, lowest",
-          "total_alkalinity_range_max": "Total alkalinity, highest",
-          "calcium_hardness_range_min": "Calcium hardness, lowest",
-          "calcium_hardness_range_max": "Calcium hardness, highest",
-          "cyanuric_acid_range_min": "Cyanuric acid, lowest",
-          "cyanuric_acid_range_max": "Cyanuric acid, highest",
-          "ph_stale_days": "pH reading, trusted for (days)",
-          "free_chlorine_stale_days": "Free chlorine reading, trusted for (days)",
-          "combined_chlorine_stale_days": "Combined chlorine reading, trusted for (days)",
-          "total_alkalinity_stale_days": "Total alkalinity reading, trusted for (days)",
-          "calcium_hardness_stale_days": "Calcium hardness reading, trusted for (days)",
-          "cyanuric_acid_stale_days": "Cyanuric acid reading, trusted for (days)",
-          "salt_stale_days": "Salt reading, trusted for (days)",
-          "shock_product": "Shock product",
-          "shock_concentration": "Shock product concentration",
-          "clarifier_dose_per_10m3": "Clarifier, dose per 10 m³",
-          "clarifier_dose_unit": "Clarifier, unit",
-          "flocculant_dose_per_10m3": "Flocculant, dose per 10 m³",
-          "flocculant_dose_unit": "Flocculant, unit"
+          "chlorination_type": "Chlorination"
         },
-        "data_description": {
-          "swimming_months": "HomePool proposes wintering when they end and opening two weeks before they start.",
-          "winter_product_type": "What goes in the water while the pool is wintering. HomePool works out the dose and reminds you to top it up.",
-          "winter_product_dose_per_m3": "Units per m³ (litres per m³ for a liquid), as on the label. One floater for 50 m³ is 0.02.",
-          "winter_product_interval_days": "Days between top-ups.",
-          "has_ph_dosing": "When the pH is too high, the pump is run for a while so the doser can work.",
-          "shock_product": "What you shock green water with. HomePool works out the dose from the pool's volume.",
-          "shock_concentration": "Per cent of chlorine for a granular product, g/L for a liquid one, as on the label. Empty: 65 % calcium hypochlorite, 150 g/L sodium hypochlorite, 56 % dichlor.",
-          "clarifier_dose_per_10m3": "As on the label. Empty, the dose says to follow the label.",
-          "flocculant_dose_per_10m3": "As on the label. Empty, the dose says to follow the label."
+        "sections": {
+          "ph": {
+            "name": "pH",
+            "data": {
+              "ph_target": "pH target",
+              "ph_range_min": "pH, lowest acceptable",
+              "ph_range_max": "pH, highest acceptable",
+              "has_ph_dosing": "A pH dosing pump that works only with water flowing",
+              "has_ph_probe_outside": "I check the pH with a probe or kit of my own"
+            },
+            "data_description": {
+              "has_ph_dosing": "When the pH is too high, the pump is run for a while so the doser can work.",
+              "has_ph_probe_outside": "Turns on the pH calibration reminder when HomePool has no pH sensor. Its interval is in the recurring tasks."
+            }
+          },
+          "free_chlorine": {
+            "name": "Free chlorine",
+            "data": {
+              "free_chlorine_target": "Free chlorine target",
+              "free_chlorine_range_min": "Free chlorine, lowest",
+              "free_chlorine_range_max": "Free chlorine, highest"
+            }
+          },
+          "season": {
+            "name": "Season and wintering",
+            "data": {
+              "swimming_months": "Months the pool is used",
+              "winter_product_type": "Winter product",
+              "winter_product_dose_per_m3": "Winter product, dose per m³"
+            },
+            "data_description": {
+              "swimming_months": "HomePool proposes wintering when they end and opening two weeks before they start.",
+              "winter_product_type": "What goes in the water while the pool is wintering. HomePool works out the dose and reminds you to top it up.",
+              "winter_product_dose_per_m3": "Units per m³ (litres per m³ for a liquid), as on the label. One floater for 50 m³ is 0.02."
+            }
+          },
+          "ranges": {
+            "name": "Other readings: acceptable ranges",
+            "data": {
+              "combined_chlorine_range_max": "Combined chlorine, highest",
+              "total_alkalinity_range_min": "Total alkalinity, lowest",
+              "total_alkalinity_range_max": "Total alkalinity, highest",
+              "calcium_hardness_range_min": "Calcium hardness, lowest",
+              "calcium_hardness_range_max": "Calcium hardness, highest",
+              "cyanuric_acid_range_min": "Cyanuric acid, lowest",
+              "cyanuric_acid_range_max": "Cyanuric acid, highest"
+            }
+          },
+          "validity": {
+            "name": "How long a reading is trusted",
+            "data": {
+              "ph_stale_days": "pH reading, trusted for (days)",
+              "free_chlorine_stale_days": "Free chlorine reading, trusted for (days)",
+              "combined_chlorine_stale_days": "Combined chlorine reading, trusted for (days)",
+              "total_alkalinity_stale_days": "Total alkalinity reading, trusted for (days)",
+              "calcium_hardness_stale_days": "Calcium hardness reading, trusted for (days)",
+              "cyanuric_acid_stale_days": "Cyanuric acid reading, trusted for (days)",
+              "salt_stale_days": "Salt reading, trusted for (days)"
+            }
+          },
+          "treatments": {
+            "name": "Treatment products",
+            "data": {
+              "shock_product": "Shock product",
+              "shock_concentration": "Shock product concentration",
+              "clarifier_dose_per_10m3": "Clarifier, dose per 10 m³",
+              "clarifier_dose_unit": "Clarifier, unit",
+              "flocculant_dose_per_10m3": "Flocculant, dose per 10 m³",
+              "flocculant_dose_unit": "Flocculant, unit"
+            },
+            "data_description": {
+              "shock_product": "What you shock green water with. HomePool works out the dose from the pool's volume.",
+              "shock_concentration": "Per cent of chlorine for a granular product, g/L for a liquid one, as on the label. Empty: 65 % calcium hypochlorite, 150 g/L sodium hypochlorite, 56 % dichlor.",
+              "clarifier_dose_per_10m3": "As on the label. Empty, the dose says to follow the label.",
+              "flocculant_dose_per_10m3": "As on the label. Empty, the dose says to follow the label."
+            }
+          }
         }
       },
       "chlorinator_model": {
         "title": "Salt chlorinator",
-        "description": "Pick your chlorinator to fill in its figures, or enter them yourself.",
+        "description": "Pick your chlorinator to fill in its figures, or leave it custom. The next page shows them, to check or enter yourself.",
         "data": {
           "chlorinator_model": "Model"
         }
@@ -553,25 +652,54 @@
       },
       "control": {
         "title": "Control",
-        "data": {
-          "timer_slots": "Timer mode slots",
-          "manual_override_minutes": "Respect a hand-switched pump for",
-          "freeze_protection": "Run the pump when the water is near freezing",
-          "freeze_threshold": "Freezing threshold",
-          "ph_correction_minutes": "pH correction window",
-          "ph_correction_max_daily": "pH correction, most per day",
-          "equipment_room_max_temp": "Room too hot above",
-          "filter_pressure_critical": "Filter pressure that stops the pump",
-          "energy_price": "Energy price per kWh",
-          "energy_price_entity": "Energy price entity",
-          "light_entities": "Pool lights",
-          "pool_cleaner_type": "Pool cleaner",
-          "robot_entity": "Robot entity"
-        },
-        "data_description": {
-          "timer_slots": "For example 08:00-12:00, 18:00-20:00",
-          "energy_price_entity": "Takes precedence over the fixed price.",
-          "freeze_protection": "Switches the pump on even in off mode: still water freezes in the pipes, moving water does not. Uses the water temperature, or the air below zero without a water probe."
+        "sections": {
+          "schedule": {
+            "name": "Timer and switching by hand",
+            "data": {
+              "timer_slots": "Timer mode slots",
+              "manual_override_minutes": "Respect a hand-switched pump for"
+            },
+            "data_description": {
+              "timer_slots": "For example 08:00-12:00, 18:00-20:00"
+            }
+          },
+          "protection": {
+            "name": "Protection",
+            "data": {
+              "freeze_protection": "Run the pump when the water is near freezing",
+              "freeze_threshold": "Freezing threshold",
+              "equipment_room_max_temp": "Room too hot above",
+              "filter_pressure_critical": "Filter pressure that stops the pump"
+            },
+            "data_description": {
+              "freeze_protection": "Switches the pump on even in off mode: still water freezes in the pipes, moving water does not. Uses the water temperature, or the air below zero without a water probe."
+            }
+          },
+          "ph_correction": {
+            "name": "pH correction",
+            "data": {
+              "ph_correction_minutes": "pH correction window",
+              "ph_correction_max_daily": "pH correction, most per day"
+            }
+          },
+          "energy": {
+            "name": "Energy",
+            "data": {
+              "energy_price": "Energy price per kWh",
+              "energy_price_entity": "Energy price entity"
+            },
+            "data_description": {
+              "energy_price_entity": "Takes precedence over the fixed price."
+            }
+          },
+          "accessories": {
+            "name": "Lights and pool cleaner",
+            "data": {
+              "light_entities": "Pool lights",
+              "pool_cleaner_type": "Pool cleaner",
+              "robot_entity": "Robot entity"
+            }
+          }
         }
       },
       "notifications": {
@@ -610,11 +738,7 @@
           "cell_cleaning_last_done": "Cell cleaning: last done",
           "filter_media_check_days": "Filter media check: every (days)",
           "filter_media_check_enabled": "Filter media check: remind me",
-          "filter_media_check_last_done": "Filter media check: last done",
-          "has_ph_probe_outside": "I check the pH with a probe or kit of my own"
-        },
-        "data_description": {
-          "has_ph_probe_outside": "Turns on the pH calibration reminder when HomePool has no pH sensor. Save, then open this page again to set its interval."
+          "filter_media_check_last_done": "Filter media check: last done"
         }
       },
       "init": {
@@ -635,11 +759,11 @@
       }
     },
     "error": {
-      "range_order": "The lowest value cannot be above the highest.",
+      "range_order": "In one of these readings the lowest value is above the highest.",
       "depth_order": "The deepest depth cannot be less than the shallowest.",
       "cover_entity_required": "An automatic cover needs its entity.",
       "pressure_order": "The high pressure must be above the low one.",
-      "ph_order": "The target must be inside the acceptable range.",
+      "ph_order": "The pH target must be inside the acceptable range.",
       "no_months": "Pick at least one month.",
       "concentration_range": "That concentration cannot be right: up to 100 % for a granular product, up to 300 g/L for a liquid one.",
       "same_switch": "The chlorinator switch must be a different entity from the pump switch. If the cell is wired with the pump, leave it empty.",

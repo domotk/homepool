@@ -30,7 +30,6 @@ from homeassistant.util import dt as dt_util
 from .const import (
     CONFIG_VERSION,
     CONF_AIR_TEMPERATURE_SENSOR,
-    CONF_BACKWASH_INTERVAL_DAYS,
     CONF_CHLORINATION_TYPE,
     CONF_CHLORINATOR_ACTIVE_MONTHS,
     CONF_CHLORINATOR_AUTO_TOGGLE,
@@ -90,7 +89,6 @@ from .const import (
     CONF_NOTIFICATION_SEVERITY_MIN,
     CONF_ORIENTATION,
     CONF_ORP_SENSOR,
-    CONF_PH_CALIBRATION_INTERVAL_DAYS,
     CONF_PH_CORRECTION_MAX_DAILY,
     CONF_PH_CORRECTION_MINUTES,
     CONF_PH_DOSING_ENTITY,
@@ -129,9 +127,7 @@ from .const import (
     CONF_WATER_TEMPERATURE_SENSOR,
     CONF_WEATHER_ENTITY,
     CONF_WINTER_PRODUCT_DOSE_PER_M3,
-    CONF_WINTER_PRODUCT_INTERVAL_DAYS,
     CONF_WINTER_PRODUCT_TYPE,
-    DEFAULT_BACKWASH_INTERVAL_DAYS,
     DEFAULT_CHLORINATOR_ACTIVE_MONTHS_NORTH,
     DEFAULT_CHLORINATOR_ACTIVE_MONTHS_SOUTH,
     DEFAULT_CHLORINATOR_MIN_WATER_TEMP,
@@ -148,7 +144,6 @@ from .const import (
     DEFAULT_MANUAL_OVERRIDE_MINUTES,
     DEFAULT_NAME,
     DEFAULT_NOTIFICATION_SEVERITY,
-    DEFAULT_PH_CALIBRATION_INTERVAL_DAYS,
     DEFAULT_PH_CORRECTION_MAX_DAILY,
     DEFAULT_PH_CORRECTION_MINUTES,
     DEFAULT_PH_RANGE_MAX,
@@ -162,7 +157,6 @@ from .const import (
     DEFAULT_SKIMMERS_COUNT,
     DEFAULT_SOLAR_IMPORT_TOLERANCE_W,
     DEFAULT_WINTER_PRODUCT_DOSE_PER_M3,
-    DEFAULT_WINTER_PRODUCT_INTERVAL_DAYS,
     DIMENSION_KEYS,
     DOMAIN,
     ChlorinationType,
@@ -388,10 +382,11 @@ class _Wizard:
         fields: dict[Any, Any] = {}
         for key in DIMENSION_KEYS[shape]:
             fields[vol.Required(key, description=self._sv(key))] = _number(0.5, 50, 0.05, "m")
-        fields[vol.Required(CONF_DEPTH_MIN, description=self._sv(CONF_DEPTH_MIN, 1.0))] = _number(
+        # No ready-made depth: a figure that looks real gets accepted unread.
+        fields[vol.Required(CONF_DEPTH_MIN, description=self._sv(CONF_DEPTH_MIN))] = _number(
             0.3, 5, 0.05, "m"
         )
-        fields[vol.Required(CONF_DEPTH_MAX, description=self._sv(CONF_DEPTH_MAX, 1.8))] = _number(
+        fields[vol.Required(CONF_DEPTH_MAX, description=self._sv(CONF_DEPTH_MAX))] = _number(
             0.3, 5, 0.05, "m"
         )
         variants = layouts.get_variants_for_shape(shape)
@@ -563,18 +558,6 @@ class _Wizard:
                     CONF_FILTER_TYPE, default=self._data.get(CONF_FILTER_TYPE, FilterType.SAND)
                 ): _select(_values(FilterType), "filter_type"),
                 vol.Required(
-                    CONF_SKIMMERS_COUNT,
-                    default=self._data.get(CONF_SKIMMERS_COUNT, DEFAULT_SKIMMERS_COUNT),
-                ): _number(0, 8, 1),
-                vol.Required(
-                    CONF_RETURNS_COUNT,
-                    default=self._data.get(CONF_RETURNS_COUNT, DEFAULT_RETURNS_COUNT),
-                ): _number(0, 12, 1),
-                vol.Required(
-                    CONF_HAS_AUTOFILL_SKIMMER,
-                    default=self._data.get(CONF_HAS_AUTOFILL_SKIMMER, False),
-                ): bool,
-                vol.Required(
                     CONF_FILTER_PRESSURE_NORMAL_MIN,
                     default=self._data.get(
                         CONF_FILTER_PRESSURE_NORMAL_MIN, DEFAULT_FILTER_PRESSURE_NORMAL_MIN
@@ -587,11 +570,18 @@ class _Wizard:
                     ),
                 ): _number(0, 5, 0.05, "bar"),
                 vol.Required(
-                    CONF_BACKWASH_INTERVAL_DAYS,
-                    default=self._data.get(
-                        CONF_BACKWASH_INTERVAL_DAYS, DEFAULT_BACKWASH_INTERVAL_DAYS
-                    ),
-                ): _number(1, 120, 1, "d"),
+                    CONF_SKIMMERS_COUNT,
+                    default=self._data.get(CONF_SKIMMERS_COUNT, DEFAULT_SKIMMERS_COUNT),
+                ): _number(0, 8, 1),
+                vol.Required(
+                    CONF_RETURNS_COUNT,
+                    default=self._data.get(CONF_RETURNS_COUNT, DEFAULT_RETURNS_COUNT),
+                ): _number(0, 12, 1),
+                vol.Required(
+                    CONF_HAS_AUTOFILL_SKIMMER,
+                    default=self._data.get(CONF_HAS_AUTOFILL_SKIMMER, False),
+                ): bool,
+                # How often the filter is backwashed is asked with the tasks.
             }
         )
         errors: dict[str, str] = {}
@@ -602,7 +592,7 @@ class _Wizard:
                 errors[CONF_FILTER_PRESSURE_NORMAL_MAX] = "pressure_order"
             else:
                 self._store(schema, user_input)
-                for key in (CONF_SKIMMERS_COUNT, CONF_RETURNS_COUNT, CONF_BACKWASH_INTERVAL_DAYS):
+                for key in (CONF_SKIMMERS_COUNT, CONF_RETURNS_COUNT):
                     self._data[key] = int(self._data[key])
                 return await self._after("filtration")
         return self._form("filtration", schema, errors)
@@ -621,111 +611,116 @@ class _Wizard:
         shown_concentration = _or(
             d.get(CONF_SHOCK_CONCENTRATION), SHOCK_DEFAULT_CONCENTRATION[shock_product]
         )
+        ph = {
+            vol.Required(CONF_PH_TARGET, default=d.get(CONF_PH_TARGET, DEFAULT_PH_TARGET)): _number(
+                6.8, 8.0, 0.1
+            ),
+            vol.Required(
+                CONF_PH_RANGE_MIN, default=d.get(CONF_PH_RANGE_MIN, DEFAULT_PH_RANGE_MIN)
+            ): _number(6.5, 8.0, 0.1),
+            vol.Required(
+                CONF_PH_RANGE_MAX, default=d.get(CONF_PH_RANGE_MAX, DEFAULT_PH_RANGE_MAX)
+            ): _number(6.8, 8.5, 0.1),
+            vol.Required(CONF_HAS_PH_DOSING, default=d.get(CONF_HAS_PH_DOSING, False)): bool,
+            vol.Required(
+                CONF_HAS_PH_PROBE_OUTSIDE, default=d.get(CONF_HAS_PH_PROBE_OUTSIDE, False)
+            ): bool,
+        }
+        free_chlorine = {
+            vol.Required(
+                CONF_FREE_CHLORINE_TARGET,
+                default=d.get(CONF_FREE_CHLORINE_TARGET, DEFAULT_FREE_CHLORINE_TARGET),
+            ): _number(0, 10, 0.1, "ppm"),
+            vol.Required(
+                CONF_FREE_CHLORINE_RANGE_MIN,
+                default=d.get(CONF_FREE_CHLORINE_RANGE_MIN, DEFAULT_FREE_CHLORINE_RANGE_MIN),
+            ): _number(0, 10, 0.1, "ppm"),
+            vol.Required(
+                CONF_FREE_CHLORINE_RANGE_MAX,
+                default=d.get(CONF_FREE_CHLORINE_RANGE_MAX, DEFAULT_FREE_CHLORINE_RANGE_MAX),
+            ): _number(0, 10, 0.1, "ppm"),
+        }
+        # How often the winter product is topped up is asked with the tasks.
+        season = {
+            vol.Required(
+                CONF_SWIMMING_MONTHS, default=[str(m) for m in swimming]
+            ): _select(MONTHS, "month", multiple=True),
+            vol.Required(
+                CONF_WINTER_PRODUCT_TYPE, default=d.get(CONF_WINTER_PRODUCT_TYPE) or "none"
+            ): _select(WINTER_PRODUCT_TYPES, "winter_product_type"),
+            vol.Required(
+                CONF_WINTER_PRODUCT_DOSE_PER_M3,
+                default=d.get(CONF_WINTER_PRODUCT_DOSE_PER_M3) or DEFAULT_WINTER_PRODUCT_DOSE_PER_M3,
+            ): _number(0.001, 1, 0.001),
+        }
+        treatments = {
+            vol.Required(CONF_SHOCK_PRODUCT, default=shock_product): _select(
+                SHOCK_PRODUCTS, "shock_product"
+            ),
+            # Empty, it follows the product: per cent for the granular
+            # ones, g/L for the liquid.
+            vol.Optional(
+                CONF_SHOCK_CONCENTRATION,
+                description={"suggested_value": shown_concentration},
+            ): _number(1, 1000, "any"),  # judged per product below
+            # The label's dose per 10 m³; HomePool has no figure of its own.
+            vol.Optional(
+                CONF_CLARIFIER_DOSE_PER_10M3,
+                description=self._sv(CONF_CLARIFIER_DOSE_PER_10M3),
+            ): _number(0, 10000, "any"),
+            vol.Required(
+                CONF_CLARIFIER_DOSE_UNIT,
+                default=d.get(CONF_CLARIFIER_DOSE_UNIT) or DEFAULT_DOSE_UNIT,
+            ): _DOSE_UNIT_SELECTOR,
+            vol.Optional(
+                CONF_FLOCCULANT_DOSE_PER_10M3,
+                description=self._sv(CONF_FLOCCULANT_DOSE_PER_10M3),
+            ): _number(0, 10000, "any"),
+            vol.Required(
+                CONF_FLOCCULANT_DOSE_UNIT,
+                default=d.get(CONF_FLOCCULANT_DOSE_UNIT) or DEFAULT_DOSE_UNIT,
+            ): _DOSE_UNIT_SELECTOR,
+        }
         schema = vol.Schema(
             {
                 vol.Required(
                     CONF_CHLORINATION_TYPE,
                     default=d.get(CONF_CHLORINATION_TYPE, ChlorinationType.SALT),
                 ): _select(_values(ChlorinationType), "chlorination_type"),
-                vol.Required(CONF_PH_TARGET, default=d.get(CONF_PH_TARGET, DEFAULT_PH_TARGET)): _number(
-                    6.8, 8.0, 0.1
+                vol.Required("ph"): section(vol.Schema(ph), {"collapsed": False}),
+                vol.Required("free_chlorine"): section(
+                    vol.Schema(free_chlorine), {"collapsed": False}
                 ),
-                vol.Required(
-                    CONF_PH_RANGE_MIN, default=d.get(CONF_PH_RANGE_MIN, DEFAULT_PH_RANGE_MIN)
-                ): _number(6.5, 8.0, 0.1),
-                vol.Required(
-                    CONF_PH_RANGE_MAX, default=d.get(CONF_PH_RANGE_MAX, DEFAULT_PH_RANGE_MAX)
-                ): _number(6.8, 8.5, 0.1),
-                vol.Required(CONF_HAS_PH_DOSING, default=d.get(CONF_HAS_PH_DOSING, False)): bool,
-                vol.Required(
-                    CONF_PH_CALIBRATION_INTERVAL_DAYS,
-                    default=d.get(
-                        CONF_PH_CALIBRATION_INTERVAL_DAYS, DEFAULT_PH_CALIBRATION_INTERVAL_DAYS
-                    ),
-                ): _number(7, 365, 1, "d"),
-                vol.Required(
-                    CONF_FREE_CHLORINE_TARGET,
-                    default=d.get(CONF_FREE_CHLORINE_TARGET, DEFAULT_FREE_CHLORINE_TARGET),
-                ): _number(0, 10, 0.1, "ppm"),
-                vol.Required(
-                    CONF_FREE_CHLORINE_RANGE_MIN,
-                    default=d.get(CONF_FREE_CHLORINE_RANGE_MIN, DEFAULT_FREE_CHLORINE_RANGE_MIN),
-                ): _number(0, 10, 0.1, "ppm"),
-                vol.Required(
-                    CONF_FREE_CHLORINE_RANGE_MAX,
-                    default=d.get(CONF_FREE_CHLORINE_RANGE_MAX, DEFAULT_FREE_CHLORINE_RANGE_MAX),
-                ): _number(0, 10, 0.1, "ppm"),
-                vol.Required(
-                    CONF_SWIMMING_MONTHS, default=[str(m) for m in swimming]
-                ): _select(MONTHS, "month", multiple=True),
-                vol.Required(
-                    CONF_WINTER_PRODUCT_TYPE, default=d.get(CONF_WINTER_PRODUCT_TYPE) or "none"
-                ): _select(WINTER_PRODUCT_TYPES, "winter_product_type"),
-                vol.Required(
-                    CONF_WINTER_PRODUCT_DOSE_PER_M3,
-                    default=d.get(CONF_WINTER_PRODUCT_DOSE_PER_M3)
-                    or DEFAULT_WINTER_PRODUCT_DOSE_PER_M3,
-                ): _number(0.001, 1, 0.001),
-                vol.Required(
-                    CONF_WINTER_PRODUCT_INTERVAL_DAYS,
-                    default=d.get(CONF_WINTER_PRODUCT_INTERVAL_DAYS)
-                    or DEFAULT_WINTER_PRODUCT_INTERVAL_DAYS,
-                ): _number(7, 365, 1, "d"),
-                **self._readings_fields(is_salt),
-                vol.Required(CONF_SHOCK_PRODUCT, default=shock_product): _select(
-                    SHOCK_PRODUCTS, "shock_product"
+                vol.Required("season"): section(vol.Schema(season), {"collapsed": False}),
+                vol.Required("ranges"): section(
+                    vol.Schema(self._range_fields(is_salt)), {"collapsed": True}
                 ),
-                # Empty, it follows the product: per cent for the granular
-                # ones, g/L for the liquid.
-                vol.Optional(
-                    CONF_SHOCK_CONCENTRATION,
-                    description={"suggested_value": shown_concentration},
-                ): _number(1, 1000, "any"),  # judged per product below
-                # The label's dose per 10 m³; HomePool has no figure of its own.
-                vol.Optional(
-                    CONF_CLARIFIER_DOSE_PER_10M3,
-                    description=self._sv(CONF_CLARIFIER_DOSE_PER_10M3),
-                ): _number(0, 10000, "any"),
-                vol.Required(
-                    CONF_CLARIFIER_DOSE_UNIT,
-                    default=d.get(CONF_CLARIFIER_DOSE_UNIT) or DEFAULT_DOSE_UNIT,
-                ): _DOSE_UNIT_SELECTOR,
-                vol.Optional(
-                    CONF_FLOCCULANT_DOSE_PER_10M3,
-                    description=self._sv(CONF_FLOCCULANT_DOSE_PER_10M3),
-                ): _number(0, 10000, "any"),
-                vol.Required(
-                    CONF_FLOCCULANT_DOSE_UNIT,
-                    default=d.get(CONF_FLOCCULANT_DOSE_UNIT) or DEFAULT_DOSE_UNIT,
-                ): _DOSE_UNIT_SELECTOR,
+                vol.Required("validity"): section(
+                    vol.Schema(self._stale_fields()), {"collapsed": True}
+                ),
+                vol.Required("treatments"): section(vol.Schema(treatments), {"collapsed": True}),
             }
         )
         errors: dict[str, str] = {}
         if user_input is not None:
-            concentration = _shock_concentration(user_input, shock_product, shown_concentration)
-            if not user_input.get(CONF_SWIMMING_MONTHS):
-                errors[CONF_SWIMMING_MONTHS] = "no_months"
+            # Home Assistant shows an error only on a whole section, not on a
+            # field inside one: each error names the section it belongs to.
+            flat = _flatten(user_input)
+            concentration = _shock_concentration(flat, shock_product, shown_concentration)
+            if not flat.get(CONF_SWIMMING_MONTHS):
+                errors["season"] = "no_months"
             elif concentration is False:
-                errors[CONF_SHOCK_CONCENTRATION] = "concentration_range"
-            elif bad := self._reading_range_error(user_input):
-                errors[bad] = "range_order"
-            elif not (
-                user_input[CONF_PH_RANGE_MIN]
-                <= user_input[CONF_PH_TARGET]
-                <= user_input[CONF_PH_RANGE_MAX]
-            ):
-                errors[CONF_PH_TARGET] = "ph_order"
+                errors["treatments"] = "concentration_range"
+            elif self._reading_range_error(flat):
+                errors["ranges"] = "range_order"
+            elif not (flat[CONF_PH_RANGE_MIN] <= flat[CONF_PH_TARGET] <= flat[CONF_PH_RANGE_MAX]):
+                errors["ph"] = "ph_order"
             else:
                 self._store(schema, user_input)
-                self._data[CONF_PH_CALIBRATION_INTERVAL_DAYS] = int(
-                    self._data[CONF_PH_CALIBRATION_INTERVAL_DAYS]
-                )
-                self._data[CONF_WINTER_PRODUCT_INTERVAL_DAYS] = int(
-                    self._data[CONF_WINTER_PRODUCT_INTERVAL_DAYS]
-                )
                 self._data[CONF_SWIMMING_MONTHS] = sorted(
                     int(m) for m in self._data[CONF_SWIMMING_MONTHS]
                 )
+                self._data[CONF_HAS_PH_PROBE_OUTSIDE] = bool(self._data[CONF_HAS_PH_PROBE_OUTSIDE])
                 for kind in KINDS:
                     self._data[f"{kind}_stale_days"] = int(self._data[f"{kind}_stale_days"])
                 self._keep_only_changed(is_salt)
@@ -744,8 +739,8 @@ class _Wizard:
                 if d.get(key) is not None and default is not None and d[key] == default:
                     d[key] = None
 
-    def _readings_fields(self, is_salt: bool) -> dict[Any, Any]:
-        """The ranges of the readings taken by hand, and how long each one is trusted."""
+    def _range_fields(self, is_salt: bool) -> dict[Any, Any]:
+        """The ranges of the readings taken by hand."""
         d = self._data
         fields: dict[Any, Any] = {}
         for kind in NEW_SENSOR_KINDS:
@@ -759,6 +754,12 @@ class _Wizard:
             fields[vol.Required(key, default=_or(d.get(key), high))] = _number(
                 0, 5000, "any", "mg/L"
             )
+        return fields
+
+    def _stale_fields(self) -> dict[Any, Any]:
+        """How long each reading is trusted."""
+        d = self._data
+        fields: dict[Any, Any] = {}
         for kind in KINDS:
             key = f"{kind}_stale_days"
             fields[vol.Required(key, default=d.get(key, DEFAULT_STALE_DAYS[kind]))] = _number(
@@ -978,60 +979,73 @@ class _Wizard:
     async def async_step_control(self, user_input: dict[str, Any] | None = None):
         d = self._data
         sv = self._sv
+        schedule = {
+            vol.Optional(CONF_TIMER_SLOTS, description=sv(CONF_TIMER_SLOTS)): str,
+            vol.Required(
+                CONF_MANUAL_OVERRIDE_MINUTES,
+                default=d.get(CONF_MANUAL_OVERRIDE_MINUTES, DEFAULT_MANUAL_OVERRIDE_MINUTES),
+            ): _number(5, 1440, 5, "min"),
+        }
+        protection = {
+            vol.Required(CONF_FREEZE_PROTECTION, default=d.get(CONF_FREEZE_PROTECTION, True)): bool,
+            vol.Required(
+                CONF_FREEZE_THRESHOLD, default=d.get(CONF_FREEZE_THRESHOLD, DEFAULT_FREEZE_THRESHOLD)
+            ): _number(0, 10, 0.5, "°C"),
+            vol.Required(
+                CONF_EQUIPMENT_ROOM_MAX_TEMP,
+                default=d.get(CONF_EQUIPMENT_ROOM_MAX_TEMP, DEFAULT_EQUIPMENT_ROOM_MAX_TEMP),
+            ): _number(30, 80, 1, "°C"),
+            vol.Required(
+                CONF_FILTER_PRESSURE_CRITICAL,
+                default=d.get(CONF_FILTER_PRESSURE_CRITICAL, DEFAULT_FILTER_PRESSURE_CRITICAL),
+            ): _number(0.5, 5, 0.1, "bar"),
+        }
+        ph_correction = {
+            vol.Required(
+                CONF_PH_CORRECTION_MINUTES,
+                default=d.get(CONF_PH_CORRECTION_MINUTES, DEFAULT_PH_CORRECTION_MINUTES),
+            ): _number(5, 240, 5, "min"),
+            vol.Required(
+                CONF_PH_CORRECTION_MAX_DAILY,
+                default=d.get(CONF_PH_CORRECTION_MAX_DAILY, DEFAULT_PH_CORRECTION_MAX_DAILY),
+            ): _number(0, 720, 10, "min"),
+        }
+        energy = {
+            vol.Optional(CONF_ENERGY_PRICE, description=sv(CONF_ENERGY_PRICE)): _number(0, 5, 0.001),
+            vol.Optional(
+                CONF_ENERGY_PRICE_ENTITY, description=sv(CONF_ENERGY_PRICE_ENTITY)
+            ): _entity(["sensor", "input_number"]),
+        }
+        accessories = {
+            vol.Optional(CONF_LIGHT_ENTITIES, description=sv(CONF_LIGHT_ENTITIES)): _entity(
+                ["light", "switch"], multiple=True
+            ),
+            vol.Required(
+                CONF_POOL_CLEANER_TYPE,
+                default=d.get(CONF_POOL_CLEANER_TYPE, PoolCleanerType.NONE),
+            ): _select(_values(PoolCleanerType), "pool_cleaner_type"),
+            vol.Optional(CONF_ROBOT_ENTITY, description=sv(CONF_ROBOT_ENTITY)): _entity(
+                ["switch", "vacuum", "input_boolean"]
+            ),
+        }
         schema = vol.Schema(
             {
-                vol.Optional(CONF_TIMER_SLOTS, description=sv(CONF_TIMER_SLOTS)): str,
-                vol.Required(
-                    CONF_MANUAL_OVERRIDE_MINUTES,
-                    default=d.get(CONF_MANUAL_OVERRIDE_MINUTES, DEFAULT_MANUAL_OVERRIDE_MINUTES),
-                ): _number(5, 1440, 5, "min"),
-                vol.Required(
-                    CONF_FREEZE_PROTECTION, default=d.get(CONF_FREEZE_PROTECTION, True)
-                ): bool,
-                vol.Required(
-                    CONF_FREEZE_THRESHOLD, default=d.get(CONF_FREEZE_THRESHOLD, DEFAULT_FREEZE_THRESHOLD)
-                ): _number(0, 10, 0.5, "°C"),
-                vol.Required(
-                    CONF_PH_CORRECTION_MINUTES,
-                    default=d.get(CONF_PH_CORRECTION_MINUTES, DEFAULT_PH_CORRECTION_MINUTES),
-                ): _number(5, 240, 5, "min"),
-                vol.Required(
-                    CONF_PH_CORRECTION_MAX_DAILY,
-                    default=d.get(CONF_PH_CORRECTION_MAX_DAILY, DEFAULT_PH_CORRECTION_MAX_DAILY),
-                ): _number(0, 720, 10, "min"),
-                vol.Required(
-                    CONF_EQUIPMENT_ROOM_MAX_TEMP,
-                    default=d.get(CONF_EQUIPMENT_ROOM_MAX_TEMP, DEFAULT_EQUIPMENT_ROOM_MAX_TEMP),
-                ): _number(30, 80, 1, "°C"),
-                vol.Required(
-                    CONF_FILTER_PRESSURE_CRITICAL,
-                    default=d.get(CONF_FILTER_PRESSURE_CRITICAL, DEFAULT_FILTER_PRESSURE_CRITICAL),
-                ): _number(0.5, 5, 0.1, "bar"),
-                vol.Optional(CONF_ENERGY_PRICE, description=sv(CONF_ENERGY_PRICE)): _number(
-                    0, 5, 0.001
+                vol.Required("schedule"): section(vol.Schema(schedule), {"collapsed": False}),
+                vol.Required("protection"): section(vol.Schema(protection), {"collapsed": False}),
+                vol.Required("ph_correction"): section(
+                    vol.Schema(ph_correction), {"collapsed": True}
                 ),
-                vol.Optional(
-                    CONF_ENERGY_PRICE_ENTITY, description=sv(CONF_ENERGY_PRICE_ENTITY)
-                ): _entity(["sensor", "input_number"]),
-                vol.Optional(CONF_LIGHT_ENTITIES, description=sv(CONF_LIGHT_ENTITIES)): _entity(
-                    ["light", "switch"], multiple=True
-                ),
-                vol.Required(
-                    CONF_POOL_CLEANER_TYPE,
-                    default=d.get(CONF_POOL_CLEANER_TYPE, PoolCleanerType.NONE),
-                ): _select(_values(PoolCleanerType), "pool_cleaner_type"),
-                vol.Optional(CONF_ROBOT_ENTITY, description=sv(CONF_ROBOT_ENTITY)): _entity(
-                    ["switch", "vacuum", "input_boolean"]
-                ),
+                vol.Required("energy"): section(vol.Schema(energy), {"collapsed": True}),
+                vol.Required("accessories"): section(vol.Schema(accessories), {"collapsed": True}),
             }
         )
         errors: dict[str, str] = {}
         if user_input is not None:
             from .coordinator import parse_timer_slots
 
-            slots_text = user_input.get(CONF_TIMER_SLOTS)
+            slots_text = _flatten(user_input).get(CONF_TIMER_SLOTS)
             if slots_text and not parse_timer_slots(slots_text):
-                errors[CONF_TIMER_SLOTS] = "bad_slots"
+                errors["schedule"] = "bad_slots"
             else:
                 self._store(schema, user_input)
                 return await self._after("control")
@@ -1132,11 +1146,6 @@ class _Wizard:
                     description={"suggested_value": last.isoformat()} if last else {},
                 )
             ] = sel.DateSelector()
-        fields[
-            vol.Required(
-                CONF_HAS_PH_PROBE_OUTSIDE, default=d.get(CONF_HAS_PH_PROBE_OUTSIDE, False)
-            )
-        ] = bool
         schema = vol.Schema(fields)
         errors: dict[str, str] = {}
         if user_input is not None:
@@ -1172,7 +1181,6 @@ class _Wizard:
                     else:
                         tasks.pop(key, None)
                 d["tasks"] = tasks
-                d[CONF_HAS_PH_PROBE_OUTSIDE] = bool(user_input[CONF_HAS_PH_PROBE_OUTSIDE])
                 return await self._after("tasks")
         return self._form("tasks", schema, errors)
 

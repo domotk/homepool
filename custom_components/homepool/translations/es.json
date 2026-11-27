@@ -12,6 +12,7 @@
       },
       "shape": {
         "title": "Forma",
+        "description": "Elige la forma. En la siguiente pantalla pondrás sus medidas, y después verás el volumen que resulta.",
         "data": {
           "shape": "Forma de la piscina"
         }
@@ -41,7 +42,7 @@
       },
       "volume": {
         "title": "Volumen",
-        "description": "Con esas medidas, la piscina tiene unos **{volume} m³**. Si sabes la cifra real, por el constructor o por el llenado, escríbela aquí; si no, déjalo vacío.",
+        "description": "Con esas medidas, la piscina tiene unos **{volume} m³**. Si sabes la cifra real, por el constructor o por el llenado, escríbela aquí; si no, déjalo vacío.\n\nSi aquí hay un volumen real escrito, se usa ese y no las medidas, aunque las cambies. Bórralo para usar el calculado.",
         "data": {
           "volume_override": "Volumen real"
         }
@@ -56,7 +57,7 @@
           "heating_type": "Climatización",
           "liner_type": "Revestimiento",
           "liner_color": "Color del revestimiento",
-          "orientation": "Orientación"
+          "orientation": "Hacia dónde mira la piscina"
         },
         "data_description": {
           "cover_entity": "Solo para cubierta automática: cerrada significa cubierta.",
@@ -65,13 +66,14 @@
       },
       "pump": {
         "title": "Bomba",
-        "description": "Elige tu bomba para rellenar sus datos, o escríbelos tú.",
+        "description": "Elige tu bomba para rellenar sus datos, o déjala como personalizada. En la siguiente pantalla verás sus datos, para revisarlos o escribirlos tú, y los del filtro.",
         "data": {
           "pump_model": "Modelo"
         }
       },
       "filtration": {
         "title": "Filtración",
+        "description": "La bomba, después el filtro y por último skimmers y boquillas. Cada cuánto se limpia el filtro se fija en las tareas periódicas.",
         "data": {
           "pump_nominal_flow_rate": "Caudal de la bomba",
           "pump_nominal_power": "Potencia de la bomba",
@@ -81,8 +83,7 @@
           "returns_count": "Boquillas de impulsión",
           "has_autofill_skimmer": "Tiene skimmer de llenado automático",
           "filter_pressure_normal_min": "Presión normal del filtro, mínima",
-          "filter_pressure_normal_max": "Presión normal del filtro, máxima",
-          "backwash_interval_days": "Contralavado o limpieza cada"
+          "filter_pressure_normal_max": "Presión normal del filtro, máxima"
         },
         "data_description": {
           "pump_nominal_flow_rate": "El único dato sin el que no se puede calcular el objetivo diario.",
@@ -91,56 +92,92 @@
       },
       "water": {
         "title": "Tratamiento del agua",
+        "description": "Los grupos cerrados se abren al pulsarlos. Cada cuánto se calibra la sonda de pH y se repone el producto de invierno se fija en las tareas periódicas.",
         "data": {
-          "chlorination_type": "Cloración",
-          "ph_target": "pH objetivo",
-          "ph_range_min": "pH mínimo aceptable",
-          "ph_range_max": "pH máximo aceptable",
-          "has_ph_dosing": "Bomba dosificadora de pH que solo funciona con circulación",
-          "ph_calibration_interval_days": "Calibrar la sonda de pH cada",
-          "free_chlorine_target": "Cloro libre objetivo",
-          "free_chlorine_range_min": "Cloro libre mínimo",
-          "free_chlorine_range_max": "Cloro libre máximo",
-          "swimming_months": "Meses de baño",
-          "winter_product_type": "Producto de invierno",
-          "winter_product_dose_per_m3": "Producto de invierno, dosis por m³",
-          "winter_product_interval_days": "Reponer el producto de invierno cada",
-          "combined_chlorine_range_max": "Cloro combinado máxima",
-          "total_alkalinity_range_min": "Alcalinidad total mínima",
-          "total_alkalinity_range_max": "Alcalinidad total máxima",
-          "calcium_hardness_range_min": "Dureza cálcica mínima",
-          "calcium_hardness_range_max": "Dureza cálcica máxima",
-          "cyanuric_acid_range_min": "Ácido cianúrico mínima",
-          "cyanuric_acid_range_max": "Ácido cianúrico máxima",
-          "ph_stale_days": "Lectura de ph, válida durante (días)",
-          "free_chlorine_stale_days": "Lectura de cloro libre, válida durante (días)",
-          "combined_chlorine_stale_days": "Lectura de cloro combinado, válida durante (días)",
-          "total_alkalinity_stale_days": "Lectura de alcalinidad total, válida durante (días)",
-          "calcium_hardness_stale_days": "Lectura de dureza cálcica, válida durante (días)",
-          "cyanuric_acid_stale_days": "Lectura de ácido cianúrico, válida durante (días)",
-          "salt_stale_days": "Lectura de sal, válida durante (días)",
-          "shock_product": "Producto de choque",
-          "shock_concentration": "Concentración del producto de choque",
-          "clarifier_dose_per_10m3": "Clarificante, dosis por 10 m³",
-          "clarifier_dose_unit": "Clarificante, unidad",
-          "flocculant_dose_per_10m3": "Floculante, dosis por 10 m³",
-          "flocculant_dose_unit": "Floculante, unidad"
+          "chlorination_type": "Cloración"
         },
-        "data_description": {
-          "swimming_months": "HomePool propone invernar cuando terminan y la puesta en marcha dos semanas antes de que empiecen.",
-          "winter_product_type": "Lo que se pone en el agua durante el invernaje. HomePool calcula la dosis y te recuerda reponerlo.",
-          "winter_product_dose_per_m3": "Unidades por m³ (litros por m³ si es líquido), según la etiqueta. Un flotador por cada 50 m³ son 0,02.",
-          "winter_product_interval_days": "Días entre reposiciones.",
-          "has_ph_dosing": "Si el pH está alto, la bomba se pone en marcha un rato para que la dosificadora pueda trabajar.",
-          "shock_product": "Con qué haces el choque al agua verde. HomePool calcula la dosis con el volumen de la piscina.",
-          "shock_concentration": "Por ciento de cloro si es granulado, g/L si es líquido, según la etiqueta. Vacío: hipoclorito cálcico al 65 %, hipoclorito sódico a 150 g/L, dicloro al 56 %.",
-          "clarifier_dose_per_10m3": "Según la etiqueta. Vacío, la dosis dice que sigas el envase.",
-          "flocculant_dose_per_10m3": "Según la etiqueta. Vacío, la dosis dice que sigas el envase."
+        "sections": {
+          "ph": {
+            "name": "pH",
+            "data": {
+              "ph_target": "pH objetivo",
+              "ph_range_min": "pH mínimo aceptable",
+              "ph_range_max": "pH máximo aceptable",
+              "has_ph_dosing": "Bomba dosificadora de pH que solo funciona con circulación",
+              "has_ph_probe_outside": "Mido el pH con una sonda o un kit propios"
+            },
+            "data_description": {
+              "has_ph_dosing": "Si el pH está alto, la bomba se pone en marcha un rato para que la dosificadora pueda trabajar.",
+              "has_ph_probe_outside": "Activa el recordatorio de calibración del pH cuando HomePool no tiene sensor de pH. Su intervalo está en las tareas periódicas."
+            }
+          },
+          "free_chlorine": {
+            "name": "Cloro libre",
+            "data": {
+              "free_chlorine_target": "Cloro libre objetivo",
+              "free_chlorine_range_min": "Cloro libre mínimo",
+              "free_chlorine_range_max": "Cloro libre máximo"
+            }
+          },
+          "season": {
+            "name": "Temporada e invernaje",
+            "data": {
+              "swimming_months": "Meses de baño",
+              "winter_product_type": "Producto de invierno",
+              "winter_product_dose_per_m3": "Producto de invierno, dosis por m³"
+            },
+            "data_description": {
+              "swimming_months": "HomePool propone invernar cuando terminan y la puesta en marcha dos semanas antes de que empiecen.",
+              "winter_product_type": "Lo que se pone en el agua durante el invernaje. HomePool calcula la dosis y te recuerda reponerlo.",
+              "winter_product_dose_per_m3": "Unidades por m³ (litros por m³ si es líquido), según la etiqueta. Un flotador por cada 50 m³ son 0,02."
+            }
+          },
+          "ranges": {
+            "name": "Otras lecturas: rangos aceptables",
+            "data": {
+              "combined_chlorine_range_max": "Cloro combinado, valor máximo",
+              "total_alkalinity_range_min": "Alcalinidad total, valor mínimo",
+              "total_alkalinity_range_max": "Alcalinidad total, valor máximo",
+              "calcium_hardness_range_min": "Dureza cálcica, valor mínimo",
+              "calcium_hardness_range_max": "Dureza cálcica, valor máximo",
+              "cyanuric_acid_range_min": "Ácido cianúrico, valor mínimo",
+              "cyanuric_acid_range_max": "Ácido cianúrico, valor máximo"
+            }
+          },
+          "validity": {
+            "name": "Cuánto tiempo vale una lectura",
+            "data": {
+              "ph_stale_days": "Lectura de pH, válida durante (días)",
+              "free_chlorine_stale_days": "Lectura de cloro libre, válida durante (días)",
+              "combined_chlorine_stale_days": "Lectura de cloro combinado, válida durante (días)",
+              "total_alkalinity_stale_days": "Lectura de alcalinidad total, válida durante (días)",
+              "calcium_hardness_stale_days": "Lectura de dureza cálcica, válida durante (días)",
+              "cyanuric_acid_stale_days": "Lectura de ácido cianúrico, válida durante (días)",
+              "salt_stale_days": "Lectura de sal, válida durante (días)"
+            }
+          },
+          "treatments": {
+            "name": "Productos de tratamiento",
+            "data": {
+              "shock_product": "Producto de choque",
+              "shock_concentration": "Concentración del producto de choque",
+              "clarifier_dose_per_10m3": "Clarificante, dosis por 10 m³",
+              "clarifier_dose_unit": "Clarificante, unidad",
+              "flocculant_dose_per_10m3": "Floculante, dosis por 10 m³",
+              "flocculant_dose_unit": "Floculante, unidad"
+            },
+            "data_description": {
+              "shock_product": "Con qué haces el choque al agua verde. HomePool calcula la dosis con el volumen de la piscina.",
+              "shock_concentration": "Por ciento de cloro si es granulado, g/L si es líquido, según la etiqueta. Vacío: hipoclorito cálcico al 65 %, hipoclorito sódico a 150 g/L, dicloro al 56 %.",
+              "clarifier_dose_per_10m3": "Según la etiqueta. Vacío, la dosis dice que sigas el envase.",
+              "flocculant_dose_per_10m3": "Según la etiqueta. Vacío, la dosis dice que sigas el envase."
+            }
+          }
         }
       },
       "chlorinator_model": {
         "title": "Clorador salino",
-        "description": "Elige tu clorador para rellenar sus datos, o escríbelos tú.",
+        "description": "Elige tu clorador para rellenar sus datos, o déjalo como personalizado. En la siguiente pantalla verás sus datos, para revisarlos o escribirlos tú.",
         "data": {
           "chlorinator_model": "Modelo"
         }
@@ -235,25 +272,54 @@
       },
       "control": {
         "title": "Control",
-        "data": {
-          "timer_slots": "Franjas del modo temporizador",
-          "manual_override_minutes": "Respetar la bomba encendida o apagada a mano durante",
-          "freeze_protection": "Encender la bomba si el agua está cerca de congelarse",
-          "freeze_threshold": "Umbral de helada",
-          "ph_correction_minutes": "Ventana de corrección de pH",
-          "ph_correction_max_daily": "Corrección de pH, máximo al día",
-          "equipment_room_max_temp": "Caseta demasiado caliente por encima de",
-          "filter_pressure_critical": "Presión del filtro que para la bomba",
-          "energy_price": "Precio de la energía por kWh",
-          "energy_price_entity": "Entidad con el precio de la energía",
-          "light_entities": "Luces de la piscina",
-          "pool_cleaner_type": "Limpiafondos",
-          "robot_entity": "Entidad del robot"
-        },
-        "data_description": {
-          "timer_slots": "Por ejemplo 08:00-12:00, 18:00-20:00",
-          "energy_price_entity": "Tiene prioridad sobre el precio fijo.",
-          "freeze_protection": "Enciende la bomba incluso en modo apagado: el agua quieta se congela en las tuberías, la que circula no. Usa la temperatura del agua o, sin sonda de agua, el aire bajo cero."
+        "sections": {
+          "schedule": {
+            "name": "Temporizador y cambios a mano",
+            "data": {
+              "timer_slots": "Franjas del modo temporizador",
+              "manual_override_minutes": "Respetar la bomba encendida o apagada a mano durante"
+            },
+            "data_description": {
+              "timer_slots": "Por ejemplo 08:00-12:00, 18:00-20:00"
+            }
+          },
+          "protection": {
+            "name": "Protección",
+            "data": {
+              "freeze_protection": "Encender la bomba si el agua está cerca de congelarse",
+              "freeze_threshold": "Umbral de helada",
+              "equipment_room_max_temp": "Caseta demasiado caliente por encima de",
+              "filter_pressure_critical": "Presión del filtro que para la bomba"
+            },
+            "data_description": {
+              "freeze_protection": "Enciende la bomba incluso en modo apagado: el agua quieta se congela en las tuberías, la que circula no. Usa la temperatura del agua o, sin sonda de agua, el aire bajo cero."
+            }
+          },
+          "ph_correction": {
+            "name": "Corrección de pH",
+            "data": {
+              "ph_correction_minutes": "Ventana de corrección de pH",
+              "ph_correction_max_daily": "Corrección de pH, máximo al día"
+            }
+          },
+          "energy": {
+            "name": "Energía",
+            "data": {
+              "energy_price": "Precio de la energía por kWh",
+              "energy_price_entity": "Entidad con el precio de la energía"
+            },
+            "data_description": {
+              "energy_price_entity": "Tiene prioridad sobre el precio fijo."
+            }
+          },
+          "accessories": {
+            "name": "Luces y limpiafondos",
+            "data": {
+              "light_entities": "Luces de la piscina",
+              "pool_cleaner_type": "Limpiafondos",
+              "robot_entity": "Entidad del robot"
+            }
+          }
         }
       },
       "notifications": {
@@ -292,20 +358,16 @@
           "cell_cleaning_last_done": "Limpieza de la célula: última vez",
           "filter_media_check_days": "Revisión de la arena o el vidrio: cada (días)",
           "filter_media_check_enabled": "Revisión de la arena o el vidrio: avisarme",
-          "filter_media_check_last_done": "Revisión de la arena o el vidrio: última vez",
-          "has_ph_probe_outside": "Mido el pH con una sonda o un kit propios"
-        },
-        "data_description": {
-          "has_ph_probe_outside": "Activa el recordatorio de calibración del pH cuando HomePool no tiene sensor de pH. Guarda y abre esta página otra vez para fijar su intervalo."
+          "filter_media_check_last_done": "Revisión de la arena o el vidrio: última vez"
         }
       }
     },
     "error": {
-      "range_order": "El valor mínimo no puede ser mayor que el máximo.",
+      "range_order": "En alguna de estas lecturas el valor mínimo es mayor que el máximo.",
       "depth_order": "La profundidad máxima no puede ser menor que la mínima.",
       "cover_entity_required": "Una cubierta automática necesita su entidad.",
       "pressure_order": "La presión máxima debe ser mayor que la mínima.",
-      "ph_order": "El objetivo debe estar dentro del rango aceptable.",
+      "ph_order": "El pH objetivo debe estar dentro del rango aceptable.",
       "no_months": "Elige al menos un mes.",
       "concentration_range": "Esa concentración no puede ser: hasta el 100 % si es granulado, hasta 300 g/L si es líquido.",
       "same_switch": "El interruptor del clorador debe ser distinto del de la bomba. Si la célula va conectada con la bomba, déjalo vacío.",
@@ -330,6 +392,7 @@
       },
       "shape": {
         "title": "Forma",
+        "description": "Elige la forma. En la siguiente pantalla pondrás sus medidas, y después verás el volumen que resulta.",
         "data": {
           "shape": "Forma de la piscina"
         }
@@ -359,7 +422,7 @@
       },
       "volume": {
         "title": "Volumen",
-        "description": "Con esas medidas, la piscina tiene unos **{volume} m³**. Si sabes la cifra real, por el constructor o por el llenado, escríbela aquí; si no, déjalo vacío.",
+        "description": "Con esas medidas, la piscina tiene unos **{volume} m³**. Si sabes la cifra real, por el constructor o por el llenado, escríbela aquí; si no, déjalo vacío.\n\nSi aquí hay un volumen real escrito, se usa ese y no las medidas, aunque las cambies. Bórralo para usar el calculado.",
         "data": {
           "volume_override": "Volumen real"
         }
@@ -374,7 +437,7 @@
           "heating_type": "Climatización",
           "liner_type": "Revestimiento",
           "liner_color": "Color del revestimiento",
-          "orientation": "Orientación"
+          "orientation": "Hacia dónde mira la piscina"
         },
         "data_description": {
           "cover_entity": "Solo para cubierta automática: cerrada significa cubierta.",
@@ -383,13 +446,14 @@
       },
       "pump": {
         "title": "Bomba",
-        "description": "Elige tu bomba para rellenar sus datos, o escríbelos tú.",
+        "description": "Elige tu bomba para rellenar sus datos, o déjala como personalizada. En la siguiente pantalla verás sus datos, para revisarlos o escribirlos tú, y los del filtro.",
         "data": {
           "pump_model": "Modelo"
         }
       },
       "filtration": {
         "title": "Filtración",
+        "description": "La bomba, después el filtro y por último skimmers y boquillas. Cada cuánto se limpia el filtro se fija en las tareas periódicas.",
         "data": {
           "pump_nominal_flow_rate": "Caudal de la bomba",
           "pump_nominal_power": "Potencia de la bomba",
@@ -399,8 +463,7 @@
           "returns_count": "Boquillas de impulsión",
           "has_autofill_skimmer": "Tiene skimmer de llenado automático",
           "filter_pressure_normal_min": "Presión normal del filtro, mínima",
-          "filter_pressure_normal_max": "Presión normal del filtro, máxima",
-          "backwash_interval_days": "Contralavado o limpieza cada"
+          "filter_pressure_normal_max": "Presión normal del filtro, máxima"
         },
         "data_description": {
           "pump_nominal_flow_rate": "El único dato sin el que no se puede calcular el objetivo diario.",
@@ -409,56 +472,92 @@
       },
       "water": {
         "title": "Tratamiento del agua",
+        "description": "Los grupos cerrados se abren al pulsarlos. Cada cuánto se calibra la sonda de pH y se repone el producto de invierno se fija en las tareas periódicas.",
         "data": {
-          "chlorination_type": "Cloración",
-          "ph_target": "pH objetivo",
-          "ph_range_min": "pH mínimo aceptable",
-          "ph_range_max": "pH máximo aceptable",
-          "has_ph_dosing": "Bomba dosificadora de pH que solo funciona con circulación",
-          "ph_calibration_interval_days": "Calibrar la sonda de pH cada",
-          "free_chlorine_target": "Cloro libre objetivo",
-          "free_chlorine_range_min": "Cloro libre mínimo",
-          "free_chlorine_range_max": "Cloro libre máximo",
-          "swimming_months": "Meses de baño",
-          "winter_product_type": "Producto de invierno",
-          "winter_product_dose_per_m3": "Producto de invierno, dosis por m³",
-          "winter_product_interval_days": "Reponer el producto de invierno cada",
-          "combined_chlorine_range_max": "Cloro combinado máxima",
-          "total_alkalinity_range_min": "Alcalinidad total mínima",
-          "total_alkalinity_range_max": "Alcalinidad total máxima",
-          "calcium_hardness_range_min": "Dureza cálcica mínima",
-          "calcium_hardness_range_max": "Dureza cálcica máxima",
-          "cyanuric_acid_range_min": "Ácido cianúrico mínima",
-          "cyanuric_acid_range_max": "Ácido cianúrico máxima",
-          "ph_stale_days": "Lectura de ph, válida durante (días)",
-          "free_chlorine_stale_days": "Lectura de cloro libre, válida durante (días)",
-          "combined_chlorine_stale_days": "Lectura de cloro combinado, válida durante (días)",
-          "total_alkalinity_stale_days": "Lectura de alcalinidad total, válida durante (días)",
-          "calcium_hardness_stale_days": "Lectura de dureza cálcica, válida durante (días)",
-          "cyanuric_acid_stale_days": "Lectura de ácido cianúrico, válida durante (días)",
-          "salt_stale_days": "Lectura de sal, válida durante (días)",
-          "shock_product": "Producto de choque",
-          "shock_concentration": "Concentración del producto de choque",
-          "clarifier_dose_per_10m3": "Clarificante, dosis por 10 m³",
-          "clarifier_dose_unit": "Clarificante, unidad",
-          "flocculant_dose_per_10m3": "Floculante, dosis por 10 m³",
-          "flocculant_dose_unit": "Floculante, unidad"
+          "chlorination_type": "Cloración"
         },
-        "data_description": {
-          "swimming_months": "HomePool propone invernar cuando terminan y la puesta en marcha dos semanas antes de que empiecen.",
-          "winter_product_type": "Lo que se pone en el agua durante el invernaje. HomePool calcula la dosis y te recuerda reponerlo.",
-          "winter_product_dose_per_m3": "Unidades por m³ (litros por m³ si es líquido), según la etiqueta. Un flotador por cada 50 m³ son 0,02.",
-          "winter_product_interval_days": "Días entre reposiciones.",
-          "has_ph_dosing": "Si el pH está alto, la bomba se pone en marcha un rato para que la dosificadora pueda trabajar.",
-          "shock_product": "Con qué haces el choque al agua verde. HomePool calcula la dosis con el volumen de la piscina.",
-          "shock_concentration": "Por ciento de cloro si es granulado, g/L si es líquido, según la etiqueta. Vacío: hipoclorito cálcico al 65 %, hipoclorito sódico a 150 g/L, dicloro al 56 %.",
-          "clarifier_dose_per_10m3": "Según la etiqueta. Vacío, la dosis dice que sigas el envase.",
-          "flocculant_dose_per_10m3": "Según la etiqueta. Vacío, la dosis dice que sigas el envase."
+        "sections": {
+          "ph": {
+            "name": "pH",
+            "data": {
+              "ph_target": "pH objetivo",
+              "ph_range_min": "pH mínimo aceptable",
+              "ph_range_max": "pH máximo aceptable",
+              "has_ph_dosing": "Bomba dosificadora de pH que solo funciona con circulación",
+              "has_ph_probe_outside": "Mido el pH con una sonda o un kit propios"
+            },
+            "data_description": {
+              "has_ph_dosing": "Si el pH está alto, la bomba se pone en marcha un rato para que la dosificadora pueda trabajar.",
+              "has_ph_probe_outside": "Activa el recordatorio de calibración del pH cuando HomePool no tiene sensor de pH. Su intervalo está en las tareas periódicas."
+            }
+          },
+          "free_chlorine": {
+            "name": "Cloro libre",
+            "data": {
+              "free_chlorine_target": "Cloro libre objetivo",
+              "free_chlorine_range_min": "Cloro libre mínimo",
+              "free_chlorine_range_max": "Cloro libre máximo"
+            }
+          },
+          "season": {
+            "name": "Temporada e invernaje",
+            "data": {
+              "swimming_months": "Meses de baño",
+              "winter_product_type": "Producto de invierno",
+              "winter_product_dose_per_m3": "Producto de invierno, dosis por m³"
+            },
+            "data_description": {
+              "swimming_months": "HomePool propone invernar cuando terminan y la puesta en marcha dos semanas antes de que empiecen.",
+              "winter_product_type": "Lo que se pone en el agua durante el invernaje. HomePool calcula la dosis y te recuerda reponerlo.",
+              "winter_product_dose_per_m3": "Unidades por m³ (litros por m³ si es líquido), según la etiqueta. Un flotador por cada 50 m³ son 0,02."
+            }
+          },
+          "ranges": {
+            "name": "Otras lecturas: rangos aceptables",
+            "data": {
+              "combined_chlorine_range_max": "Cloro combinado, valor máximo",
+              "total_alkalinity_range_min": "Alcalinidad total, valor mínimo",
+              "total_alkalinity_range_max": "Alcalinidad total, valor máximo",
+              "calcium_hardness_range_min": "Dureza cálcica, valor mínimo",
+              "calcium_hardness_range_max": "Dureza cálcica, valor máximo",
+              "cyanuric_acid_range_min": "Ácido cianúrico, valor mínimo",
+              "cyanuric_acid_range_max": "Ácido cianúrico, valor máximo"
+            }
+          },
+          "validity": {
+            "name": "Cuánto tiempo vale una lectura",
+            "data": {
+              "ph_stale_days": "Lectura de pH, válida durante (días)",
+              "free_chlorine_stale_days": "Lectura de cloro libre, válida durante (días)",
+              "combined_chlorine_stale_days": "Lectura de cloro combinado, válida durante (días)",
+              "total_alkalinity_stale_days": "Lectura de alcalinidad total, válida durante (días)",
+              "calcium_hardness_stale_days": "Lectura de dureza cálcica, válida durante (días)",
+              "cyanuric_acid_stale_days": "Lectura de ácido cianúrico, válida durante (días)",
+              "salt_stale_days": "Lectura de sal, válida durante (días)"
+            }
+          },
+          "treatments": {
+            "name": "Productos de tratamiento",
+            "data": {
+              "shock_product": "Producto de choque",
+              "shock_concentration": "Concentración del producto de choque",
+              "clarifier_dose_per_10m3": "Clarificante, dosis por 10 m³",
+              "clarifier_dose_unit": "Clarificante, unidad",
+              "flocculant_dose_per_10m3": "Floculante, dosis por 10 m³",
+              "flocculant_dose_unit": "Floculante, unidad"
+            },
+            "data_description": {
+              "shock_product": "Con qué haces el choque al agua verde. HomePool calcula la dosis con el volumen de la piscina.",
+              "shock_concentration": "Por ciento de cloro si es granulado, g/L si es líquido, según la etiqueta. Vacío: hipoclorito cálcico al 65 %, hipoclorito sódico a 150 g/L, dicloro al 56 %.",
+              "clarifier_dose_per_10m3": "Según la etiqueta. Vacío, la dosis dice que sigas el envase.",
+              "flocculant_dose_per_10m3": "Según la etiqueta. Vacío, la dosis dice que sigas el envase."
+            }
+          }
         }
       },
       "chlorinator_model": {
         "title": "Clorador salino",
-        "description": "Elige tu clorador para rellenar sus datos, o escríbelos tú.",
+        "description": "Elige tu clorador para rellenar sus datos, o déjalo como personalizado. En la siguiente pantalla verás sus datos, para revisarlos o escribirlos tú.",
         "data": {
           "chlorinator_model": "Modelo"
         }
@@ -553,25 +652,54 @@
       },
       "control": {
         "title": "Control",
-        "data": {
-          "timer_slots": "Franjas del modo temporizador",
-          "manual_override_minutes": "Respetar la bomba encendida o apagada a mano durante",
-          "freeze_protection": "Encender la bomba si el agua está cerca de congelarse",
-          "freeze_threshold": "Umbral de helada",
-          "ph_correction_minutes": "Ventana de corrección de pH",
-          "ph_correction_max_daily": "Corrección de pH, máximo al día",
-          "equipment_room_max_temp": "Caseta demasiado caliente por encima de",
-          "filter_pressure_critical": "Presión del filtro que para la bomba",
-          "energy_price": "Precio de la energía por kWh",
-          "energy_price_entity": "Entidad con el precio de la energía",
-          "light_entities": "Luces de la piscina",
-          "pool_cleaner_type": "Limpiafondos",
-          "robot_entity": "Entidad del robot"
-        },
-        "data_description": {
-          "timer_slots": "Por ejemplo 08:00-12:00, 18:00-20:00",
-          "energy_price_entity": "Tiene prioridad sobre el precio fijo.",
-          "freeze_protection": "Enciende la bomba incluso en modo apagado: el agua quieta se congela en las tuberías, la que circula no. Usa la temperatura del agua o, sin sonda de agua, el aire bajo cero."
+        "sections": {
+          "schedule": {
+            "name": "Temporizador y cambios a mano",
+            "data": {
+              "timer_slots": "Franjas del modo temporizador",
+              "manual_override_minutes": "Respetar la bomba encendida o apagada a mano durante"
+            },
+            "data_description": {
+              "timer_slots": "Por ejemplo 08:00-12:00, 18:00-20:00"
+            }
+          },
+          "protection": {
+            "name": "Protección",
+            "data": {
+              "freeze_protection": "Encender la bomba si el agua está cerca de congelarse",
+              "freeze_threshold": "Umbral de helada",
+              "equipment_room_max_temp": "Caseta demasiado caliente por encima de",
+              "filter_pressure_critical": "Presión del filtro que para la bomba"
+            },
+            "data_description": {
+              "freeze_protection": "Enciende la bomba incluso en modo apagado: el agua quieta se congela en las tuberías, la que circula no. Usa la temperatura del agua o, sin sonda de agua, el aire bajo cero."
+            }
+          },
+          "ph_correction": {
+            "name": "Corrección de pH",
+            "data": {
+              "ph_correction_minutes": "Ventana de corrección de pH",
+              "ph_correction_max_daily": "Corrección de pH, máximo al día"
+            }
+          },
+          "energy": {
+            "name": "Energía",
+            "data": {
+              "energy_price": "Precio de la energía por kWh",
+              "energy_price_entity": "Entidad con el precio de la energía"
+            },
+            "data_description": {
+              "energy_price_entity": "Tiene prioridad sobre el precio fijo."
+            }
+          },
+          "accessories": {
+            "name": "Luces y limpiafondos",
+            "data": {
+              "light_entities": "Luces de la piscina",
+              "pool_cleaner_type": "Limpiafondos",
+              "robot_entity": "Entidad del robot"
+            }
+          }
         }
       },
       "notifications": {
@@ -610,11 +738,7 @@
           "cell_cleaning_last_done": "Limpieza de la célula: última vez",
           "filter_media_check_days": "Revisión de la arena o el vidrio: cada (días)",
           "filter_media_check_enabled": "Revisión de la arena o el vidrio: avisarme",
-          "filter_media_check_last_done": "Revisión de la arena o el vidrio: última vez",
-          "has_ph_probe_outside": "Mido el pH con una sonda o un kit propios"
-        },
-        "data_description": {
-          "has_ph_probe_outside": "Activa el recordatorio de calibración del pH cuando HomePool no tiene sensor de pH. Guarda y abre esta página otra vez para fijar su intervalo."
+          "filter_media_check_last_done": "Revisión de la arena o el vidrio: última vez"
         }
       },
       "init": {
@@ -635,11 +759,11 @@
       }
     },
     "error": {
-      "range_order": "El valor mínimo no puede ser mayor que el máximo.",
+      "range_order": "En alguna de estas lecturas el valor mínimo es mayor que el máximo.",
       "depth_order": "La profundidad máxima no puede ser menor que la mínima.",
       "cover_entity_required": "Una cubierta automática necesita su entidad.",
       "pressure_order": "La presión máxima debe ser mayor que la mínima.",
-      "ph_order": "El objetivo debe estar dentro del rango aceptable.",
+      "ph_order": "El pH objetivo debe estar dentro del rango aceptable.",
       "no_months": "Elige al menos un mes.",
       "concentration_range": "Esa concentración no puede ser: hasta el 100 % si es granulado, hasta 300 g/L si es líquido.",
       "same_switch": "El interruptor del clorador debe ser distinto del de la bomba. Si la célula va conectada con la bomba, déjalo vacío.",

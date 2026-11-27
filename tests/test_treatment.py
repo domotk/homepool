@@ -24,7 +24,7 @@ from custom_components.homepool.pool.treatment import (
     phase_done,
 )
 
-from .helpers import CHLORINATOR, PUMP as PUMP_SWITCH, SwitchRouter, setup_pool
+from .helpers import CHLORINATOR, PUMP as PUMP_SWITCH, SwitchRouter, form_input, setup_pool
 from .test_control import local, madrid, set_mode, state, tick  # noqa: F401
 from .test_season import entity, set_season
 
@@ -466,7 +466,9 @@ async def test_the_options_set_the_doses(
         result = await hass.config_entries.options.async_configure(
             result["flow_id"], {"next_step_id": "water"}
         )
-        done = await hass.config_entries.options.async_configure(result["flow_id"], values)
+        done = await hass.config_entries.options.async_configure(
+            result["flow_id"], form_input(result, values)
+        )
         assert done["type"] is FlowResultType.CREATE_ENTRY
         await hass.async_block_till_done()
 

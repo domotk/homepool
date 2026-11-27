@@ -10,7 +10,7 @@ from homeassistant.data_entry_flow import FlowResultType
 
 from custom_components.homepool.const import DOMAIN
 
-from .helpers import CHLORINATOR, PUMP, setup_helpers, setup_pool
+from .helpers import CHLORINATOR, PUMP, form_fields, form_input, setup_helpers, setup_pool
 
 
 async def _walk_to_connections(hass: HomeAssistant, chlorination: str = "salt") -> dict:
@@ -80,23 +80,28 @@ async def _walk_to_connections(hass: HomeAssistant, chlorination: str = "salt") 
             "has_autofill_skimmer": False,
             "filter_pressure_normal_min": 0.6,
             "filter_pressure_normal_max": 1.2,
-            "backwash_interval_days": 14,
         },
     )
     assert result["step_id"] == "water"
+    # The pH kit question is with the rest of the pH; the intervals are tasks.
+    assert "has_ph_probe_outside" in form_fields(result)
+    assert "ph_calibration_interval_days" not in form_fields(result)
+    assert "winter_product_interval_days" not in form_fields(result)
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"],
-        {
-            "chlorination_type": chlorination,
-            "ph_target": 7.4,
-            "ph_range_min": 7.2,
-            "ph_range_max": 7.6,
-            "has_ph_dosing": True,
-            "ph_calibration_interval_days": 60,
-            "free_chlorine_target": 1.5,
-            "free_chlorine_range_min": 1.0,
-            "free_chlorine_range_max": 3.0,
-        },
+        form_input(
+            result,
+            {
+                "chlorination_type": chlorination,
+                "ph_target": 7.4,
+                "ph_range_min": 7.2,
+                "ph_range_max": 7.6,
+                "has_ph_dosing": True,
+                "free_chlorine_target": 1.5,
+                "free_chlorine_range_min": 1.0,
+                "free_chlorine_range_max": 3.0,
+            },
+        ),
     )
     if chlorination == "salt":
         assert result["step_id"] == "chlorinator_model"
@@ -152,32 +157,38 @@ async def test_full_wizard_creates_entry(hass: HomeAssistant) -> None:
     assert result["step_id"] == "control"
     bad = await hass.config_entries.flow.async_configure(
         result["flow_id"],
-        {
-            "timer_slots": "whenever",
-            "manual_override_minutes": 120,
-            "freeze_protection": True,
-            "freeze_threshold": 2,
-            "ph_correction_minutes": 30,
-            "ph_correction_max_daily": 120,
-            "equipment_room_max_temp": 50,
-            "filter_pressure_critical": 2,
-            "pool_cleaner_type": "none",
-        },
+        form_input(
+            result,
+            {
+                "timer_slots": "whenever",
+                "manual_override_minutes": 120,
+                "freeze_protection": True,
+                "freeze_threshold": 2,
+                "ph_correction_minutes": 30,
+                "ph_correction_max_daily": 120,
+                "equipment_room_max_temp": 50,
+                "filter_pressure_critical": 2,
+                "pool_cleaner_type": "none",
+            },
+        ),
     )
-    assert bad["errors"] == {"timer_slots": "bad_slots"}
+    assert bad["errors"] == {"schedule": "bad_slots"}
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"],
-        {
-            "timer_slots": "09:00-13:00",
-            "manual_override_minutes": 120,
-            "freeze_protection": True,
-            "freeze_threshold": 2,
-            "ph_correction_minutes": 30,
-            "ph_correction_max_daily": 120,
-            "equipment_room_max_temp": 50,
-            "filter_pressure_critical": 2,
-            "pool_cleaner_type": "none",
-        },
+        form_input(
+            result,
+            {
+                "timer_slots": "09:00-13:00",
+                "manual_override_minutes": 120,
+                "freeze_protection": True,
+                "freeze_threshold": 2,
+                "ph_correction_minutes": 30,
+                "ph_correction_max_daily": 120,
+                "equipment_room_max_temp": 50,
+                "filter_pressure_critical": 2,
+                "pool_cleaner_type": "none",
+            },
+        ),
     )
     assert result["step_id"] == "notifications"
     result = await hass.config_entries.flow.async_configure(
@@ -195,7 +206,7 @@ async def test_full_wizard_creates_entry(hass: HomeAssistant) -> None:
     assert "filter_cleaning_days" not in shown  # sand filter
     assert "skimmer_baskets_enabled" in shown
     assert "water_test_enabled" in shown  # optional since ruling 27
-    assert "has_ph_probe_outside" in shown
+    assert "has_ph_probe_outside" not in shown
     result = await hass.config_entries.flow.async_configure(result["flow_id"], {})
     assert result["type"] is FlowResultType.CREATE_ENTRY
     data = result["data"]
@@ -270,7 +281,7 @@ async def test_a_custom_shock_concentration_does_not_carry_to_another_product(
     entry = await setup_pool(hass)
     result = await _open_water(hass, entry)
     done = await hass.config_entries.options.async_configure(
-        result["flow_id"], {"shock_concentration": 70}
+        result["flow_id"], form_input(result, {"shock_concentration": 70})
     )
     assert done["type"] is FlowResultType.CREATE_ENTRY
     await hass.async_block_till_done()
@@ -279,7 +290,8 @@ async def test_a_custom_shock_concentration_does_not_carry_to_another_product(
     # Switched to a liquid with the 70 % still in the box: it is not 70 g/L.
     result = await _open_water(hass, entry)
     done = await hass.config_entries.options.async_configure(
-        result["flow_id"], {"shock_product": "sodium_hypochlorite", "shock_concentration": 70}
+        result["flow_id"],
+        form_input(result, {"shock_product": "sodium_hypochlorite", "shock_concentration": 70}),
     )
     assert done["type"] is FlowResultType.CREATE_ENTRY
     await hass.async_block_till_done()
@@ -290,7 +302,8 @@ async def test_a_custom_shock_concentration_does_not_carry_to_another_product(
     # A figure typed for the new product along with it is kept.
     result = await _open_water(hass, entry)
     done = await hass.config_entries.options.async_configure(
-        result["flow_id"], {"shock_product": "dichlor", "shock_concentration": 60}
+        result["flow_id"],
+        form_input(result, {"shock_product": "dichlor", "shock_concentration": 60}),
     )
     await hass.async_block_till_done()
     assert entry.options["shock_concentration"] == 60
@@ -312,9 +325,112 @@ async def test_the_shock_concentration_must_be_possible_for_its_product(
     entry = await setup_pool(hass, shock_product=product)
     result = await _open_water(hass, entry)
     done = await hass.config_entries.options.async_configure(
-        result["flow_id"], {"shock_concentration": value}
+        result["flow_id"], form_input(result, {"shock_concentration": value})
     )
     if ok:
         assert done["type"] is FlowResultType.CREATE_ENTRY
     else:
-        assert done["errors"] == {"shock_concentration": "concentration_range"}
+        assert done["errors"] == {"treatments": "concentration_range"}
+
+
+async def test_the_depths_come_empty(hass: HomeAssistant) -> None:
+    """A depth that looks real gets accepted unread: none is offered."""
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_USER}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"name": "Pool", "latitude": 39.6, "longitude": -0.5}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"shape": "rectangular"}
+    )
+    assert result["step_id"] == "dimensions"
+    suggested = {
+        str(k): (k.description or {}).get("suggested_value")
+        for k in result["data_schema"].schema
+    }
+    assert suggested["depth_min"] is None
+    assert suggested["depth_max"] is None
+
+
+async def test_an_older_install_keeps_its_backwash_interval(hass: HomeAssistant) -> None:
+    """The interval asked in the filtration step up to 0.2 still counts, and
+    saving that step no longer touches it."""
+    entry = await setup_pool(hass, backwash_interval_days=10)
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"next_step_id": "pump"}
+    )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"pump_model": "custom"}
+    )
+    assert result["step_id"] == "filtration"
+    assert "backwash_interval_days" not in form_fields(result)
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"pump_nominal_flow_rate": entry.data["pump_nominal_flow_rate"]}
+    )
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    await hass.async_block_till_done()
+    assert entry.options["backwash_interval_days"] == 10
+
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"next_step_id": "tasks"}
+    )
+    defaults = {
+        str(k): k.default()
+        for k in result["data_schema"].schema
+        if callable(getattr(k, "default", None))
+    }
+    assert defaults["backwash_days"] == 10
+
+
+async def test_an_error_shows_on_its_section(hass: HomeAssistant) -> None:
+    """Home Assistant draws errors on a section, not on a field inside one."""
+    entry = await setup_pool(hass)
+    result = await _open_water(hass, entry)
+    bad = await hass.config_entries.options.async_configure(
+        result["flow_id"], form_input(result, {"ph_target": 7.9, "ph_range_max": 7.6})
+    )
+    assert bad["errors"] == {"ph": "ph_order"}
+    # The pH kit question is answered here now.
+    done = await hass.config_entries.options.async_configure(
+        result["flow_id"], form_input(result, {"has_ph_probe_outside": True})
+    )
+    assert done["type"] is FlowResultType.CREATE_ENTRY
+    assert entry.options["has_ph_probe_outside"] is True
+
+
+@pytest.mark.parametrize("language", ["en", "es"])
+@pytest.mark.parametrize("step", ["filtration", "water", "control"])
+async def test_every_field_and_section_has_a_label(
+    hass: HomeAssistant, step: str, language: str
+) -> None:
+    import json
+    import pathlib
+
+    from homeassistant.data_entry_flow import section
+
+    root = pathlib.Path(__file__).parent.parent / "custom_components" / "homepool"
+    texts = json.loads((root / "translations" / f"{language}.json").read_text(encoding="utf-8"))
+    entry = await setup_pool(hass)
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    first = "pump" if step == "filtration" else step
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"next_step_id": first}
+    )
+    if step == "filtration":
+        result = await hass.config_entries.options.async_configure(
+            result["flow_id"], {"pump_model": "custom"}
+        )
+    assert result["step_id"] == step
+    labels = texts["options"]["step"][step]
+    for marker, value in result["data_schema"].schema.items():
+        name = str(marker)
+        if isinstance(value, section):
+            sec = labels["sections"][name]
+            assert sec["name"]
+            for key in value.schema.schema:
+                assert sec["data"].get(str(key)), (name, str(key))
+        else:
+            assert labels["data"].get(name), name

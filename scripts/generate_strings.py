@@ -41,10 +41,10 @@ reading_data = {}
 for _k in ("combined_chlorine", "total_alkalinity", "calcium_hardness", "cyanuric_acid"):
   _en, _es = reading_names[_k]
   if _k != "combined_chlorine":
-    reading_data[f"{_k}_range_min"] = T(f"{_en}, lowest", f"{_es} mínima")
-  reading_data[f"{_k}_range_max"] = T(f"{_en}, highest", f"{_es} máxima")
+    reading_data[f"{_k}_range_min"] = T(f"{_en}, lowest", f"{_es}, valor mínimo")
+  reading_data[f"{_k}_range_max"] = T(f"{_en}, highest", f"{_es}, valor máximo")
 for _k, (_en, _es) in reading_names.items():
-  reading_data[f"{_k}_stale_days"] = T(f"{_en} reading, trusted for (days)", f"Lectura de {_es.lower()}, válida durante (días)")
+  reading_data[f"{_k}_stale_days"] = T(f"{_en} reading, trusted for (days)", f"Lectura de {_es[0].lower() + _es[1:]}, válida durante (días)")
 
 _pump_hours_tasks = ("backwash", "filter_cleaning")
 _optional_tasks = ("water_test", "skimmer_baskets", "filter_media_check")
@@ -56,7 +56,6 @@ for _k, (_en, _es) in task_names.items():
   if _k in _optional_tasks:
     tasks_data[f"{_k}_enabled"] = T(f"{_en}: remind me", f"{_es}: avisarme")
   tasks_data[f"{_k}_last_done"] = T(f"{_en}: last done", f"{_es}: última vez")
-tasks_data["has_ph_probe_outside"] = T("I check the pH with a probe or kit of my own", "Mido el pH con una sonda o un kit propios")
 
 steps_fields = {
   "identity": {
@@ -67,6 +66,8 @@ steps_fields = {
   },
   "shape": {
     "title": T("Shape", "Forma"),
+    "description": T("Pick the shape. The next page asks for its measurements, then shows the volume they give.",
+                     "Elige la forma. En la siguiente pantalla pondrás sus medidas, y después verás el volumen que resulta."),
     "data": {"shape": T("Shape of the pool", "Forma de la piscina")},
   },
   "dimensions": {
@@ -88,8 +89,8 @@ steps_fields = {
   },
   "volume": {
     "title": T("Volume", "Volumen"),
-    "description": T("From those measurements the pool holds about **{volume} m³**. If you know the real figure, from the builder or from filling it, enter it here; otherwise leave it empty.",
-                     "Con esas medidas, la piscina tiene unos **{volume} m³**. Si sabes la cifra real, por el constructor o por el llenado, escríbela aquí; si no, déjalo vacío."),
+    "description": T("From those measurements the pool holds about **{volume} m³**. If you know the real figure, from the builder or from filling it, enter it here; otherwise leave it empty.\n\nA real volume written here is used instead of the measurements, even after you change them. Clear it to use the calculated one.",
+                     "Con esas medidas, la piscina tiene unos **{volume} m³**. Si sabes la cifra real, por el constructor o por el llenado, escríbela aquí; si no, déjalo vacío.\n\nSi aquí hay un volumen real escrito, se usa ese y no las medidas, aunque las cambies. Bórralo para usar el calculado."),
     "data": {"volume_override": T("Real volume", "Volumen real")},
   },
   "construction": {
@@ -99,7 +100,7 @@ steps_fields = {
       "cover_entity": T("Cover entity", "Entidad de la cubierta"),
       "is_covered_by_roof": T("Under a fixed roof or porch", "Bajo techo o porche fijo"),
       "heating_type": T("Heating", "Climatización"), "liner_type": T("Finish", "Revestimiento"),
-      "liner_color": T("Colour of the finish", "Color del revestimiento"), "orientation": T("Orientation", "Orientación"),
+      "liner_color": T("Colour of the finish", "Color del revestimiento"), "orientation": T("Which way the pool faces", "Hacia dónde mira la piscina"),
     },
     "data_description": {
       "cover_entity": T("Only for an automatic cover: closed means covered.", "Solo para cubierta automática: cerrada significa cubierta."),
@@ -108,11 +109,14 @@ steps_fields = {
   },
   "pump": {
     "title": T("Pump", "Bomba"),
-    "description": T("Pick your pump to fill in its figures, or enter them yourself.", "Elige tu bomba para rellenar sus datos, o escríbelos tú."),
+    "description": T("Pick your pump to fill in its figures, or leave it custom. The next page shows the figures, to check or enter yourself, and the filter.",
+                     "Elige tu bomba para rellenar sus datos, o déjala como personalizada. En la siguiente pantalla verás sus datos, para revisarlos o escribirlos tú, y los del filtro."),
     "data": {"pump_model": T("Model", "Modelo")},
   },
   "filtration": {
     "title": T("Filtration", "Filtración"),
+    "description": T("The pump, then the filter, then the skimmers and returns. How often the filter is cleaned is set in the recurring tasks.",
+                     "La bomba, después el filtro y por último skimmers y boquillas. Cada cuánto se limpia el filtro se fija en las tareas periódicas."),
     "data": {
       "pump_nominal_flow_rate": T("Pump flow rate", "Caudal de la bomba"),
       "pump_nominal_power": T("Pump power", "Potencia de la bomba"),
@@ -121,7 +125,6 @@ steps_fields = {
       "has_autofill_skimmer": T("Has an auto-fill skimmer", "Tiene skimmer de llenado automático"),
       "filter_pressure_normal_min": T("Normal filter pressure, low", "Presión normal del filtro, mínima"),
       "filter_pressure_normal_max": T("Normal filter pressure, high", "Presión normal del filtro, máxima"),
-      "backwash_interval_days": T("Backwash or clean every", "Contralavado o limpieza cada"),
     },
     "data_description": {
       "pump_nominal_flow_rate": T("The one figure the daily target cannot do without.", "El único dato sin el que no se puede calcular el objetivo diario."),
@@ -130,41 +133,53 @@ steps_fields = {
   },
   "water": {
     "title": T("Water treatment", "Tratamiento del agua"),
-    "data": {
-      "chlorination_type": T("Chlorination", "Cloración"), "ph_target": T("pH target", "pH objetivo"),
-      "ph_range_min": T("pH, lowest acceptable", "pH mínimo aceptable"), "ph_range_max": T("pH, highest acceptable", "pH máximo aceptable"),
-      "has_ph_dosing": T("A pH dosing pump that works only with water flowing", "Bomba dosificadora de pH que solo funciona con circulación"),
-      "ph_calibration_interval_days": T("Calibrate the pH probe every", "Calibrar la sonda de pH cada"),
-      "free_chlorine_target": T("Free chlorine target", "Cloro libre objetivo"),
-      "free_chlorine_range_min": T("Free chlorine, lowest", "Cloro libre mínimo"),
-      "free_chlorine_range_max": T("Free chlorine, highest", "Cloro libre máximo"),
-      "swimming_months": T("Months the pool is used", "Meses de baño"),
-      "winter_product_type": T("Winter product", "Producto de invierno"),
-      "winter_product_dose_per_m3": T("Winter product, dose per m³", "Producto de invierno, dosis por m³"),
-      "winter_product_interval_days": T("Top up the winter product every", "Reponer el producto de invierno cada"),
-      **reading_data,
-      "shock_product": T("Shock product", "Producto de choque"),
-      "shock_concentration": T("Shock product concentration", "Concentración del producto de choque"),
-      "clarifier_dose_per_10m3": T("Clarifier, dose per 10 m³", "Clarificante, dosis por 10 m³"),
-      "clarifier_dose_unit": T("Clarifier, unit", "Clarificante, unidad"),
-      "flocculant_dose_per_10m3": T("Flocculant, dose per 10 m³", "Floculante, dosis por 10 m³"),
-      "flocculant_dose_unit": T("Flocculant, unit", "Floculante, unidad"),
-    },
-    "data_description": {
-      "swimming_months": T("HomePool proposes wintering when they end and opening two weeks before they start.", "HomePool propone invernar cuando terminan y la puesta en marcha dos semanas antes de que empiecen."),
-      "winter_product_type": T("What goes in the water while the pool is wintering. HomePool works out the dose and reminds you to top it up.", "Lo que se pone en el agua durante el invernaje. HomePool calcula la dosis y te recuerda reponerlo."),
-      "winter_product_dose_per_m3": T("Units per m³ (litres per m³ for a liquid), as on the label. One floater for 50 m³ is 0.02.", "Unidades por m³ (litros por m³ si es líquido), según la etiqueta. Un flotador por cada 50 m³ son 0,02."),
-      "winter_product_interval_days": T("Days between top-ups.", "Días entre reposiciones."),
-      "has_ph_dosing": T("When the pH is too high, the pump is run for a while so the doser can work.", "Si el pH está alto, la bomba se pone en marcha un rato para que la dosificadora pueda trabajar."),
-      "shock_product": T("What you shock green water with. HomePool works out the dose from the pool's volume.", "Con qué haces el choque al agua verde. HomePool calcula la dosis con el volumen de la piscina."),
-      "shock_concentration": T("Per cent of chlorine for a granular product, g/L for a liquid one, as on the label. Empty: 65 % calcium hypochlorite, 150 g/L sodium hypochlorite, 56 % dichlor.", "Por ciento de cloro si es granulado, g/L si es líquido, según la etiqueta. Vacío: hipoclorito cálcico al 65 %, hipoclorito sódico a 150 g/L, dicloro al 56 %."),
-      "clarifier_dose_per_10m3": T("As on the label. Empty, the dose says to follow the label.", "Según la etiqueta. Vacío, la dosis dice que sigas el envase."),
-      "flocculant_dose_per_10m3": T("As on the label. Empty, the dose says to follow the label.", "Según la etiqueta. Vacío, la dosis dice que sigas el envase."),
+    "description": T("The closed groups open when you tap them. How often the pH probe is calibrated and the winter product topped up is set in the recurring tasks.",
+                     "Los grupos cerrados se abren al pulsarlos. Cada cuánto se calibra la sonda de pH y se repone el producto de invierno se fija en las tareas periódicas."),
+    "data": {"chlorination_type": T("Chlorination", "Cloración")},
+    "sections": {
+      "ph": {"name": T("pH", "pH"), "data": {
+          "ph_target": T("pH target", "pH objetivo"),
+          "ph_range_min": T("pH, lowest acceptable", "pH mínimo aceptable"), "ph_range_max": T("pH, highest acceptable", "pH máximo aceptable"),
+          "has_ph_dosing": T("A pH dosing pump that works only with water flowing", "Bomba dosificadora de pH que solo funciona con circulación"),
+          "has_ph_probe_outside": T("I check the pH with a probe or kit of my own", "Mido el pH con una sonda o un kit propios")},
+        "data_description": {
+          "has_ph_dosing": T("When the pH is too high, the pump is run for a while so the doser can work.", "Si el pH está alto, la bomba se pone en marcha un rato para que la dosificadora pueda trabajar."),
+          "has_ph_probe_outside": T("Turns on the pH calibration reminder when HomePool has no pH sensor. Its interval is in the recurring tasks.",
+                                    "Activa el recordatorio de calibración del pH cuando HomePool no tiene sensor de pH. Su intervalo está en las tareas periódicas.")}},
+      "free_chlorine": {"name": T("Free chlorine", "Cloro libre"), "data": {
+          "free_chlorine_target": T("Free chlorine target", "Cloro libre objetivo"),
+          "free_chlorine_range_min": T("Free chlorine, lowest", "Cloro libre mínimo"),
+          "free_chlorine_range_max": T("Free chlorine, highest", "Cloro libre máximo")}},
+      "season": {"name": T("Season and wintering", "Temporada e invernaje"), "data": {
+          "swimming_months": T("Months the pool is used", "Meses de baño"),
+          "winter_product_type": T("Winter product", "Producto de invierno"),
+          "winter_product_dose_per_m3": T("Winter product, dose per m³", "Producto de invierno, dosis por m³")},
+        "data_description": {
+          "swimming_months": T("HomePool proposes wintering when they end and opening two weeks before they start.", "HomePool propone invernar cuando terminan y la puesta en marcha dos semanas antes de que empiecen."),
+          "winter_product_type": T("What goes in the water while the pool is wintering. HomePool works out the dose and reminds you to top it up.", "Lo que se pone en el agua durante el invernaje. HomePool calcula la dosis y te recuerda reponerlo."),
+          "winter_product_dose_per_m3": T("Units per m³ (litres per m³ for a liquid), as on the label. One floater for 50 m³ is 0.02.", "Unidades por m³ (litros por m³ si es líquido), según la etiqueta. Un flotador por cada 50 m³ son 0,02.")}},
+      "ranges": {"name": T("Other readings: acceptable ranges", "Otras lecturas: rangos aceptables"),
+        "data": {k: v for k, v in reading_data.items() if "_range_" in k}},
+      "validity": {"name": T("How long a reading is trusted", "Cuánto tiempo vale una lectura"),
+        "data": {k: v for k, v in reading_data.items() if k.endswith("_stale_days")}},
+      "treatments": {"name": T("Treatment products", "Productos de tratamiento"), "data": {
+          "shock_product": T("Shock product", "Producto de choque"),
+          "shock_concentration": T("Shock product concentration", "Concentración del producto de choque"),
+          "clarifier_dose_per_10m3": T("Clarifier, dose per 10 m³", "Clarificante, dosis por 10 m³"),
+          "clarifier_dose_unit": T("Clarifier, unit", "Clarificante, unidad"),
+          "flocculant_dose_per_10m3": T("Flocculant, dose per 10 m³", "Floculante, dosis por 10 m³"),
+          "flocculant_dose_unit": T("Flocculant, unit", "Floculante, unidad")},
+        "data_description": {
+          "shock_product": T("What you shock green water with. HomePool works out the dose from the pool's volume.", "Con qué haces el choque al agua verde. HomePool calcula la dosis con el volumen de la piscina."),
+          "shock_concentration": T("Per cent of chlorine for a granular product, g/L for a liquid one, as on the label. Empty: 65 % calcium hypochlorite, 150 g/L sodium hypochlorite, 56 % dichlor.", "Por ciento de cloro si es granulado, g/L si es líquido, según la etiqueta. Vacío: hipoclorito cálcico al 65 %, hipoclorito sódico a 150 g/L, dicloro al 56 %."),
+          "clarifier_dose_per_10m3": T("As on the label. Empty, the dose says to follow the label.", "Según la etiqueta. Vacío, la dosis dice que sigas el envase."),
+          "flocculant_dose_per_10m3": T("As on the label. Empty, the dose says to follow the label.", "Según la etiqueta. Vacío, la dosis dice que sigas el envase.")}},
     },
   },
   "chlorinator_model": {
     "title": T("Salt chlorinator", "Clorador salino"),
-    "description": T("Pick your chlorinator to fill in its figures, or enter them yourself.", "Elige tu clorador para rellenar sus datos, o escríbelos tú."),
+    "description": T("Pick your chlorinator to fill in its figures, or leave it custom. The next page shows them, to check or enter yourself.",
+                     "Elige tu clorador para rellenar sus datos, o déjalo como personalizado. En la siguiente pantalla verás sus datos, para revisarlos o escribirlos tú."),
     "data": {"chlorinator_model": T("Model", "Modelo")},
   },
   "chlorinator": {
@@ -227,26 +242,32 @@ steps_fields = {
   },
   "control": {
     "title": T("Control", "Control"),
-    "data": {
-      "timer_slots": T("Timer mode slots", "Franjas del modo temporizador"),
-      "manual_override_minutes": T("Respect a hand-switched pump for", "Respetar la bomba encendida o apagada a mano durante"),
-      "freeze_protection": T("Run the pump when the water is near freezing", "Encender la bomba si el agua está cerca de congelarse"),
-      "freeze_threshold": T("Freezing threshold", "Umbral de helada"),
-      "ph_correction_minutes": T("pH correction window", "Ventana de corrección de pH"),
-      "ph_correction_max_daily": T("pH correction, most per day", "Corrección de pH, máximo al día"),
-      "equipment_room_max_temp": T("Room too hot above", "Caseta demasiado caliente por encima de"),
-      "filter_pressure_critical": T("Filter pressure that stops the pump", "Presión del filtro que para la bomba"),
-      "energy_price": T("Energy price per kWh", "Precio de la energía por kWh"),
-      "energy_price_entity": T("Energy price entity", "Entidad con el precio de la energía"),
-      "light_entities": T("Pool lights", "Luces de la piscina"),
-      "pool_cleaner_type": T("Pool cleaner", "Limpiafondos"),
-      "robot_entity": T("Robot entity", "Entidad del robot"),
-    },
-    "data_description": {
-      "timer_slots": T("For example 08:00-12:00, 18:00-20:00", "Por ejemplo 08:00-12:00, 18:00-20:00"),
-      "energy_price_entity": T("Takes precedence over the fixed price.", "Tiene prioridad sobre el precio fijo."),
-      "freeze_protection": T("Switches the pump on even in off mode: still water freezes in the pipes, moving water does not. Uses the water temperature, or the air below zero without a water probe.",
-                             "Enciende la bomba incluso en modo apagado: el agua quieta se congela en las tuberías, la que circula no. Usa la temperatura del agua o, sin sonda de agua, el aire bajo cero."),
+    "sections": {
+      "schedule": {"name": T("Timer and switching by hand", "Temporizador y cambios a mano"), "data": {
+          "timer_slots": T("Timer mode slots", "Franjas del modo temporizador"),
+          "manual_override_minutes": T("Respect a hand-switched pump for", "Respetar la bomba encendida o apagada a mano durante")},
+        "data_description": {
+          "timer_slots": T("For example 08:00-12:00, 18:00-20:00", "Por ejemplo 08:00-12:00, 18:00-20:00")}},
+      "protection": {"name": T("Protection", "Protección"), "data": {
+          "freeze_protection": T("Run the pump when the water is near freezing", "Encender la bomba si el agua está cerca de congelarse"),
+          "freeze_threshold": T("Freezing threshold", "Umbral de helada"),
+          "equipment_room_max_temp": T("Room too hot above", "Caseta demasiado caliente por encima de"),
+          "filter_pressure_critical": T("Filter pressure that stops the pump", "Presión del filtro que para la bomba")},
+        "data_description": {
+          "freeze_protection": T("Switches the pump on even in off mode: still water freezes in the pipes, moving water does not. Uses the water temperature, or the air below zero without a water probe.",
+                                 "Enciende la bomba incluso en modo apagado: el agua quieta se congela en las tuberías, la que circula no. Usa la temperatura del agua o, sin sonda de agua, el aire bajo cero.")}},
+      "ph_correction": {"name": T("pH correction", "Corrección de pH"), "data": {
+          "ph_correction_minutes": T("pH correction window", "Ventana de corrección de pH"),
+          "ph_correction_max_daily": T("pH correction, most per day", "Corrección de pH, máximo al día")}},
+      "energy": {"name": T("Energy", "Energía"), "data": {
+          "energy_price": T("Energy price per kWh", "Precio de la energía por kWh"),
+          "energy_price_entity": T("Energy price entity", "Entidad con el precio de la energía")},
+        "data_description": {
+          "energy_price_entity": T("Takes precedence over the fixed price.", "Tiene prioridad sobre el precio fijo.")}},
+      "accessories": {"name": T("Lights and pool cleaner", "Luces y limpiafondos"), "data": {
+          "light_entities": T("Pool lights", "Luces de la piscina"),
+          "pool_cleaner_type": T("Pool cleaner", "Limpiafondos"),
+          "robot_entity": T("Robot entity", "Entidad del robot")}},
     },
   },
   "notifications": {
@@ -267,19 +288,15 @@ steps_fields = {
     "description": T("How often each job comes round, and when you last did it. Only the tasks your pool needs are listed. In winter the filter jobs count hours of pump instead of days.",
                      "Cada cuánto toca cada trabajo y cuándo lo hiciste por última vez. Solo salen las tareas que tu piscina necesita. En invierno los trabajos del filtro cuentan horas de bomba en lugar de días."),
     "data": tasks_data,
-    "data_description": {
-      "has_ph_probe_outside": T("Turns on the pH calibration reminder when HomePool has no pH sensor. Save, then open this page again to set its interval.",
-                                "Activa el recordatorio de calibración del pH cuando HomePool no tiene sensor de pH. Guarda y abre esta página otra vez para fijar su intervalo."),
-    },
   },
 }
 
 errors = {
-  "range_order": T("The lowest value cannot be above the highest.", "El valor mínimo no puede ser mayor que el máximo."),
+  "range_order": T("In one of these readings the lowest value is above the highest.", "En alguna de estas lecturas el valor mínimo es mayor que el máximo."),
   "depth_order": T("The deepest depth cannot be less than the shallowest.", "La profundidad máxima no puede ser menor que la mínima."),
   "cover_entity_required": T("An automatic cover needs its entity.", "Una cubierta automática necesita su entidad."),
   "pressure_order": T("The high pressure must be above the low one.", "La presión máxima debe ser mayor que la mínima."),
-  "ph_order": T("The target must be inside the acceptable range.", "El objetivo debe estar dentro del rango aceptable."),
+  "ph_order": T("The pH target must be inside the acceptable range.", "El pH objetivo debe estar dentro del rango aceptable."),
   "no_months": T("Pick at least one month.", "Elige al menos un mes."),
   "concentration_range": T("That concentration cannot be right: up to 100 % for a granular product, up to 300 g/L for a liquid one.", "Esa concentración no puede ser: hasta el 100 % si es granulado, hasta 300 g/L si es líquido."),
   "same_switch": T("The chlorinator switch must be a different entity from the pump switch. If the cell is wired with the pump, leave it empty.", "El interruptor del clorador debe ser distinto del de la bomba. Si la célula va conectada con la bomba, déjalo vacío."),
