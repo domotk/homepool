@@ -233,8 +233,8 @@ change, and each only where it makes sense:
 | `backwash` / `filter_cleaning` | 14 days; 112 pump hours in active wintering and opening | all but passive wintering |
 | `ph_calibration` | 180 days (existing installs keep theirs) | all but passive; needs a probe in HomePool or the option `has_ph_probe_outside` |
 | `winter_product` | 56 days | wintering, with a product |
-| `water_test` | 7 days; 14 in active wintering | all but passive |
-| `skimmer_baskets` | 7 days (can be switched off) | swimming |
+| `water_test` | 7 days; 14 in active wintering (can be switched off) | all but passive; not with both a pH and a free chlorine probe |
+| `skimmer_baskets` | 7 days, **off until you turn it on** in *Recurring tasks* | swimming |
 | `cell_cleaning` | 90 days | swimming, salt chlorinator |
 | `filter_media_check` | 1825 days (can be switched off) | all but passive; sand or glass filter |
 

@@ -17,6 +17,7 @@ from ..const import (
     CONF_BACKWASH_INTERVAL_DAYS,
     CONF_CHLORINATION_TYPE,
     CONF_FILTER_TYPE,
+    CONF_FREE_CHLORINE_SENSOR,
     CONF_HAS_PH_PROBE_OUTSIDE,
     CONF_PH_CALIBRATION_INTERVAL_DAYS,
     CONF_PH_SENSOR,
@@ -48,6 +49,8 @@ class TaskDef:
     optional: bool
     # Where the interval in days differs from ``days`` in some state.
     days_by_state: tuple[tuple[str, int], ...] = ()
+    # Whether an optional task is on until the owner says otherwise.
+    enabled_by_default: bool = True
 
 
 TASKS: tuple[TaskDef, ...] = (
@@ -58,10 +61,15 @@ TASKS: tuple[TaskDef, ...] = (
     TaskDef("ph_calibration", "ph_calibrated", 180, None, (), _NOT_PASSIVE, False),
     TaskDef("winter_product", "winter_product_added", 56, None, (), _WINTER, False),
     TaskDef(
-        "water_test", "water_tested", 7, None, (), _NOT_PASSIVE, False,
+        "water_test", "water_tested", 7, None, (), _NOT_PASSIVE, True,
         days_by_state=((WINTER_ACTIVE, 14),),
     ),
-    TaskDef("skimmer_baskets", "skimmer_baskets_emptied", 7, None, (), (SWIMMING,), True),
+    # Off for everyone until turned on in the Recurring tasks step (ruling 27):
+    # a weekly reminder nobody asked for is noise after an upgrade.
+    TaskDef(
+        "skimmer_baskets", "skimmer_baskets_emptied", 7, None, (), (SWIMMING,), True,
+        enabled_by_default=False,
+    ),
     TaskDef("cell_cleaning", "cell_cleaned", 90, None, (), (SWIMMING,), False),
     TaskDef("filter_media_check", "filter_media_checked", 1825, None, (), _NOT_PASSIVE, True),
 )
@@ -99,6 +107,8 @@ def task_applies(key: str, conf: Mapping[str, Any]) -> bool:
         "backwash": filter_bed,
         "filter_cleaning": not filter_bed,
         "ph_calibration": bool(conf.get(CONF_PH_SENSOR) or conf.get(CONF_HAS_PH_PROBE_OUTSIDE)),
+        # Both probes measure what the water test would.
+        "water_test": not (conf.get(CONF_PH_SENSOR) and conf.get(CONF_FREE_CHLORINE_SENSOR)),
         "winter_product": _set(conf, CONF_WINTER_PRODUCT_TYPE, "none") != "none",
         "cell_cleaning": conf.get(CONF_CHLORINATION_TYPE) == "salt",
         "filter_media_check": filter_type in (FilterType.SAND, FilterType.GLASS),

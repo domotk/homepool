@@ -1120,7 +1120,11 @@ class _Wizard:
                     )
                 ] = _number(1, 2000, 1, "h")
             if defn.optional:
-                fields[vol.Required(f"{key}_enabled", default=mine.get("enabled", True))] = bool
+                fields[
+                    vol.Required(
+                        f"{key}_enabled", default=mine.get("enabled", defn.enabled_by_default)
+                    )
+                ] = bool
             last = self._last_done_date(key)
             fields[
                 vol.Optional(
@@ -1157,8 +1161,10 @@ class _Wizard:
                         hours = float(user_input[f"{key}_pump_hours"])
                         if hours != defn.pump_hours:
                             entry["pump_hours"] = hours
-                    if defn.optional and not user_input[f"{key}_enabled"]:
-                        entry["enabled"] = False
+                    if defn.optional:
+                        enabled = bool(user_input[f"{key}_enabled"])
+                        if enabled != defn.enabled_by_default:
+                            entry["enabled"] = enabled
                     if key in dates and dates[key] != self._last_done_date(key):
                         await self._record_last_done(key, dates[key], entry)
                     if entry:

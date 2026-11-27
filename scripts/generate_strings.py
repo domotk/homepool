@@ -47,7 +47,7 @@ for _k, (_en, _es) in reading_names.items():
   reading_data[f"{_k}_stale_days"] = T(f"{_en} reading, trusted for (days)", f"Lectura de {_es.lower()}, válida durante (días)")
 
 _pump_hours_tasks = ("backwash", "filter_cleaning")
-_optional_tasks = ("skimmer_baskets", "filter_media_check")
+_optional_tasks = ("water_test", "skimmer_baskets", "filter_media_check")
 tasks_data = {}
 for _k, (_en, _es) in task_names.items():
   tasks_data[f"{_k}_days"] = T(f"{_en}: every (days)", f"{_es}: cada (días)")

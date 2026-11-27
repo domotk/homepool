@@ -115,14 +115,18 @@ async def test_tasks_exist_by_equipment(
     entry = await setup_pool(hass)
     coordinator = entry.runtime_data
     keys = [t["task"] for t in coordinator.task_status()]
-    assert keys == [
-        "backwash", "water_test", "skimmer_baskets", "cell_cleaning", "filter_media_check",
-    ]
+    # Ruling 27: the skimmer baskets are off until the owner turns them on.
+    assert keys == ["backwash", "water_test", "cell_cleaning", "filter_media_check"]
     hass.config_entries.async_update_entry(
-        coordinator.entry, options={"tasks": {"skimmer_baskets": {"enabled": False}}}
+        coordinator.entry, options={"tasks": {"skimmer_baskets": {"enabled": True}}}
     )
-    assert coordinator.task_overrides == {"skimmer_baskets": {"enabled": False}}
-    assert "skimmer_baskets" not in [t["task"] for t in coordinator.task_status()]
+    assert coordinator.task_overrides == {"skimmer_baskets": {"enabled": True}}
+    assert "skimmer_baskets" in [t["task"] for t in coordinator.task_status()]
+    hass.config_entries.async_update_entry(
+        coordinator.entry, options={"tasks": {"water_test": {"enabled": False}}}
+    )
+    assert "water_test" not in [t["task"] for t in coordinator.task_status()]
+    hass.config_entries.async_update_entry(coordinator.entry, options={})
     hass.config_entries.async_update_entry(
         coordinator.entry, data={**coordinator.entry.data, "has_ph_probe_outside": True}
     )
@@ -175,7 +179,7 @@ async def test_rows_new_in_0_2_are_not_overdue_on_upgrade(
     rows = {t["task"]: t for t in entry.runtime_data.task_status()}
     assert rows["backwash"]["overdue"]
     assert not rows["water_test"]["overdue"]
-    assert not rows["skimmer_baskets"]["overdue"]
+    assert "skimmer_baskets" not in rows  # off until turned on (ruling 27)
     assert rows["water_test"]["due"] == "2026-07-22"
     coordinator = entry.runtime_data
     first_seen = coordinator.task_first_seen["water_test"]
@@ -189,7 +193,7 @@ async def test_disabling_an_overdue_task_clears_its_alert(
 ) -> None:
     freezer.move_to(local(2026, 7, 15, 10, 0))
     SwitchRouter(hass)
-    entry = await setup_pool(hass)
+    entry = await setup_pool(hass, tasks={"skimmer_baskets": {"enabled": True}})
     coordinator = entry.runtime_data
     coordinator.tasks["skimmer_baskets_emptied"] = local(2026, 7, 1, 10, 0).isoformat()
     await tick(hass, freezer, 1)
@@ -241,8 +245,40 @@ async def test_tasks_step_disables_an_optional_task(
     freezer.move_to(local(2026, 7, 15, 10, 0))
     SwitchRouter(hass)
     entry = await setup_pool(hass)
-    await _options_tasks(hass, entry, {"skimmer_baskets_enabled": False})
+    await _options_tasks(hass, entry, {"water_test_enabled": False})
+    assert entry.options["tasks"]["water_test"] == {"enabled": False}
+    assert "water_test" not in [t["task"] for t in entry.runtime_data.task_status()]
+
+
+async def test_tasks_step_turns_on_the_skimmer_baskets(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
+) -> None:
+    freezer.move_to(local(2026, 7, 15, 10, 0))
+    SwitchRouter(hass)
+    entry = await setup_pool(hass)
     assert "skimmer_baskets" not in [t["task"] for t in entry.runtime_data.task_status()]
+    await _options_tasks(hass, entry, {"skimmer_baskets_enabled": True})
+    assert entry.options["tasks"]["skimmer_baskets"] == {"enabled": True}
+    assert "skimmer_baskets" in [t["task"] for t in entry.runtime_data.task_status()]
+    # Turned off again, nothing is kept: off is the default.
+    await _options_tasks(hass, entry, {"skimmer_baskets_enabled": False})
+    assert "skimmer_baskets" not in entry.options["tasks"]
+    assert "skimmer_baskets" not in [t["task"] for t in entry.runtime_data.task_status()]
+
+
+async def test_no_water_test_with_a_ph_and_a_free_chlorine_probe(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
+) -> None:
+    freezer.move_to(local(2026, 7, 15, 10, 0))
+    SwitchRouter(hass)
+    entry = await setup_pool(hass, ph_sensor="sensor.ph", free_chlorine_sensor="sensor.fc")
+    coordinator = entry.runtime_data
+    assert "water_test" not in [t["task"] for t in coordinator.task_status()]
+    assert "button.pool_water_tested" not in _entity_ids(hass, entry)
+    # One probe alone still leaves the other reading to the owner.
+    data = {k: v for k, v in entry.data.items() if k != "free_chlorine_sensor"}
+    hass.config_entries.async_update_entry(entry, data=data)
+    assert "water_test" in [t["task"] for t in coordinator.task_status()]
 
 
 async def test_complete_task_service_with_a_date(
@@ -300,7 +336,7 @@ async def test_task_buttons_exist_only_with_their_task(
     entry = await setup_pool(hass)
     ids = _entity_ids(hass, entry)
     assert "button.pool_water_tested" in ids
-    assert "button.pool_skimmer_baskets_emptied" in ids
+    assert "button.pool_skimmer_baskets_emptied" not in ids  # off by default
     assert "button.pool_winter_product_added" not in ids
     await hass.services.async_call(
         "button", "press", {"entity_id": "button.pool_water_tested"}, blocking=True

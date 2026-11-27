@@ -194,7 +194,7 @@ async def test_full_wizard_creates_entry(hass: HomeAssistant) -> None:
     assert "cell_cleaning_days" in shown  # salt
     assert "filter_cleaning_days" not in shown  # sand filter
     assert "skimmer_baskets_enabled" in shown
-    assert "water_test_enabled" not in shown  # not optional
+    assert "water_test_enabled" in shown  # optional since ruling 27
     assert "has_ph_probe_outside" in shown
     result = await hass.config_entries.flow.async_configure(result["flow_id"], {})
     assert result["type"] is FlowResultType.CREATE_ENTRY

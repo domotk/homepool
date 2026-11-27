@@ -1036,7 +1036,9 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         return self.conf.get("tasks") or {}
 
     def _task_exists(self, defn: TaskDef) -> bool:
-        if defn.optional and self.task_overrides.get(defn.key, {}).get("enabled") is False:
+        if defn.optional and not self.task_overrides.get(defn.key, {}).get(
+            "enabled", defn.enabled_by_default
+        ):
             return False
         return task_applies(defn.key, self.conf)
 
