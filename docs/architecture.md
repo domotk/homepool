@@ -177,10 +177,13 @@ passive wintering (salt is never stale while the cell is not in use).
 ## The chlorinator
 
 `chlorinator_wanted()` turns the cell on only with water flowing for
-`CHLORINATOR_FLOW_DELAY_S`, inside its season (`chlorinator_active_months`,
-toggled automatically at season start and end if `chlorinator_auto_toggle`),
-with the master switch *Chlorinator in use* on, the water warm enough, and the
-day's chlorine not yet produced. A maintenance lock or safety shutoff blocks
+`CHLORINATOR_FLOW_DELAY_S`, inside its season, with the master switch
+*Chlorinator in use* on, the water warm enough, and the day's chlorine not yet
+produced. Since 0.2 the season is the season state's
+(`PoolCoordinator.cell_in_season`: `swimming`, and `opening` once the cell is in
+use; never in wintering), and the same answer decides the chlorine part of the
+target and the salt and cell alerts. `chlorinator_active_months` only seeds
+`swimming_months` and fires the 0.1 season events. A maintenance lock or safety shutoff blocks
 it.
 
 ## State that survives a restart
@@ -190,8 +193,9 @@ it.
 - the target and when it was worked out;
 - runtime settings (mode, multiplier, chlorinator in use…);
 - maintenance tasks and manual readings, plus `tasks_since`, `task_pump_s`
-  (pump seconds per task) and `task_first_seen` (tasks new in 0.2 count from
-  when they first appear, so an update does not make them overdue);
+  (pump seconds per task) and `task_first_seen` (on the first load of 0.2 the
+  0.1.4 rows get `tasks_since`; any other row counts from when it first
+  appears, so neither an update nor a new probe makes it overdue);
 - `winter_entered`, `winter_top_up_from` (a winter product added while closing
   counts for that winter) and `in_season_last`;
 - `season_proposal` (with `dismissed_for`), `checklists` (by id), `treatment`

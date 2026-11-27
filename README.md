@@ -207,7 +207,9 @@ the date says so.
   reminds).
 - *Chlorinator in use* follows the state: on in `swimming` (or when you
   reconnect the cell in the opening list), off in either wintering. You can
-  still flip it by hand, and the last change wins.
+  still flip it by hand, and the last change wins, but in wintering the cell
+  stays off whatever it says: the season state decides. Confirming the state
+  the pool is already in does not change it.
 - Changing state fires `homepool_season_state_changed` (old and new). The 0.1
   chlorinator season events still fire.
 
@@ -361,7 +363,7 @@ entities exist depends on what you connected.
 | `sensor.<pool>_total_alkalinity` · `_calcium_hardness` · `_cyanuric_acid` · `_combined_chlorine` · `_manual_ph` | Your last reading of each, with when it was taken |
 | `sensor.<pool>_recommended_chlorinator_production` | The production % that matches today's demand |
 | `sensor.<pool>_chlorine_production_today` · `_left_today` | Cell running time, with a separate cell switch |
-| `sensor.<pool>_salinity` · `_free_chlorine` | From a sensor, or from the last reading you recorded |
+| `sensor.<pool>_salinity` · `_free_chlorine` | From a sensor, or from the last reading you recorded; an old reading still shows, with `stale` on, but no longer counts |
 | `sensor.<pool>_ph_trend` | Rising, stable or falling over the last three hours |
 | `sensor.<pool>_pump_energy_today` · `_pump_cost_today` | With an energy sensor, and a price |
 | `binary_sensor.<pool>_daily_target_reached` · `_pump_running` | |

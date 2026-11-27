@@ -160,6 +160,7 @@
           "salt_range_max": "Sal máxima"
         },
         "data_description": {
+          "chlorinator_active_months": "Los meses de baño parten de estos si no das otros, y los avisos de temporada del clorador los siguen. Si la célula trabaja lo decide el estado de temporada: en baño trabaja sea cual sea el mes, en invernaje no.",
           "chlorinator_auto_toggle": "Cuando terminan los meses de baño o están a punto de empezar, HomePool propone cambiar el estado de temporada y tú lo confirmas. Si no, lo cambias tú. En los dos casos, terminar la lista de apertura con la piscina en apertura propone pasar a baño."
         }
       },
@@ -477,6 +478,7 @@
           "salt_range_max": "Sal máxima"
         },
         "data_description": {
+          "chlorinator_active_months": "Los meses de baño parten de estos si no das otros, y los avisos de temporada del clorador los siguen. Si la célula trabaja lo decide el estado de temporada: en baño trabaja sea cual sea el mes, en invernaje no.",
           "chlorinator_auto_toggle": "Cuando terminan los meses de baño o están a punto de empezar, HomePool propone cambiar el estado de temporada y tú lo confirmas. Si no, lo cambias tú. En los dos casos, terminar la lista de apertura con la piscina en apertura propone pasar a baño."
         }
       },
@@ -1200,7 +1202,7 @@
   "services": {
     "start_cycle": {
       "name": "Iniciar ciclo",
-      "description": "Pone la bomba en marcha un rato, por encima del modo. El bloqueo y la seguridad siguen mandando.",
+      "description": "Pone la bomba en marcha un rato, por encima del modo. El bloqueo y la seguridad siguen mandando. No se admite con un tratamiento del agua en marcha.",
       "fields": {
         "duration": {
           "name": "Duración",
@@ -1210,7 +1212,7 @@
     },
     "stop_cycle": {
       "name": "Detener ciclo",
-      "description": "Detiene un ciclo manual y mantiene la bomba apagada durante el tiempo de respeto.",
+      "description": "Detiene un ciclo manual y mantiene la bomba apagada durante el tiempo de respeto. No se admite con un tratamiento del agua en marcha.",
       "fields": {}
     },
     "record_manual_action": {
@@ -1354,7 +1356,7 @@
     },
     "end_treatment": {
       "name": "Terminar tratamiento del agua",
-      "description": "Termina el tratamiento ahora. El filtro queda pendiente de contralavado.",
+      "description": "Termina el tratamiento ahora. El filtro queda pendiente de contralavado, salvo que se haya hecho uno durante el tratamiento.",
       "fields": {}
     },
     "reset_daily_counters": {

@@ -160,6 +160,7 @@
           "salt_range_max": "Salt, highest"
         },
         "data_description": {
+          "chlorinator_active_months": "The swimming months start from these when you give none, and the chlorinator's season events follow them. Whether the cell works follows the season state: in swimming it works whatever the month, in wintering it does not.",
           "chlorinator_auto_toggle": "When the swimming months end or are about to start, HomePool proposes changing the season state; you confirm it. Otherwise you change it yourself. Either way, finishing the opening checklist while the pool is in the opening state proposes swimming."
         }
       },
@@ -477,6 +478,7 @@
           "salt_range_max": "Salt, highest"
         },
         "data_description": {
+          "chlorinator_active_months": "The swimming months start from these when you give none, and the chlorinator's season events follow them. Whether the cell works follows the season state: in swimming it works whatever the month, in wintering it does not.",
           "chlorinator_auto_toggle": "When the swimming months end or are about to start, HomePool proposes changing the season state; you confirm it. Otherwise you change it yourself. Either way, finishing the opening checklist while the pool is in the opening state proposes swimming."
         }
       },
@@ -1200,7 +1202,7 @@
   "services": {
     "start_cycle": {
       "name": "Start cycle",
-      "description": "Runs the pump for a while, above the operation mode. Lock and safety still win.",
+      "description": "Runs the pump for a while, above the operation mode. Lock and safety still win. Refused while a water treatment runs.",
       "fields": {
         "duration": {
           "name": "Duration",
@@ -1210,7 +1212,7 @@
     },
     "stop_cycle": {
       "name": "Stop cycle",
-      "description": "Stops a manual cycle and holds the pump off for the override time.",
+      "description": "Stops a manual cycle and holds the pump off for the override time. Refused while a water treatment runs.",
       "fields": {}
     },
     "record_manual_action": {
@@ -1354,7 +1356,7 @@
     },
     "end_treatment": {
       "name": "End water treatment",
-      "description": "Ends the treatment now. The filter is left due a backwash.",
+      "description": "Ends the treatment now. The filter is left due a backwash, unless one was recorded during the treatment.",
       "fields": {}
     },
     "reset_daily_counters": {

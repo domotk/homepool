@@ -180,6 +180,7 @@ steps_fields = {
       "salt_target": T("Salt target", "Sal objetivo"), "salt_range_min": T("Salt, lowest", "Sal mínima"), "salt_range_max": T("Salt, highest", "Sal máxima"),
     },
     "data_description": {
+      "chlorinator_active_months": T("The swimming months start from these when you give none, and the chlorinator's season events follow them. Whether the cell works follows the season state: in swimming it works whatever the month, in wintering it does not.", "Los meses de baño parten de estos si no das otros, y los avisos de temporada del clorador los siguen. Si la célula trabaja lo decide el estado de temporada: en baño trabaja sea cual sea el mes, en invernaje no."),
       "chlorinator_auto_toggle": T("When the swimming months end or are about to start, HomePool proposes changing the season state; you confirm it. Otherwise you change it yourself. Either way, finishing the opening checklist while the pool is in the opening state proposes swimming.", "Cuando terminan los meses de baño o están a punto de empezar, HomePool propone cambiar el estado de temporada y tú lo confirmas. Si no, lo cambias tú. En los dos casos, terminar la lista de apertura con la piscina en apertura propone pasar a baño."),
     },
   },
@@ -473,9 +474,9 @@ for _shape, _variants in _layouts.items():
   selectors[f"layout_variant_{_shape}"] = {v["id"]: T(v["name"], LAYOUT_ES[_shape][v["id"]]) for v in _variants}
 
 services = {
-  "start_cycle": (T("Start cycle", "Iniciar ciclo"), T("Runs the pump for a while, above the operation mode. Lock and safety still win.", "Pone la bomba en marcha un rato, por encima del modo. El bloqueo y la seguridad siguen mandando."),
+  "start_cycle": (T("Start cycle", "Iniciar ciclo"), T("Runs the pump for a while, above the operation mode. Lock and safety still win. Refused while a water treatment runs.", "Pone la bomba en marcha un rato, por encima del modo. El bloqueo y la seguridad siguen mandando. No se admite con un tratamiento del agua en marcha."),
       {"duration": (T("Duration", "Duración"), T("Minutes. One full turnover if left out.", "Minutos. Una renovación completa si se omite."))}),
-  "stop_cycle": (T("Stop cycle", "Detener ciclo"), T("Stops a manual cycle and holds the pump off for the override time.", "Detiene un ciclo manual y mantiene la bomba apagada durante el tiempo de respeto."), {}),
+  "stop_cycle": (T("Stop cycle", "Detener ciclo"), T("Stops a manual cycle and holds the pump off for the override time. Refused while a water treatment runs.", "Detiene un ciclo manual y mantiene la bomba apagada durante el tiempo de respeto. No se admite con un tratamiento del agua en marcha."), {}),
   "record_manual_action": (T("Record manual action", "Registrar acción manual"), T("Logs a job done by hand, and resets its reminder where there is one.", "Anota un trabajo hecho a mano y reinicia su recordatorio, si lo tiene."),
       {"action_type": (T("Action", "Acción"), T("What was done.", "Qué se ha hecho.")),
        "value": (T("Value", "Valor"), T("An amount, if it has one.", "Una cantidad, si la tiene.")),
@@ -505,7 +506,7 @@ services = {
        "severity": (T("How green", "Cuánto de verde"), T("For a shock: how much the free chlorine is raised (10, 15 or 20 mg/L).", "Para un choque: cuánto se sube el cloro libre (10, 15 o 20 mg/L).")),
        "hours": (T("Hours", "Horas"), T("Hours of filtering, or of settling for a flocculant. The default if left out: 24 h shock, 48 h clarifier, 12 h settling.", "Horas de filtrado, o de reposo en el floculante. Si se omite, las de siempre: choque 24 h, clarificante 48 h, reposo 12 h."))}),
   "advance_treatment": (T("Next treatment phase", "Siguiente fase del tratamiento"), T("Moves the treatment to its next phase now. For a flocculant that is vacuuming, it means the vacuuming is done.", "Pasa el tratamiento a su fase siguiente ahora. En un floculante que está aspirando, quiere decir que el aspirado ha terminado."), {}),
-  "end_treatment": (T("End water treatment", "Terminar tratamiento del agua"), T("Ends the treatment now. The filter is left due a backwash.", "Termina el tratamiento ahora. El filtro queda pendiente de contralavado."), {}),
+  "end_treatment": (T("End water treatment", "Terminar tratamiento del agua"), T("Ends the treatment now. The filter is left due a backwash, unless one was recorded during the treatment.", "Termina el tratamiento ahora. El filtro queda pendiente de contralavado, salvo que se haya hecho uno durante el tratamiento."), {}),
   "reset_daily_counters": (T("Reset today's counters", "Reiniciar contadores de hoy"), T("Starts today's filtration count from zero.", "Vuelve a poner a cero la filtración de hoy."), {}),
 }
 
