@@ -586,6 +586,9 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.tasks_since = _parse_dt(data.get("tasks_since")) or dt_util.utcnow()
         self.task_pump_s = {k: float(v) for k, v in (data.get("task_pump_s") or {}).items()}
         self.task_first_seen = data.get("task_first_seen") or {}
+        if "task_first_seen" not in data:
+            # The first load of 0.2 (or a new install).
+            self._seed_legacy_first_seen()
         self.winter_entered = _parse_dt(data.get("winter_entered"))
         self.winter_top_up_from = _parse_dt(data.get("winter_top_up_from"))
         self._seed_task_dates()
@@ -1059,6 +1062,16 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             return int(override)
         return configured_days(defn, self.conf, self.season_state)
 
+    def _seed_legacy_first_seen(self) -> None:
+        """On the first load of 0.2, the rows 0.1.4 already had count from
+        ``tasks_since``, as they did. One that only appears later (a pH probe
+        of the owner's own turned on) counts from when it appears."""
+        if self.tasks_since is None:
+            return
+        for key in LEGACY_TASKS:
+            if key not in self.task_first_seen and self._task_exists(TASKS_BY_KEY[key]):
+                self.task_first_seen[key] = self.tasks_since.isoformat()
+
     def _seed_task_dates(self) -> None:
         """Take the "last done" dates given in the setup wizard, once.
 
@@ -1091,7 +1104,7 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # Never marked as done: count from when HomePool started keeping
         # tasks, so a task without a date still falls due one day.
         counted_from = self.tasks_since if done is None else None
-        if done is None and defn.key not in LEGACY_TASKS:
+        if done is None:
             first_seen = _parse_dt(self.task_first_seen.get(defn.key))
             if first_seen is None:
                 first_seen = dt_util.utcnow()
@@ -2735,6 +2748,8 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             if defn.key not in listed:
                 await self._async_clear(f"{defn.key}_due")
                 self.due_notified.pop(defn.key, None)
+                # Back one day, it counts from then, not from its first time.
+                self.task_first_seen.pop(defn.key, None)
 
     async def _async_reading_alerts(self) -> None:
         """Out of range, from readings that are not stale; and the ones that are."""

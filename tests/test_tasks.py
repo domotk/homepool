@@ -188,6 +188,51 @@ async def test_rows_new_in_0_2_are_not_overdue_on_upgrade(
     assert coordinator.task_first_seen["water_test"] == first_seen
 
 
+async def test_a_legacy_task_that_appears_after_the_upgrade_counts_from_then(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory, hass_storage
+) -> None:
+    """M4: pH calibration turned on long after the upgrade (a probe of the
+    owner's own) counts from when it appeared, not from ``tasks_since``."""
+    from pytest_homeassistant_custom_component.common import MockConfigEntry
+
+    from custom_components.homepool.const import DOMAIN
+
+    from .helpers import BASE, setup_helpers
+
+    freezer.move_to(local(2026, 7, 15, 10, 0))
+    since = local(2025, 6, 15, 10, 0)
+    hass_storage[f"{DOMAIN}.upg"] = {
+        "version": 1, "key": f"{DOMAIN}.upg",
+        "data": {"day": "2026-07-15", "tasks_since": since.isoformat()},
+    }
+    SwitchRouter(hass)
+    await setup_helpers(hass)
+    entry = MockConfigEntry(domain=DOMAIN, title="Pool", data=BASE, version=1, entry_id="upg")
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    coordinator = entry.runtime_data
+    # A row there at the upgrade still counts from tasks_since.
+    assert _task(coordinator, "backwash")["overdue"]
+    assert _task(coordinator, "backwash")["counted_from"] == since.isoformat()
+    assert "ph_calibration" not in [t["task"] for t in coordinator.task_status()]
+
+    freezer.move_to(local(2026, 8, 1, 10, 0))
+    hass.config_entries.async_update_entry(
+        entry, data={**entry.data, "has_ph_probe_outside": True}
+    )
+    await hass.async_block_till_done()
+    coordinator = entry.runtime_data
+    row = _task(coordinator, "ph_calibration")
+    assert not row["overdue"]
+    assert row["due"] == "2027-01-28"  # 1 Aug + 180 days
+    # Kept across a reload.
+    await hass.config_entries.async_reload(entry.entry_id)
+    await hass.async_block_till_done()
+    assert _task(entry.runtime_data, "ph_calibration")["due"] == "2027-01-28"
+    assert _task(entry.runtime_data, "backwash")["counted_from"] == since.isoformat()
+
+
 async def test_disabling_an_overdue_task_clears_its_alert(
     hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
 ) -> None:
