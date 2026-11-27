@@ -333,6 +333,9 @@ CALENDAR_PROPOSALS = ("winter", "opening")
 # Rungs above freeze protection: with one of them deciding, the pump is not
 # kept running however cold the water is.
 FREEZE_BLOCKERS = ("unavailable", "hands_off", "maintenance_lock", "safety")
+# Vacuuming waits for the owner: they are reminded this long into it, then daily.
+VACUUMING_REMINDER_FIRST = timedelta(hours=3)
+VACUUMING_REMINDER_EVERY = timedelta(days=1)
 # The closing and opening steps a finished shock ticks.
 SHOCK_STEPS = ("closing.shock", "opening.shock")
 # Per treatment that doses by the label: the options with its dose and unit.
@@ -435,6 +438,9 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # "dose", "frost_interrupted"} and "previous_production" when a shock
         # pushed the cell to 100 %.
         self.treatment: dict[str, Any] | None = None
+        # Whether today a treatment kept the pump off on purpose (settling or
+        # vacuuming): such a day misses no target.
+        self.treatment_rest_today = False
         # A finished treatment leaves the filter due a backwash, until one is done.
         self.backwash_after_treatment = False
         # When the last shock ended, until a free chlorine inside the range is
@@ -596,6 +602,7 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.checklists = data.get("checklists") or {}
         self.treatment = data.get("treatment")
         self.backwash_after_treatment = bool(data.get("backwash_after_treatment", False))
+        self.treatment_rest_today = bool(data.get("treatment_rest_today", False))
         self.after_shock_since = _parse_dt(data.get("after_shock_since"))
         if self.in_season_last is None and self.is_salt:
             # Known from the first day, so the first season change after
@@ -755,6 +762,7 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "checklists": self.checklists,
             "treatment": self.treatment,
             "backwash_after_treatment": self.backwash_after_treatment,
+            "treatment_rest_today": self.treatment_rest_today,
             "after_shock_since": _iso(self.after_shock_since),
         }
 
@@ -1338,6 +1346,9 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if pump_on and self.decision_source == "ph_correction":
             self.ph_correction_s += seconds
         phase = self.treatment_phase
+        if phase in (Phase.SETTLING, Phase.VACUUMING):
+            # Charged per side of midnight, so the flag lands on the right day.
+            self.treatment_rest_today = True
         if phase is not None and (
             (counts_pump_time(phase) and pump_on and self.pump_available)
             or (phase == Phase.SETTLING and not pump_on)
@@ -1384,7 +1395,8 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "energy_kwh": self.pump_energy_today,
         }
         self.history = [*self.history, closed][-HISTORY_DAYS:]
-        self._closed_days.append(closed)
+        self._closed_days.append({**closed, "treatment_rest": self.treatment_rest_today})
+        self.treatment_rest_today = False
         self.day = today
         self.elapsed_s = 0.0
         self.chlorine_s = 0.0
@@ -1401,11 +1413,13 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         while self._closed_days:
             closed = self._closed_days.pop(0)
             mode = MODE_REGISTRY.get(self.mode)
-            # Passive wintering keeps the pump off on purpose: no target is missed.
+            # Passive wintering keeps the pump off on purpose, and so does a
+            # treatment settling or waiting to be vacuumed: no target is missed.
             if (
                 mode is not None
                 and mode.guarantees_target
                 and not self.winter_passive
+                and not closed.get("treatment_rest")
                 and closed["target"]
                 and closed["elapsed"] < closed["target"] * 0.9
             ):
@@ -2575,10 +2589,35 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if frost:
             self.treatment["frost_interrupted"] = True
         await self._async_set("treatment_frost", frost, Severity.WARNING)
+        await self._async_vacuuming_reminder()
         if self.after_shock_since is not None:
             probe = self._number(CONF_FREE_CHLORINE_SENSOR)
             if probe is not None and not self._outside("free_chlorine", probe):
                 self.after_shock_since = None
+
+    async def _async_vacuuming_reminder(self) -> None:
+        """Vacuuming never ends by itself: remind the owner 3 h into it, then
+        once a day. The time of the last reminder is kept with the treatment,
+        so a restart does not repeat it."""
+        t = self.treatment
+        if t is None or self.treatment_phase != Phase.VACUUMING:
+            return
+        now = dt_util.utcnow()
+        reminded = _parse_dt(t.get("vacuuming_reminded"))
+        if reminded is None:
+            started = _parse_dt(t.get("phase_started")) or now
+            due = now - started >= VACUUMING_REMINDER_FIRST
+        else:
+            due = now - reminded >= VACUUMING_REMINDER_EVERY
+        if not due:
+            return
+        t["vacuuming_reminded"] = now.isoformat()
+        self._save()
+        language = self.hass.config.language
+        await self._async_remind(
+            text(language, "title") + f" · {self.pool_name}",
+            text(language, "treatment_vacuuming_reminder", pool=self.pool_name),
+        )
 
     async def _async_alerts(self, now: datetime) -> None:
         await self._async_set(

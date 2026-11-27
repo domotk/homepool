@@ -195,8 +195,10 @@ it.
 - `winter_entered`, `winter_top_up_from` (a winter product added while closing
   counts for that winter) and `in_season_last`;
 - `season_proposal` (with `dismissed_for`), `checklists` (by id), `treatment`
-  (type, phase, pump-time and settle counters), `backwash_after_treatment` and
-  `after_shock_since` (swimming stays not advised after a shock);
+  (type, phase, pump-time and settle counters, when vacuuming was last
+  reminded), `backwash_after_treatment`, `treatment_rest_today` (a day spent
+  settling or vacuuming misses no target) and `after_shock_since` (swimming
+  stays not advised after a shock);
 - a short `history` of closed days;
 - `air_max`;
 - the pending override, cycle and pH window.

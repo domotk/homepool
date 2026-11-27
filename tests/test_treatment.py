@@ -630,3 +630,67 @@ async def test_a_backwash_from_before_the_treatment_does_not_count(
     await press(hass, entry, "advance_treatment")
     assert coordinator.backwash_after_treatment
     assert backwash_overdue(entry)
+
+
+async def test_vacuuming_reminds_after_3_hours_then_daily_and_never_ends_alone(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
+) -> None:
+    from .test_winter import NOTIFY, _notified
+
+    freezer.move_to(local(2026, 7, 15, 10, 0))
+    SwitchRouter(hass)
+    calls = await _notified(hass)
+    entry = await setup_pool(hass, **{**NOTIFY, "notification_quiet_hours_start": None,
+                                      "notification_quiet_hours_end": None})
+    await set_mode(hass, "off")
+    await _to_vacuuming(hass, freezer, entry)
+
+    def reminders() -> int:
+        return len([c for c in calls if "vacuum" in c.data["message"].lower()])
+
+    await advance(hass, freezer, 3 * 60 - 5)
+    assert reminders() == 0
+    await advance(hass, freezer, 10, step=1)
+    assert reminders() == 1
+    # Not again after a reload.
+    await hass.config_entries.async_reload(entry.entry_id)
+    await hass.async_block_till_done()
+    await advance(hass, freezer, 23 * 60)
+    assert reminders() == 1
+    await advance(hass, freezer, 60)
+    assert reminders() == 2
+    assert treatment_state(hass, entry).attributes["phase"] == "vacuuming"
+
+
+async def test_a_day_spent_settling_or_vacuuming_misses_no_target(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
+) -> None:
+    freezer.move_to(local(2026, 7, 15, 10, 0))
+    SwitchRouter(hass)
+    missed: list = []
+    hass.bus.async_listen(
+        "homepool_alert",
+        lambda e: missed.append(e.data["context"]) if e.data["type"] == "target_missed" else None,
+    )
+    entry = await setup_pool(hass)
+    await set_mode(hass, "smart")
+    await _to_settling(hass, freezer, entry)
+    await advance(hass, freezer, 12 * 60 + 5)  # past midnight, now vacuuming
+    assert treatment_state(hass, entry).attributes["phase"] == "vacuuming"
+    assert entry.runtime_data.history[-1]["day"] == "2026-07-15"
+    assert entry.runtime_data.history[-1]["elapsed"] < entry.runtime_data.history[-1]["target"]
+    await advance(hass, freezer, 24 * 60)  # a whole day vacuuming
+    assert entry.runtime_data.history[-1]["day"] == "2026-07-16"
+    assert missed == []
+
+    # The treatment over, a short day is a missed target again.
+    coordinator = entry.runtime_data
+    await press(hass, entry, "end_treatment")
+    await coordinator.async_set_setting("maintenance_lock", True)
+    await advance(hass, freezer, 24 * 60)
+    # 17 July still began in vacuuming; 18 July is an ordinary day.
+    assert coordinator.history[-1]["day"] == "2026-07-17"
+    assert missed == []
+    await advance(hass, freezer, 24 * 60)
+    assert coordinator.history[-1]["day"] == "2026-07-18"
+    assert len(missed) == 1

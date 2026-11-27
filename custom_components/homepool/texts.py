@@ -89,6 +89,11 @@ TEXTS: dict[str, dict[str, str]] = {
             "{pool}: freeze protection is running the pump, so the flocculant's "
             "settling is interrupted. It carries on counting once the frost has passed."
         ),
+        "treatment_vacuuming_reminder": (
+            "{pool}: the flocculant is waiting for you to vacuum the floor. When you "
+            "are done, press \"Next treatment phase (vacuuming done)\": until then "
+            "HomePool leaves the pump to you."
+        ),
         "step_closing_shock": "Shock the water with the pH at 7.2–7.4.",
         "step_closing_cell": "Clean the salt cell and store it.",
         "step_closing_backwash": "Backwash the filter.",
@@ -198,6 +203,11 @@ TEXTS: dict[str, dict[str, str]] = {
         "treatment_frost": (
             "{pool}: la antiheladas tiene la bomba en marcha, así que el reposo del "
             "floculante se ha interrumpido. Sigue contando cuando pase la helada."
+        ),
+        "treatment_vacuuming_reminder": (
+            "{pool}: el floculante está esperando a que aspires el fondo. Cuando "
+            "termines, pulsa «Siguiente fase del tratamiento (aspirado terminado)»: "
+            "hasta entonces la bomba la manejas tú."
         ),
         "step_closing_shock": "Choque con el pH en 7,2–7,4.",
         "step_closing_cell": "Limpia la célula y guárdala.",
