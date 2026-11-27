@@ -672,6 +672,10 @@
         "ph_adjusted": "pH adjusted by hand",
         "water_added": "Water added",
         "cell_cleaned": "Cell cleaned",
+        "winter_product_added": "Winter product added",
+        "water_tested": "Water tested",
+        "skimmer_baskets_emptied": "Skimmer baskets emptied",
+        "filter_media_checked": "Filter media checked",
         "other": "Other"
       }
     },
@@ -788,7 +792,12 @@
           "none": "None",
           "backwash": "Backwash",
           "filter_cleaning": "Clean the filter",
-          "ph_calibration": "Calibrate the pH probe"
+          "ph_calibration": "Calibrate the pH probe",
+          "winter_product": "Top up the winter product",
+          "water_test": "Test the water",
+          "skimmer_baskets": "Empty the baskets",
+          "cell_cleaning": "Clean the cell",
+          "filter_media_check": "Check the filter media"
         }
       },
       "overall_status": {

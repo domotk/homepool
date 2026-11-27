@@ -672,6 +672,10 @@
         "ph_adjusted": "pH ajustado a mano",
         "water_added": "Agua añadida",
         "cell_cleaned": "Célula limpiada",
+        "winter_product_added": "Producto de invierno repuesto",
+        "water_tested": "Agua medida",
+        "skimmer_baskets_emptied": "Cestos del skimmer vaciados",
+        "filter_media_checked": "Arena o vidrio revisado",
         "other": "Otra"
       }
     },
@@ -788,7 +792,12 @@
           "none": "Ninguna",
           "backwash": "Contralavado",
           "filter_cleaning": "Limpiar el filtro",
-          "ph_calibration": "Calibrar la sonda de pH"
+          "ph_calibration": "Calibrar la sonda de pH",
+          "winter_product": "Reponer el producto de invierno",
+          "water_test": "Medir el agua",
+          "skimmer_baskets": "Vaciar los cestos",
+          "cell_cleaning": "Limpiar la célula",
+          "filter_media_check": "Revisar la arena o el vidrio"
         }
       },
       "overall_status": {

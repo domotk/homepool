@@ -84,6 +84,7 @@ CONF_PH_RANGE_MIN = "ph_range_min"
 CONF_PH_RANGE_MAX = "ph_range_max"
 CONF_PH_CALIBRATION_INTERVAL_DAYS = "ph_calibration_interval_days"
 CONF_HAS_PH_DOSING = "has_ph_dosing"
+CONF_HAS_PH_PROBE_OUTSIDE = "has_ph_probe_outside"
 CONF_FREE_CHLORINE_TARGET = "free_chlorine_target"
 CONF_FREE_CHLORINE_RANGE_MIN = "free_chlorine_range_min"
 CONF_FREE_CHLORINE_RANGE_MAX = "free_chlorine_range_max"
@@ -296,6 +297,10 @@ class ManualAction(StrEnum):
     PH_ADJUSTED = "ph_adjusted"
     WATER_ADDED = "water_added"
     CELL_CLEANED = "cell_cleaned"
+    WINTER_PRODUCT_ADDED = "winter_product_added"
+    WATER_TESTED = "water_tested"
+    SKIMMER_BASKETS_EMPTIED = "skimmer_baskets_emptied"
+    FILTER_MEDIA_CHECKED = "filter_media_checked"
     OTHER = "other"
 
 
@@ -343,7 +348,7 @@ DEFAULT_RETURNS_COUNT = 2
 DEFAULT_ROBOT_CYCLE_HOURS = 2.0
 DEFAULT_USER_MULTIPLIER = 1.0
 DEFAULT_BACKWASH_INTERVAL_DAYS = 14
-DEFAULT_PH_CALIBRATION_INTERVAL_DAYS = 60
+DEFAULT_PH_CALIBRATION_INTERVAL_DAYS = 180
 DEFAULT_MANUAL_OVERRIDE_MINUTES = 120
 DEFAULT_FREEZE_THRESHOLD = 2.0
 DEFAULT_EQUIPMENT_ROOM_MAX_TEMP = 50.0

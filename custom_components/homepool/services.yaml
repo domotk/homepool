@@ -38,6 +38,10 @@ record_manual_action:
             - ph_adjusted
             - water_added
             - cell_cleaned
+            - winter_product_added
+            - water_tested
+            - skimmer_baskets_emptied
+            - filter_media_checked
             - other
     value:
       selector:

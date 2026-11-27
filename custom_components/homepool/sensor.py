@@ -192,7 +192,17 @@ SENSORS: tuple[PoolSensorDescription, ...] = (
     PoolSensorDescription(
         key="next_manual_task",
         device_class=SensorDeviceClass.ENUM,
-        options=["none", "backwash", "filter_cleaning", "ph_calibration"],
+        options=[
+            "none",
+            "backwash",
+            "filter_cleaning",
+            "ph_calibration",
+            "winter_product",
+            "water_test",
+            "skimmer_baskets",
+            "cell_cleaning",
+            "filter_media_check",
+        ],
         value_fn=lambda c: c.next_manual_task,
         attrs_fn=lambda c: {"tasks": c.task_status(), "recent_actions": c.actions[-10:]},
     ),

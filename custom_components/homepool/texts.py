@@ -42,6 +42,11 @@ TEXTS: dict[str, dict[str, str]] = {
         "backwash_due": "{pool}: the filter is due a backwash.",
         "filter_cleaning_due": "{pool}: the filter cartridge is due a clean.",
         "ph_calibration_due": "{pool}: the pH probe is due a calibration.",
+        "winter_product_due": "{pool}: the winter product needs topping up.",
+        "water_test_due": "{pool}: time to measure the pH and the free chlorine.",
+        "skimmer_baskets_due": "{pool}: time to empty the skimmer and pump baskets.",
+        "cell_cleaning_due": "{pool}: the salt cell is due a check and a clean.",
+        "filter_media_check_due": "{pool}: the filter sand or glass is due a check.",
         "season_start": (
             "{pool}: chlorinator season starts. Check the salt, clean the cell and "
             "calibrate the pH probe."
@@ -86,6 +91,11 @@ TEXTS: dict[str, dict[str, str]] = {
         "backwash_due": "{pool}: toca hacer un contralavado del filtro.",
         "filter_cleaning_due": "{pool}: toca limpiar el cartucho del filtro.",
         "ph_calibration_due": "{pool}: toca calibrar la sonda de pH.",
+        "winter_product_due": "{pool}: toca reponer el producto de invierno.",
+        "water_test_due": "{pool}: toca medir el pH y el cloro libre.",
+        "skimmer_baskets_due": "{pool}: toca vaciar los cestos del skimmer y del prefiltro.",
+        "cell_cleaning_due": "{pool}: toca revisar y limpiar la célula del clorador.",
+        "filter_media_check_due": "{pool}: toca revisar la arena o el vidrio del filtro.",
         "season_start": (
             "{pool}: empieza la temporada del clorador. Revisa la sal, limpia la "
             "célula y calibra la sonda de pH."

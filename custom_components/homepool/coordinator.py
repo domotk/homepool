@@ -76,6 +76,7 @@ from .const import (
     CONF_HANDS_OFF_ENTITY,
     CONF_HAS_COVER,
     CONF_HAS_PH_DOSING,
+    CONF_HAS_PH_PROBE_OUTSIDE,
     CONF_IS_COVERED_BY_ROOF,
     CONF_LATITUDE,
     CONF_LONGITUDE,
@@ -175,6 +176,7 @@ from .pool.scheduler import (
     solar_noon_utc,
     surplus_watts,
 )
+from .pool.tasks import LEGACY_TASKS, TASKS, TASKS_BY_ACTION, TaskDef, default_days, task_state
 from .texts import reason_text, text
 
 _LOGGER = logging.getLogger(__name__)
@@ -298,6 +300,13 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.settings: dict[str, Any] = {}
         self.tasks: dict[str, str] = {}
         self.tasks_since: datetime | None = None
+        # Seconds the pump has run for each task since it was last done, and
+        # the per-task changes made by the owner.
+        self.task_pump_s: dict[str, float] = {}
+        self.task_overrides: dict[str, dict[str, Any]] = {}
+        # When a task row first showed up without a date: rows added after 0.1.4
+        # count from then, so an upgrade does not make them overdue at once.
+        self.task_first_seen: dict[str, str] = {}
         self.manual_readings: dict[str, dict[str, Any]] = {}
         self.actions: list[dict[str, Any]] = []
         self.history: list[dict[str, Any]] = []
@@ -442,6 +451,9 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # When HomePool started keeping tasks: a task never marked as done
         # counts from here. Set on first load, and on the first load of 0.1.4.
         self.tasks_since = _parse_dt(data.get("tasks_since")) or dt_util.utcnow()
+        self.task_pump_s = {k: float(v) for k, v in (data.get("task_pump_s") or {}).items()}
+        self.task_overrides = data.get("task_overrides") or {}
+        self.task_first_seen = data.get("task_first_seen") or {}
         self.manual_readings = data.get("manual_readings") or {}
         self.actions = data.get("actions") or []
         self.history = data.get("history") or []
@@ -569,6 +581,9 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "settings": self.settings,
             "tasks": self.tasks,
             "tasks_since": _iso(self.tasks_since),
+            "task_pump_s": {k: round(v, 1) for k, v in self.task_pump_s.items()},
+            "task_overrides": self.task_overrides,
+            "task_first_seen": self.task_first_seen,
             "manual_readings": self.manual_readings,
             "actions": self.actions[-ACTIONS_KEPT:],
             "history": self.history[-HISTORY_DAYS:],
@@ -773,47 +788,81 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             FilterType.DIATOMACEOUS_EARTH,
         )
 
-    def task_status(self) -> list[dict[str, Any]]:
-        """Every recurring task with when it was done and when it falls due."""
-        tasks: list[dict[str, Any]] = []
-        interval = int(self.opt(CONF_BACKWASH_INTERVAL_DAYS, DEFAULT_BACKWASH_INTERVAL_DAYS))
-        filter_task = "backwash" if self.uses_backwash else "filter_cleaning"
-        tasks.append(self._task(filter_task, interval, force=self.pressure_high))
-        if self.has(CONF_PH_SENSOR):
-            ph_interval = int(
+    @property
+    def season_state(self) -> str:
+        # Until the season state is kept as such, a pool is swimming.
+        return self.settings.get("season_state", "swimming")
+
+    def _task_exists(self, defn: TaskDef) -> bool:
+        key = defn.key
+        if defn.optional and self.task_overrides.get(key, {}).get("enabled") is False:
+            return False
+        filter_bed = self.uses_backwash
+        sand_or_glass = self.conf.get(CONF_FILTER_TYPE, FilterType.SAND) in (
+            FilterType.SAND,
+            FilterType.GLASS,
+        )
+        return {
+            "backwash": filter_bed,
+            "filter_cleaning": not filter_bed,
+            "ph_calibration": self.has(CONF_PH_SENSOR) or self.has(CONF_HAS_PH_PROBE_OUTSIDE),
+            "winter_product": self.opt("winter_product_type", "none") != "none",
+            "cell_cleaning": self.is_salt,
+            "filter_media_check": sand_or_glass,
+        }.get(key, True)
+
+    def _task_days(self, defn: TaskDef) -> int | None:
+        override = self.task_overrides.get(defn.key, {}).get("days")
+        if override is not None:
+            return int(override)
+        if defn.key in ("backwash", "filter_cleaning"):
+            return int(self.opt(CONF_BACKWASH_INTERVAL_DAYS, DEFAULT_BACKWASH_INTERVAL_DAYS))
+        if defn.key == "ph_calibration":
+            return int(
                 self.opt(CONF_PH_CALIBRATION_INTERVAL_DAYS, DEFAULT_PH_CALIBRATION_INTERVAL_DAYS)
             )
-            tasks.append(self._task("ph_calibration", ph_interval))
-        return tasks
+        return default_days(defn, self.season_state)
 
-    def _task(self, task: str, interval: int, force: bool = False) -> dict[str, Any]:
-        stored_key = {"filter_cleaning": ManualAction.FILTER_CLEANED,
-                      "backwash": ManualAction.BACKWASH,
-                      "ph_calibration": ManualAction.PH_CALIBRATED}[task]
-        done = _parse_dt(self.tasks.get(stored_key))
-        counted_from = None
-        if done is None and self.tasks_since is not None:
-            # Never marked as done: count from when HomePool started keeping
-            # tasks, so a task without a date still falls due one day.
-            counted_from = self.tasks_since
-        if done is None and counted_from is not None:
-            due_date = dt_util.as_local(counted_from).date() + timedelta(days=interval)
-            due = due_date.isoformat()
-            overdue = force or dt_util.now().date() >= due_date
-        elif done is None:
-            due = None
-            overdue = force
-        else:
-            due_date = dt_util.as_local(done).date() + timedelta(days=interval)
-            due = due_date.isoformat()
-            overdue = force or dt_util.now().date() >= due_date
+    def _task_pump_hours(self, defn: TaskDef) -> float | None:
+        override = self.task_overrides.get(defn.key, {}).get("pump_hours")
+        return float(override) if override is not None else defn.pump_hours
+
+    def task_status(self) -> list[dict[str, Any]]:
+        """Every recurring task with when it was done and when it falls due."""
+        return [self._task(defn) for defn in TASKS if self._task_exists(defn)]
+
+    def _task(self, defn: TaskDef) -> dict[str, Any]:
+        done = _parse_dt(self.tasks.get(defn.action))
+        # Never marked as done: count from when HomePool started keeping
+        # tasks, so a task without a date still falls due one day.
+        counted_from = self.tasks_since if done is None else None
+        if done is None and defn.key not in LEGACY_TASKS:
+            first_seen = _parse_dt(self.task_first_seen.get(defn.key))
+            if first_seen is None:
+                first_seen = dt_util.utcnow()
+                self.task_first_seen[defn.key] = first_seen.isoformat()
+            counted_from = max(counted_from, first_seen) if counted_from else first_seen
+        state = task_state(
+            defn,
+            last_done=dt_util.as_local(done) if done else None,
+            counted_from=dt_util.as_local(counted_from) if counted_from else None,
+            today=dt_util.now().date(),
+            season_state=self.season_state,
+            pump_seconds_since=self.task_pump_s.get(defn.key, 0.0),
+            days=self._task_days(defn),
+            pump_hours=self._task_pump_hours(defn),
+            force=self.pressure_high and defn.key in ("backwash", "filter_cleaning"),
+        )
         return {
-            "task": task,
+            "task": defn.key,
             "last_done": _iso(done),
-            "interval_days": interval,
+            "interval_days": state.interval_days,
+            "interval_pump_hours": state.interval_pump_hours,
+            "pump_hours_since": state.pump_hours_since,
             "counted_from": _iso(counted_from),
-            "due": due,
-            "overdue": overdue,
+            "due": state.due.isoformat() if state.due else None,
+            "overdue": state.overdue,
+            "paused": state.paused,
         }
 
     @property
@@ -1020,6 +1069,9 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             return
         if pump_on and self.pump_available:
             self.elapsed_s += seconds
+            for defn in TASKS:
+                if defn.pump_hours is not None:
+                    self.task_pump_s[defn.key] = self.task_pump_s.get(defn.key, 0.0) + seconds
         if chlor_on and self.has(CONF_CHLORINATOR_SWITCH):
             self.chlorine_s += seconds
         if pump_on and self.decision_source == "ph_correction":
@@ -1992,25 +2044,15 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             *self.actions,
             {"type": action, "at": now.isoformat(), "value": value, "notes": notes},
         ][-ACTIONS_KEPT:]
-        if action in (
-            ManualAction.BACKWASH,
-            ManualAction.FILTER_CLEANED,
-            ManualAction.SALT_ADDED,
-            ManualAction.PH_CALIBRATED,
-            ManualAction.CELL_CLEANED,
-        ):
+        completed = TASKS_BY_ACTION.get(action)
+        if completed is not None or action == ManualAction.SALT_ADDED:
             self.tasks[action] = now.isoformat()
-            if action in (ManualAction.BACKWASH, ManualAction.FILTER_CLEANED):
+        if completed is not None:
+            self.task_pump_s.pop(completed.key, None)
+            self.due_notified.pop(completed.key, None)
+            if completed.key in ("backwash", "filter_cleaning"):
                 self._pressure_high_since = None
                 self.pressure_high = False
-            self.due_notified.pop(
-                {
-                    ManualAction.BACKWASH: "backwash",
-                    ManualAction.FILTER_CLEANED: "filter_cleaning",
-                    ManualAction.PH_CALIBRATED: "ph_calibration",
-                }.get(action, action),
-                None,
-            )
         self._save()
         await self.async_refresh()
 
