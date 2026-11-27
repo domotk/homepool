@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import date, datetime
 
 from freezegun.api import FrozenDateTimeFactory
+import pytest
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
@@ -375,6 +376,34 @@ async def test_winter_product_due_on_entering_winter(
     assert not row["overdue"]
     assert row["due"] == "2026-11-27"
     assert row["interval_days"] == 56
+
+
+@pytest.mark.parametrize("closing_done", [False, True])
+async def test_a_top_up_during_closing_counts_on_entering_winter(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory, closing_done: bool
+) -> None:
+    """The closing list's winter product step, ticked before winter is
+    confirmed, is this winter's top-up: not due again at once."""
+    freezer.move_to(local(2026, 9, 29, 21, 0))
+    SwitchRouter(hass)
+    entry = await setup_pool(hass, winter_product_type="floater")
+    coordinator = entry.runtime_data
+    await tick(hass, freezer, 4 * 60)  # 30 Sep: winter is proposed
+    assert coordinator.season_proposal["to"] == "winter"
+    assert "closing" in coordinator.checklists
+    freezer.move_to(local(2026, 9, 30, 10, 0))
+    steps = ["closing.winter_product"]
+    if closing_done:
+        # The whole list ticked: it is gone when winter is confirmed.
+        steps = [s["id"] for s in coordinator.checklists["closing"]["steps"]]
+    for step in steps:
+        await coordinator.async_complete_step(step)
+    assert ("closing" in coordinator.checklists) is not closing_done
+    freezer.move_to(local(2026, 10, 1, 10, 0))
+    await set_season(hass, entry, "winter_active")
+    row = _task(coordinator, "winter_product")
+    assert not row["overdue"]
+    assert row["due"] == "2026-11-25"  # 30 Sep + 56 days
 
 
 async def test_winter_product_interval_is_an_option(

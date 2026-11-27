@@ -402,6 +402,10 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # When the pool last went into wintering from another state: the winter
         # product falls due that day, whatever was done in an earlier winter.
         self.winter_entered: datetime | None = None
+        # From when a winter product top-up counts for that winter: the
+        # closing list's or the winter proposal's start, when earlier than
+        # ``winter_entered``, so a top-up done while closing is not due again.
+        self.winter_top_up_from: datetime | None = None
         self.manual_readings: dict[str, dict[str, Any]] = {}
         self.actions: list[dict[str, Any]] = []
         self.history: list[dict[str, Any]] = []
@@ -574,6 +578,7 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.task_pump_s = {k: float(v) for k, v in (data.get("task_pump_s") or {}).items()}
         self.task_first_seen = data.get("task_first_seen") or {}
         self.winter_entered = _parse_dt(data.get("winter_entered"))
+        self.winter_top_up_from = _parse_dt(data.get("winter_top_up_from"))
         self._seed_task_dates()
         self.manual_readings = data.get("manual_readings") or {}
         self.actions = data.get("actions") or []
@@ -733,6 +738,7 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "task_pump_s": {k: round(v, 1) for k, v in self.task_pump_s.items()},
             "task_first_seen": self.task_first_seen,
             "winter_entered": _iso(self.winter_entered),
+            "winter_top_up_from": _iso(self.winter_top_up_from),
             "manual_readings": self.manual_readings,
             "actions": self.actions[-ACTIONS_KEPT:],
             "history": self.history[-HISTORY_DAYS:],
@@ -1060,7 +1066,7 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # from somewhere else.
         counts_done = done
         if defn.key == "winter_product" and self.winter_entered is not None:
-            if done is None or done < self.winter_entered:
+            if done is None or done < (self.winter_top_up_from or self.winter_entered):
                 # Not done since going into winter: it is due that very day.
                 counts_done, counted_from, days = None, self.winter_entered, 0
         state = task_state(
@@ -2710,6 +2716,9 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         """The owner confirms a season state, from the select or the service."""
         new = SeasonState(state)
         old = self.season_state
+        # Taken before the proposal is cleared and a finished list is gone:
+        # a winter product topped up since the closing began counts.
+        closing_began = self._closing_began()
         self.settings["season_state"] = new.value
         if new == SeasonState.SWIMMING:
             self.settings["chlorinator_enabled"] = True
@@ -2728,6 +2737,7 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if new != old:
             if new in WINTER_STATES and old not in WINTER_STATES:
                 self.winter_entered = dt_util.utcnow()
+                self.winter_top_up_from = closing_began
                 # An opening list left open belongs to a season that is over.
                 self.checklists.pop(OPENING, None)
                 self._open_season_checklist("winter")
@@ -2749,6 +2759,19 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         await self._async_maybe_recalculate(dt_util.utcnow(), force=True)
         self._save()
         await self.async_refresh()
+
+    def _closing_began(self) -> datetime | None:
+        """When the closing began: the closing list's creation or the winter
+        proposal's start, whichever came first."""
+        starts = []
+        closing = self.checklists.get(CLOSING)
+        if closing is not None:
+            starts.append(_parse_dt(closing.get("created")))
+        proposal = self.season_proposal
+        if proposal is not None and proposal.get("to") == "winter":
+            starts.append(_parse_dt(proposal.get("since")))
+        starts = [s for s in starts if s is not None]
+        return min(starts) if starts else None
 
     async def async_dismiss_season_proposal(self) -> None:
         """Not now: the proposal is not brought up again until the calendar

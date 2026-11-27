@@ -192,7 +192,8 @@ it.
 - maintenance tasks and manual readings, plus `tasks_since`, `task_pump_s`
   (pump seconds per task) and `task_first_seen` (tasks new in 0.2 count from
   when they first appear, so an update does not make them overdue);
-- `winter_entered` and `in_season_last`;
+- `winter_entered`, `winter_top_up_from` (a winter product added while closing
+  counts for that winter) and `in_season_last`;
 - `season_proposal` (with `dismissed_for`), `checklists` (by id), `treatment`
   (type, phase, pump-time and settle counters), `backwash_after_treatment` and
   `after_shock_since` (swimming stays not advised after a shock);
