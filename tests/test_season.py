@@ -399,6 +399,28 @@ async def test_the_season_state_decides_the_cell_outside_its_months(
     assert not coordinator.target.get("target_chlorine_minutes")
 
 
+async def test_in_winter_the_cell_stays_off_even_in_its_months_and_switched_on(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
+) -> None:
+    """Ruling 24, winter side: in July, a chlorinator month, with the cell
+    switched back on by hand, active wintering still keeps it off."""
+    freezer.move_to(local(2026, 7, 15, 12, 0))
+    SwitchRouter(hass)
+    entry = await setup_pool(hass, chlorinator_switch=CHLORINATOR)
+    coordinator = entry.runtime_data
+    await set_season(hass, entry, "winter_active")
+    await coordinator.async_set_setting("chlorinator_enabled", True)
+    await coordinator.async_record_reading("salt", 2.8)
+    await coordinator.async_start_cycle(120)
+    await tick(hass, freezer, 3)
+    assert coordinator.chlorinator_enabled
+    assert state(hass, PUMP) == "on"
+    assert state(hass, CHLORINATOR) == "off"
+    assert not coordinator.target.get("target_chlorine_minutes")
+    assert coordinator.chlorination_mode != "salt"
+    assert "salt_low" not in coordinator.alerts
+
+
 async def test_in_opening_the_cell_counts_once_it_is_in_use(
     hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
 ) -> None:
