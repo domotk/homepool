@@ -598,3 +598,35 @@ async def test_a_pump_already_on_is_let_go_when_the_shock_ends(
     assert treatment_state(hass, entry).state == "none"
     assert state(hass, PUMP_SWITCH) == "off"
     assert keys[0] == "released_treatment"
+
+
+async def test_a_backwash_done_during_the_treatment_is_not_due_again(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
+) -> None:
+    freezer.move_to(local(2026, 7, 15, 10, 0))
+    SwitchRouter(hass)
+    entry = await setup_pool(hass)
+    await set_mode(hass, "off")
+    coordinator = entry.runtime_data
+    await _to_vacuuming(hass, freezer, entry)
+    await coordinator.async_complete_step("treatment.backwash")
+    await press(hass, entry, "advance_treatment")  # vacuuming done
+    assert treatment_state(hass, entry).state == "none"
+    assert not coordinator.backwash_after_treatment
+    assert not backwash_overdue(entry)
+
+
+async def test_a_backwash_from_before_the_treatment_does_not_count(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
+) -> None:
+    freezer.move_to(local(2026, 7, 15, 10, 0))
+    SwitchRouter(hass)
+    entry = await setup_pool(hass)
+    await set_mode(hass, "off")
+    coordinator = entry.runtime_data
+    await coordinator.async_complete_task("backwash")
+    await advance(hass, freezer, 5, step=1)
+    await _to_vacuuming(hass, freezer, entry)
+    await press(hass, entry, "advance_treatment")
+    assert coordinator.backwash_after_treatment
+    assert backwash_overdue(entry)

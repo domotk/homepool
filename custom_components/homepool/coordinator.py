@@ -1718,7 +1718,14 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             # The setting as it is now, in case the owner changed it meanwhile.
             await self._async_push_production(self.chlorinator_production)
         if not cut_short:
-            self.backwash_after_treatment = True
+            # A backwash (or a filter cleaning) done during the treatment,
+            # from its step list, already took out what it left in the filter.
+            started = _parse_dt(t.get("started"))
+            cleaned = [
+                _parse_dt(self.tasks.get(TASKS_BY_KEY[key].action)) for key in FILTER_TASKS
+            ]
+            if started is None or not any(c is not None and c >= started for c in cleaned):
+                self.backwash_after_treatment = True
             if t["type"] == TreatmentType.SHOCK:
                 self.after_shock_since = now
                 await self._async_tick_shock_steps()
