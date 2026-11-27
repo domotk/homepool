@@ -421,6 +421,29 @@ async def test_in_opening_the_cell_counts_once_it_is_in_use(
     assert "salt_low" in coordinator.alerts
 
 
+async def test_confirming_the_same_state_again_keeps_the_cell_as_set_by_hand(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
+) -> None:
+    freezer.move_to(local(2026, 7, 15, 12, 0))
+    SwitchRouter(hass)
+    entry = await setup_pool(hass)
+    coordinator = entry.runtime_data
+    assert coordinator.season_state == "swimming"
+    await coordinator.async_set_setting("chlorinator_enabled", False)
+    await set_season(hass, entry, "swimming")
+    assert not coordinator.chlorinator_enabled
+    await set_season(hass, entry, "winter_active")
+    assert not coordinator.chlorinator_enabled
+    await coordinator.async_set_setting("chlorinator_enabled", True)
+    await set_season(hass, entry, "winter_active")
+    assert coordinator.chlorinator_enabled
+    # A real change still sets it.
+    await set_season(hass, entry, "winter_passive")
+    assert not coordinator.chlorinator_enabled
+    await set_season(hass, entry, "swimming")
+    assert coordinator.chlorinator_enabled
+
+
 async def test_a_bad_season_state_is_refused(hass: HomeAssistant) -> None:
     SwitchRouter(hass)
     entry = await setup_pool(hass)

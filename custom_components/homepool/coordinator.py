@@ -2816,10 +2816,13 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # a winter product topped up since the closing began counts.
         closing_began = self._closing_began()
         self.settings["season_state"] = new.value
-        if new == SeasonState.SWIMMING:
-            self.settings["chlorinator_enabled"] = True
-        elif new in WINTER_STATES:
-            self.settings["chlorinator_enabled"] = False
+        if new != old:
+            # Only a real change sets the cell: confirming the state it is
+            # already in keeps what the owner set by hand.
+            if new == SeasonState.SWIMMING:
+                self.settings["chlorinator_enabled"] = True
+            elif new in WINTER_STATES:
+                self.settings["chlorinator_enabled"] = False
         self.season_proposal = None
         if new == SeasonState.WINTER_PASSIVE:
             # The pump never starts in passive wintering: nothing may be left running.
