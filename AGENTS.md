@@ -37,6 +37,7 @@ locally without Docker, so read its output on the pull request.
 | Path | What it holds |
 |---|---|
 | `custom_components/homepool/coordinator.py` | The runtime: one `PoolCoordinator` per pool, evaluated every 60 s |
+| `custom_components/homepool/runtime/` | The rest of `PoolCoordinator`, one mixin per file: `config`, `readings`, `figures`, `tasks`, `season`, `treatment`, `target`, `control`, `alerts`, `actions`, `card`; shared helpers in `common.py` |
 | `custom_components/homepool/pool/` | Pure logic, no Home Assistant imports: target and chlorine calculators, authority ladder (`scheduler.py`), safety, geometry, layouts, hardware catalogue, and since 0.2 the task table (`tasks.py`), season state and proposals (`season.py`), checklists (`checklists.py`), readings and their ranges (`readings.py`), treatment phases (`treatment.py`) and doses (`dosing.py`) |
 | `custom_components/homepool/modes/` | Operation modes, pure: each answers only *should the pump run now to cover the target?* |
 | `custom_components/homepool/{sensor,binary_sensor,switch,select,number,button}.py` | Entities: thin views over the coordinator |

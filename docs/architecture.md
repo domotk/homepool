@@ -36,6 +36,33 @@ Two rules hold the design together:
 - **Only the coordinator touches Home Assistant**, and only the coordinator
   switches anything.
 
+### Where the coordinator's code lives
+
+`PoolCoordinator` is one class, built from mixins. `coordinator.py` keeps
+`__init__` with every attribute, the lifecycle, the store (`async_load`,
+`_to_store`), the state listener, the evaluation and the day's accounting.
+Each file in `runtime/` holds one part of the rest:
+
+| File | What it holds |
+|---|---|
+| `config.py` | The config entry's options and the settings changed from entities |
+| `readings.py` | Reading entities, manual readings, the air and pH samples |
+| `figures.py` | Minutes, targets reached, status, energy and cost |
+| `tasks.py` | Maintenance tasks, and recording them done |
+| `season.py` | The season state, the calendar's proposals, the step lists |
+| `treatment.py` | Water treatments and their phases |
+| `target.py` | The forecast and `calculate_target` |
+| `control.py` | Safety, pH, `_async_control`, the cell and the commands |
+| `alerts.py` | Raising and clearing alerts, reminders |
+| `actions.py` | What entities and services ask for that fits nowhere above |
+| `card.py` | `own_entities` and `card_attributes` |
+| `common.py` | Helpers and constants more than one file uses |
+
+The mixins keep no state of their own and do not import `coordinator.py`.
+Their log lines still use the `custom_components.homepool.coordinator`
+logger. Every method name is defined once, so the order of the bases does not
+matter. Import `PoolCoordinator` from `coordinator.py`, as before.
+
 ## One evaluation
 
 `PoolCoordinator._async_update_data`, every `EVALUATION_INTERVAL_S` (60 s):
@@ -72,7 +99,7 @@ the target sensor exposes as attributes.
   up), UV, rain in the last and next 24 h, cover, and the user's multiplier.
 - Limits: `min_minutes` (one turnover, easing to half of one in cold water,
   see `minimum_turnovers`) and `max_minutes` (seven turnovers).
-- Temperature source, in `coordinator._temperature_inputs`: water probe →
+- Temperature source, in `_temperature_inputs` (`runtime/target.py`): water probe →
   highest measured air today or yesterday, capped at the forecast high + 3 °C →
   forecast high → none. Estimated water = air − 2 °C.
 
