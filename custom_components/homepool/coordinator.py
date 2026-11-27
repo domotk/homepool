@@ -379,6 +379,9 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._anomaly_since: datetime | None = None
         self._pressure_high_since: datetime | None = None
         self._forecast: dict[str, Any] = {}
+        # Every day the provider gave, so that today's entry is picked on each
+        # calculation, not only when it was fetched.
+        self._forecast_days: list[dict[str, Any]] = []
         self._forecast_at: datetime | None = None
         self._last_tick: datetime | None = None
         self._pump_was_on = False
@@ -1887,30 +1890,39 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     # ── target ──
 
     async def _async_forecast(self, now: datetime) -> None:
-        """Today's high and rain from the weather entity, at most once an hour."""
+        """Today's high and rain from the weather entity, fetched at most once an hour.
+
+        A new local day fetches again, and today's entry is picked from what was
+        fetched on every call: a forecast fetched at 23:26 still names
+        yesterday, and the recalculation at midnight must not use it.
+        """
         weather = self.conf.get(CONF_WEATHER_ENTITY)
-        if not weather or (
-            self._forecast_at is not None and now - self._forecast_at < timedelta(hours=1)
-        ):
+        if not weather:
             return
-        self._forecast_at = now
-        try:
-            response = await self.hass.services.async_call(
-                "weather",
-                "get_forecasts",
-                {"entity_id": weather, "type": "daily"},
-                blocking=True,
-                return_response=True,
-            )
-        except Exception:  # noqa: BLE001 - weather is a nice-to-have, never a blocker
-            _LOGGER.debug("%s: no daily forecast from %s", self.pool_name, weather)
+        today = dt_util.as_local(now).date()
+        fresh = (
+            self._forecast_at is not None
+            and now - self._forecast_at < timedelta(hours=1)
+            and dt_util.as_local(self._forecast_at).date() == today
+        )
+        if not fresh:
+            self._forecast_at = now
+            try:
+                response = await self.hass.services.async_call(
+                    "weather",
+                    "get_forecasts",
+                    {"entity_id": weather, "type": "daily"},
+                    blocking=True,
+                    return_response=True,
+                )
+            except Exception:  # noqa: BLE001 - weather is a nice-to-have, never a blocker
+                _LOGGER.debug("%s: no daily forecast from %s", self.pool_name, weather)
+                response = None
+            self._forecast_days = ((response or {}).get(weather) or {}).get("forecast") or []
+        if not self._forecast_days:
             self._forecast = {}
             return
-        days = ((response or {}).get(weather) or {}).get("forecast") or []
-        if not days:
-            self._forecast = {}
-            return
-        first = _todays_forecast(days, dt_util.as_local(now).date())
+        first = _todays_forecast(self._forecast_days, today)
         self._forecast = {
             "high": first.get("temperature"),
             "rain_mm": first.get("precipitation"),

@@ -120,3 +120,30 @@ async def test_the_surplus_attribute_moves_in_steps_of_100_w(
     await tick(hass, freezer, 1)
     surplus = hass.states.get("sensor.pool_pump_control").attributes["surplus_w"]
     assert surplus is not None and surplus % 100 == 0
+
+
+async def test_at_midnight_the_new_day_uses_its_own_forecast(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
+) -> None:
+    """The third real install: the forecast fetched at 23:26 still named the
+    26th, and the recalculation at 00:00 reused it for the 27th."""
+    freezer.move_to(local(2026, 11, 26, 23, 26))
+    hass.states.async_set("weather.home", "clear-night")
+    days = [
+        {"datetime": "2026-11-26T00:00:00+00:00", "temperature": 18.7},
+        {"datetime": "2026-11-27T00:00:00+00:00", "temperature": 17.8},
+    ]
+
+    async def forecasts(call):
+        return {"weather.home": {"forecast": days}}
+
+    hass.services.async_register(
+        "weather", "get_forecasts", forecasts, supports_response=SupportsResponse.ONLY
+    )
+    SwitchRouter(hass)
+    await setup_pool(hass, weather_entity="weather.home")
+    attrs = hass.states.get("sensor.pool_daily_filtration_target").attributes
+    assert attrs["inputs"]["air_temperature"] == 18.7
+    await tick(hass, freezer, 35)  # 00:01 on the 27th, well inside the hour
+    attrs = hass.states.get("sensor.pool_daily_filtration_target").attributes
+    assert attrs["inputs"]["air_temperature"] == 17.8
