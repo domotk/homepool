@@ -79,8 +79,8 @@ def test_proposal_edges() -> None:
     assert season_proposal(date(2027, 6, 1), SUMMER, "winter_active") == "opening"
     assert season_proposal(date(2027, 9, 30), SUMMER, "winter_active") == "opening"
     assert season_proposal(date(2027, 10, 1), SUMMER, "winter_active") is None
-    # Opening is its own state: nothing comes from the calendar.
-    assert season_proposal(date(2026, 9, 30), SUMMER, "opening") is None
+    # Opening, in the season: swimming is proposed (see test_checklists for more).
+    assert season_proposal(date(2026, 9, 30), SUMMER, "opening") == "swimming"
     # A run across the new year, south of the equator.
     south = [12, 1, 2, 3]
     assert season_proposal(date(2027, 3, 31), south, "swimming") == "winter"

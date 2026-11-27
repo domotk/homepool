@@ -475,11 +475,11 @@ async def test_a_top_up_during_closing_counts_on_entering_winter(
     freezer.move_to(local(2026, 9, 30, 10, 0))
     steps = ["closing.winter_product"]
     if closing_done:
-        # The whole list ticked: it is gone when winter is confirmed.
+        # The whole list ticked: it is finished, and no longer shown.
         steps = [s["id"] for s in coordinator.checklists["closing"]["steps"]]
     for step in steps:
         await coordinator.async_complete_step(step)
-    assert ("closing" in coordinator.checklists) is not closing_done
+    assert ("closing" in coordinator.checklist_view()) is not closing_done
     freezer.move_to(local(2026, 10, 1, 10, 0))
     await set_season(hass, entry, "winter_active")
     row = _task(coordinator, "winter_product")

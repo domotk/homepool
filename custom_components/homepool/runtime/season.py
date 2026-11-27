@@ -20,7 +20,7 @@ from ..const import (
     EVENT_SEASON_STATE_CHANGED,
 )
 from ..pool.chlorine_calculator import is_chlorinator_in_season
-from ..pool.checklists import CLOSING, OPENING, StepDef, build, step_def
+from ..pool.checklists import CLOSING, OPENING, TREATMENT, StepDef, build, step_def
 from ..pool.season import WINTER_STATES, SeasonState, season_proposal
 from ..pool.tasks import TASKS_BY_KEY, task_applies
 from ..texts import text
@@ -32,6 +32,8 @@ PROPOSAL_REMIND_DAYS = 7
 # The proposals that come from the calendar; any other is not the calendar's
 # to withdraw.
 CALENDAR_PROPOSALS = ("winter", "opening")
+# The list each of them opens.
+PROPOSAL_LISTS = {"winter": CLOSING, "opening": OPENING}
 
 
 class SeasonMixin:
@@ -75,13 +77,23 @@ class SeasonMixin:
         """Propose the season change the calendar calls for, and bring it up
         again every week until it is confirmed or dismissed."""
         current = self.season_proposal
-        if current is not None and current.get("to") not in CALENDAR_PROPOSALS:
+        to = None
+        if self.conf.get(CONF_CHLORINATOR_AUTO_TOGGLE, True):
+            to = season_proposal(now.date(), self.swimming_months, self.season_state)
+        if (
+            current is not None
+            and current.get("to") not in CALENDAR_PROPOSALS
+            and current.get("to") != to
+        ):
             # The finished opening list proposes swimming, not the calendar:
-            # it is brought up again every week, until confirmed or dismissed.
-            # Dismissed, or for the state the pool is already in, it is moot:
-            # it goes, and the calendar has its say.
+            # it is brought up again every week, until confirmed or dismissed,
+            # while the calendar calls for nothing else. Dismissed, or for the
+            # state the pool is already in, it is moot: it goes, and the
+            # calendar has its say. (When the calendar proposes the same, it
+            # is the calendar's from here on, dismissal and all.)
             if (
-                current.get("dismissed_for") != current.get("to")
+                to is None
+                and current.get("dismissed_for") != current.get("to")
                 and current.get("to") != self.season_state
             ):
                 if self._proposal_due(current, now):
@@ -90,16 +102,15 @@ class SeasonMixin:
                 return
             self.season_proposal = current = None
             self._save()
-        to = None
-        if self.conf.get(CONF_CHLORINATOR_AUTO_TOGGLE, True):
-            to = season_proposal(now.date(), self.swimming_months, self.season_state)
         if to is None:
             if current is not None:
-                self.season_proposal = None
+                self._withdraw_proposal(current)
                 self._save()
             return
         is_new = current is None or current.get("to") != to
         if is_new:
+            if current is not None:
+                self._withdraw_proposal(current)
             self.season_proposal = current = {
                 "to": to,
                 "since": now.isoformat(),
@@ -115,6 +126,21 @@ class SeasonMixin:
         if is_new:
             self._open_season_checklist(to)
         self._save()
+
+    def _withdraw_proposal(self, proposal: dict[str, Any]) -> None:
+        """The calendar no longer calls for this change: the proposal goes, and
+        so does the list it opened, which belongs to a season that did not
+        come (a list kept would greet next year's with last year's ticks)."""
+        self.season_proposal = None
+        list_id = PROPOSAL_LISTS.get(proposal.get("to"))
+        if list_id is not None and not self._in_season_of(list_id):
+            self.checklists.pop(list_id, None)
+
+    def _in_season_of(self, list_id: str) -> bool:
+        """Whether the pool is in the state a closing or opening list prepares."""
+        if list_id == CLOSING:
+            return self.season_state in WINTER_STATES
+        return self.season_state == SeasonState.OPENING
 
     @staticmethod
     def _proposal_due(proposal: dict[str, Any], now: datetime) -> bool:
@@ -156,8 +182,9 @@ class SeasonMixin:
 
     def _open_season_checklist(self, to: str) -> None:
         """Open the closing list (``to`` is "winter") or the opening list
-        ("opening"), unless one is already open: its progress is kept."""
-        list_id = CLOSING if to == "winter" else OPENING if to == "opening" else None
+        ("opening"), unless there is one already: an open list keeps its
+        progress, and a finished one stays finished."""
+        list_id = PROPOSAL_LISTS.get(to)
         if list_id is None or list_id in self.checklists:
             return
         self.checklists[list_id] = {
@@ -177,14 +204,28 @@ class SeasonMixin:
             for s in closing["steps"]
             if not (d := step_def(CLOSING, s["id"])) or not d.only_passive
         ]
-        self._drop_if_done(CLOSING)
+        self._finish_if_done(CLOSING)
 
-    def _drop_if_done(self, list_id: str) -> bool:
+    def _finish_if_done(self, list_id: str) -> bool:
+        """Whether every step of a list is done. A finished closing or opening
+        list is kept, marked ``completed`` and no longer shown, until the next
+        change of season: the state it prepares may be confirmed after it is
+        done, and must not open a blank one. A treatment's list just goes."""
         checklist = self.checklists.get(list_id)
         if checklist is None or any(s["done"] is None for s in checklist["steps"]):
             return False
-        del self.checklists[list_id]
+        if list_id == TREATMENT:
+            del self.checklists[list_id]
+        else:
+            checklist.setdefault("completed", dt_util.utcnow().isoformat())
         return True
+
+    def _open_list(self, list_id: str) -> dict[str, Any] | None:
+        """A list that is open: there, and not finished."""
+        checklist = self.checklists.get(list_id)
+        if checklist is None or checklist.get("completed"):
+            return None
+        return checklist
 
     def _closing_needs_pump(self) -> bool:
         """Passive wintering with a closing step that needs the pump still open."""
@@ -202,6 +243,8 @@ class SeasonMixin:
         language = self.hass.config.language
         view: dict[str, list[dict[str, Any]]] = {}
         for list_id, checklist in self.checklists.items():
+            if checklist.get("completed"):
+                continue
             steps = []
             for step in checklist["steps"]:
                 d = step_def(list_id, step["id"], checklist.get("treatment"))
@@ -221,7 +264,7 @@ class SeasonMixin:
         return view
 
     def has_open_step(self, step: str) -> bool:
-        checklist = self.checklists.get(step.split(".", 1)[0])
+        checklist = self._open_list(step.split(".", 1)[0])
         return checklist is not None and any(
             s["id"] == step for s in checklist["steps"]
         )
@@ -229,7 +272,7 @@ class SeasonMixin:
     async def async_complete_step(self, step: str) -> None:
         """Tick a step of an open list, and what it stands for with it."""
         list_id = step.split(".", 1)[0]
-        checklist = self.checklists.get(list_id)
+        checklist = self._open_list(list_id)
         entry = next((s for s in (checklist or {}).get("steps", []) if s["id"] == step), None)
         if entry is None:
             raise ServiceValidationError(
@@ -255,7 +298,7 @@ class SeasonMixin:
         checklist = self.checklists[list_id]
         entry["done"] = dt_util.utcnow().isoformat()
         d = step_def(list_id, entry["id"], checklist.get("treatment"))
-        if self._drop_if_done(list_id) and list_id == OPENING:
+        if self._finish_if_done(list_id) and list_id == OPENING:
             await self._async_propose_swimming()
         return d
 
@@ -305,7 +348,9 @@ class SeasonMixin:
                 self.settings["chlorinator_enabled"] = True
             elif new in WINTER_STATES:
                 self.settings["chlorinator_enabled"] = False
-        self.season_proposal = None
+            # Confirming the state it is already in answers no proposal: one
+            # for another state stands, and is not brought up anew.
+            self.season_proposal = None
         if new == SeasonState.WINTER_PASSIVE:
             # The pump never starts in passive wintering: nothing may be left running.
             self.cycle_until = None
@@ -316,6 +361,12 @@ class SeasonMixin:
                 # Cut short, not done: a shock does not tick its closing step.
                 await self._async_finish_treatment(now, cut_short=True)
         if new != old:
+            # A finished list has done its work once the season moves on,
+            # except the one for the state just entered.
+            for list_id in (CLOSING, OPENING):
+                checklist = self.checklists.get(list_id)
+                if checklist and checklist.get("completed") and not self._in_season_of(list_id):
+                    del self.checklists[list_id]
             if new in WINTER_STATES and old not in WINTER_STATES:
                 self.winter_entered = dt_util.utcnow()
                 self.winter_top_up_from = closing_began
@@ -325,6 +376,13 @@ class SeasonMixin:
             elif new == SeasonState.OPENING:
                 self.checklists.pop(CLOSING, None)
                 self._open_season_checklist("opening")
+                if self.checklists[OPENING].get("completed"):
+                    # Every step done while still wintering: ready to swim.
+                    await self._async_propose_swimming()
+            elif new == SeasonState.SWIMMING and old in WINTER_STATES:
+                # Straight from winter to swimming: the closing list is last
+                # season's.
+                self.checklists.pop(CLOSING, None)
         if new == SeasonState.WINTER_ACTIVE:
             self._prune_passive_steps()
         if new != old:
@@ -361,10 +419,8 @@ class SeasonMixin:
             to = self.season_proposal["to"]
             self.season_proposal["dismissed_for"] = to
             # The list opened with the proposal goes with it.
-            if to == "winter":
-                self.checklists.pop(CLOSING, None)
-            elif to == "opening":
-                self.checklists.pop(OPENING, None)
+            if to in PROPOSAL_LISTS:
+                self.checklists.pop(PROPOSAL_LISTS[to], None)
         self._save()
         await self.async_refresh()
 
