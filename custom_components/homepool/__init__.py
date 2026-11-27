@@ -279,12 +279,7 @@ def _async_register_services(hass: HomeAssistant) -> None:
         pools = await _pools(call)
         # Every pool first, so a call that one of them refuses changes none.
         for pool in pools:
-            if not pool.has_open_step(step):
-                raise ServiceValidationError(
-                    translation_domain=DOMAIN,
-                    translation_key="step_not_open",
-                    translation_placeholders={"step": step, "pool": pool.pool_name},
-                )
+            pool.check_step_open(step)
         for pool in pools:
             await pool.async_complete_step(step)
 
@@ -296,12 +291,7 @@ def _async_register_services(hass: HomeAssistant) -> None:
         pools = await _pools(call)
         # Every pool first, so a call that one of them refuses changes none.
         for pool in pools:
-            if pool.winter_passive or pool.treatment is not None:
-                raise ServiceValidationError(
-                    translation_domain=DOMAIN,
-                    translation_key="treatment_not_allowed",
-                    translation_placeholders={"pool": pool.pool_name},
-                )
+            pool.check_can_start_treatment()
         for pool in pools:
             await pool.async_start_treatment(
                 call.data[ATTR_TYPE], call.data[ATTR_SEVERITY], call.data.get(ATTR_HOURS)

@@ -12,11 +12,9 @@ from typing import Any
 from homeassistant.util import dt as dt_util
 
 from ..const import (
-    CONF_FILTER_TYPE,
     CONF_WINTER_PRODUCT_DOSE_PER_M3,
     CONF_WINTER_PRODUCT_TYPE,
     DEFAULT_WINTER_PRODUCT_DOSE_PER_M3,
-    FilterType,
     ManualAction,
 )
 from ..pool.dosing import winter_product_dose
@@ -49,11 +47,7 @@ class TasksMixin:
 
     @property
     def uses_backwash(self) -> bool:
-        return self.conf.get(CONF_FILTER_TYPE, FilterType.SAND) in (
-            FilterType.SAND,
-            FilterType.GLASS,
-            FilterType.DIATOMACEOUS_EARTH,
-        )
+        return task_applies("backwash", self.conf)
 
     @property
     def task_overrides(self) -> dict[str, dict[str, Any]]:
@@ -114,16 +108,25 @@ class TasksMixin:
         """Every recurring task with when it was done and when it falls due."""
         return [self._task(defn) for defn in TASKS if self._task_exists(defn)]
 
+    def _seed_task_first_seen(self) -> None:
+        """Note when each task never marked as done first appeared: it counts
+        from then. Once per evaluation, so that reading the tasks writes nothing."""
+        for defn in TASKS:
+            if (
+                defn.key not in self.task_first_seen
+                and self.tasks.get(defn.action) is None
+                and self._task_exists(defn)
+            ):
+                self.task_first_seen[defn.key] = dt_util.utcnow().isoformat()
+
     def _task(self, defn: TaskDef) -> dict[str, Any]:
         done = _parse_dt(self.tasks.get(defn.action))
         # Never marked as done: count from when HomePool started keeping
         # tasks, so a task without a date still falls due one day.
         counted_from = self.tasks_since if done is None else None
         if done is None:
-            first_seen = _parse_dt(self.task_first_seen.get(defn.key))
-            if first_seen is None:
-                first_seen = dt_util.utcnow()
-                self.task_first_seen[defn.key] = first_seen.isoformat()
+            # Not seeded yet (before the first evaluation): it appears now.
+            first_seen = _parse_dt(self.task_first_seen.get(defn.key)) or dt_util.utcnow()
             counted_from = max(counted_from, first_seen) if counted_from else first_seen
         days = self._task_days(defn)
         task_days = days

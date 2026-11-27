@@ -19,6 +19,7 @@ from ..const import (
     CONF_CLARIFIER_DOSE_UNIT,
     CONF_FLOCCULANT_DOSE_PER_10M3,
     CONF_FLOCCULANT_DOSE_UNIT,
+    CONF_FREE_CHLORINE_SENSOR,
     CONF_SHOCK_CONCENTRATION,
     CONF_SHOCK_PRODUCT,
     DEFAULT_DOSE_UNIT,
@@ -27,6 +28,7 @@ from ..const import (
     EVENT_TREATMENT_ENDED,
     EVENT_TREATMENT_PHASE,
     EVENT_TREATMENT_STARTED,
+    Severity,
 )
 from ..pool.checklists import TREATMENT, build
 from ..pool.dosing import SHOCK_DEFAULT_CONCENTRATION, Dose, label_dose, shock_dose
@@ -35,6 +37,9 @@ from ..pool.tasks import FILTER_TASKS, TASKS_BY_KEY
 from .common import _iso, _parse_dt
 
 
+# Vacuuming waits for the owner: an alert this long into it, then daily.
+VACUUMING_REMINDER_FIRST = timedelta(hours=3)
+VACUUMING_REMINDER_EVERY = timedelta(days=1)
 # The closing and opening steps a finished shock ticks.
 SHOCK_STEPS = ("closing.shock", "opening.shock")
 # Per treatment that doses by the label: the options with its dose and unit.
@@ -145,6 +150,53 @@ class TreatmentMixin:
             if entry is not None and entry["done"] is None:
                 await self._async_tick_step(list_id, entry)
 
+    async def _async_treatment_alerts(self) -> None:
+        """A frost interrupting the flocculant's settling; vacuuming left
+        waiting; a probe back in range after a shock."""
+        frost = (
+            self.treatment_phase == Phase.SETTLING
+            and self.decision_source == "freeze_protection"
+        )
+        if frost:
+            self.treatment["frost_interrupted"] = True
+        await self._async_set("treatment_frost", frost, Severity.WARNING)
+        await self._async_vacuuming_alert()
+        probe = self._number(CONF_FREE_CHLORINE_SENSOR)
+        if probe is not None:
+            self._note_free_chlorine(probe)
+
+    def _note_free_chlorine(self, value: float) -> None:
+        """Measured back inside the range after a shock: fit to swim again."""
+        if self.after_shock_since is not None and not self._outside("free_chlorine", value):
+            self.after_shock_since = None
+
+    async def _async_vacuuming_alert(self) -> None:
+        """Vacuuming never ends by itself, and meanwhile nothing filters the
+        pool: 3 h into it that is an alert, raised again and notified once a
+        day. The time of the last one is kept with the treatment, so a
+        restart raises it without notifying it again."""
+        t = self.treatment
+        if t is None or self.treatment_phase != Phase.VACUUMING:
+            await self._async_clear("treatment_vacuuming")
+            return
+        now = dt_util.utcnow()
+        reminded = _parse_dt(t.get("vacuuming_reminded"))
+        if reminded is None:
+            started = _parse_dt(t.get("phase_started")) or now
+            if now - started < VACUUMING_REMINDER_FIRST:
+                return
+            due = True
+        else:
+            due = now - reminded >= VACUUMING_REMINDER_EVERY
+        if due:
+            t["vacuuming_reminded"] = now.isoformat()
+            self._save()
+            # Raised anew: the event and the notification go out again.
+            await self._async_clear("treatment_vacuuming")
+        await self._async_raise(
+            "treatment_vacuuming", Severity.WARNING, {}, reminder=True, notify=due
+        )
+
     def _require_treatment(self) -> None:
         if self.treatment is None:
             raise ServiceValidationError(
@@ -201,16 +253,20 @@ class TreatmentMixin:
             translation_placeholders={"pool": self.pool_name},
         )
 
-    async def async_start_treatment(
-        self, kind: str, severity: str = "green", hours: float | None = None
-    ) -> None:
-        """Start a shock, a clarifier or a flocculant, with its dose and its step list."""
+    def check_can_start_treatment(self) -> None:
+        """Refuse a treatment in passive wintering, or while another runs."""
         if self.winter_passive or self.treatment is not None:
             raise ServiceValidationError(
                 translation_domain=DOMAIN,
                 translation_key="treatment_not_allowed",
                 translation_placeholders={"pool": self.pool_name},
             )
+
+    async def async_start_treatment(
+        self, kind: str, severity: str = "green", hours: float | None = None
+    ) -> None:
+        """Start a shock, a clarifier or a flocculant, with its dose and its step list."""
+        self.check_can_start_treatment()
         kind = TreatmentType(kind)
         now = dt_util.utcnow()
         self._account(now)

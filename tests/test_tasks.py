@@ -634,3 +634,19 @@ async def test_chlorination_mode_winter_product(
 
 def _task(coordinator, key: str) -> dict:
     return next(t for t in coordinator.task_status() if t["task"] == key)
+
+
+async def test_reading_the_tasks_writes_nothing(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
+) -> None:
+    """A task's first appearance is noted once per evaluation, not by every
+    entity that reads the tasks."""
+    freezer.move_to(local(2026, 7, 15, 10, 0))
+    SwitchRouter(hass)
+    entry = await setup_pool(hass)
+    coordinator = entry.runtime_data
+    coordinator.task_first_seen.clear()
+    coordinator.task_status()
+    assert coordinator.task_first_seen == {}
+    await tick(hass, freezer, 1)
+    assert "water_test" in coordinator.task_first_seen

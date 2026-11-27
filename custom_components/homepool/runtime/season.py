@@ -264,22 +264,27 @@ class SeasonMixin:
         return view
 
     def has_open_step(self, step: str) -> bool:
-        checklist = self._open_list(step.split(".", 1)[0])
-        return checklist is not None and any(
-            s["id"] == step for s in checklist["steps"]
-        )
+        return self._open_step(step) is not None
 
-    async def async_complete_step(self, step: str) -> None:
-        """Tick a step of an open list, and what it stands for with it."""
-        list_id = step.split(".", 1)[0]
-        checklist = self._open_list(list_id)
-        entry = next((s for s in (checklist or {}).get("steps", []) if s["id"] == step), None)
+    def _open_step(self, step: str) -> dict[str, Any] | None:
+        checklist = self._open_list(step.split(".", 1)[0])
+        return next((s for s in (checklist or {}).get("steps", []) if s["id"] == step), None)
+
+    def check_step_open(self, step: str) -> dict[str, Any]:
+        """The stored step, or a refusal if no open list has it."""
+        entry = self._open_step(step)
         if entry is None:
             raise ServiceValidationError(
                 translation_domain=DOMAIN,
                 translation_key="step_not_open",
                 translation_placeholders={"step": step, "pool": self.pool_name},
             )
+        return entry
+
+    async def async_complete_step(self, step: str) -> None:
+        """Tick a step of an open list, and what it stands for with it."""
+        list_id = step.split(".", 1)[0]
+        entry = self.check_step_open(step)
         if entry["done"] is not None:
             return
         d = await self._async_tick_step(list_id, entry)

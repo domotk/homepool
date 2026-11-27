@@ -10,14 +10,12 @@ from homeassistant.util import dt as dt_util
 
 BAD_STATES = (STATE_UNAVAILABLE, STATE_UNKNOWN, None, "")
 ACTIONS_KEPT = 50
+# Measuring either of these is the water test.
+WATER_TEST_KINDS = ("ph", "free_chlorine")
 
 
 def _iso(value: datetime | None) -> str | None:
     return value.isoformat() if value else None
-
-
-# Measuring either of these is the water test.
-WATER_TEST_KINDS = ("ph", "free_chlorine")
 
 
 def _parse_dt(value: str | None) -> datetime | None:

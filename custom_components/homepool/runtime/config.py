@@ -84,9 +84,6 @@ class ConfigMixin:
 
     # Settings changed from entities: stored, not in the config entry, so that
     # moving a slider does not reload the whole integration.
-    def setting(self, key: str, default: Any = None) -> Any:
-        return self.settings.get(key, default)
-
     @property
     def mode(self) -> str:
         return self.settings.get("mode", DEFAULT_OPERATION_MODE)

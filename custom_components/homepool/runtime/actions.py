@@ -113,9 +113,8 @@ class ActionsMixin:
             ) from err
         now = dt_util.utcnow()
         self.manual_readings[kind] = {"value": value, "at": now.isoformat()}
-        if kind == "free_chlorine" and not self._outside(kind, value):
-            # Measured back inside the range after a shock: fit to swim again.
-            self.after_shock_since = None
+        if kind == "free_chlorine":
+            self._note_free_chlorine(value)
         self.actions = [
             *self.actions,
             {"type": f"{kind}_reading", "at": now.isoformat(), "value": value, "notes": None},

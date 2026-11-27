@@ -100,6 +100,16 @@ class ControlDecision:
     args: dict[str, str] = field(default_factory=dict)
 
 
+def _released(inp: ControlInputs, source: str) -> ControlDecision:
+    """Stop a pump HomePool itself started for a reason that has passed."""
+    return ControlDecision(
+        False,
+        source,
+        f"No longer needed for {inp.started_by.replace('_', ' ')}",
+        f"released_{inp.started_by}",
+    )
+
+
 def arbitrate(inp: ControlInputs) -> ControlDecision:
     """Apply the authority ladder and return the one decision that wins."""
     if not inp.pump_available:
@@ -126,12 +136,7 @@ def arbitrate(inp: ControlInputs) -> ControlDecision:
         if inp.treatment is None and inp.pump_is_on and inp.started_by in FORCING_SOURCES:
             # Except a pump HomePool itself started (a frost that has passed):
             # HomePool started it, so HomePool stops it.
-            return ControlDecision(
-                False,
-                "treatment",
-                f"No longer needed for {inp.started_by.replace('_', ' ')}",
-                f"released_{inp.started_by}",
-            )
+            return _released(inp, "treatment")
         phase = inp.treatment_key.removeprefix("treatment_")
         return ControlDecision(inp.treatment, "treatment", f"Water treatment: {phase}", inp.treatment_key)
     if inp.ph_correction:
@@ -166,12 +171,7 @@ def arbitrate(inp: ControlInputs) -> ControlDecision:
     decision = inp.mode_decision
     if decision is None or decision.action == PumpAction.NO_CHANGE:
         if inp.pump_is_on and inp.started_by in FORCING_SOURCES:
-            return ControlDecision(
-                False,
-                "mode",
-                f"No longer needed for {inp.started_by.replace('_', ' ')}",
-                f"released_{inp.started_by}",
-            )
+            return _released(inp, "mode")
         if decision is None:
             return ControlDecision(None, "mode", "No mode", "no_mode")
         return ControlDecision(None, "mode", decision.reason, decision.key)

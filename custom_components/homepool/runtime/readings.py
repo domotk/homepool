@@ -15,10 +15,7 @@ from ..const import (
     CONF_AIR_TEMPERATURE_SENSOR,
     CONF_FILTER_PRESSURE_SENSOR,
     CONF_FREE_CHLORINE_SENSOR,
-    CONF_ORP_SENSOR,
     CONF_PH_SENSOR,
-    CONF_PUMP_NOMINAL_POWER,
-    CONF_PUMP_POWER_SENSOR,
     CONF_PUMP_SWITCH,
     CONF_SALINITY_SENSOR,
     CONF_WATER_TEMPERATURE_SENSOR,
@@ -70,15 +67,6 @@ class ReadingsMixin:
         if unit == UnitOfPower.KILO_WATT:
             return value * 1000
         return value
-
-    @property
-    def pump_power(self) -> float | None:
-        """Measured draw, or the nameplate figure while running if unmeasured."""
-        measured = self._watts(CONF_PUMP_POWER_SENSOR)
-        if measured is not None:
-            return measured
-        nominal = self.opt(CONF_PUMP_NOMINAL_POWER)
-        return float(nominal) if nominal and self._pump_was_on else None
 
     @property
     def water_temperature(self) -> float | None:
@@ -169,10 +157,6 @@ class ReadingsMixin:
         return None if status.stale else status.value
 
     @property
-    def orp(self) -> float | None:
-        return self._number(CONF_ORP_SENSOR)
-
-    @property
     def filter_pressure(self) -> float | None:
         return self._number(CONF_FILTER_PRESSURE_SENSOR)
 
@@ -183,10 +167,6 @@ class ReadingsMixin:
     @property
     def pump_available(self) -> bool:
         return self._is_on(CONF_PUMP_SWITCH) is not None
-
-    @property
-    def chlorinator_is_on(self) -> bool:
-        return self._chlor_was_on
 
     def _sample_inputs(self, now: datetime) -> None:
         air = self.air_temperature

@@ -5,7 +5,7 @@ A mixin of ``PoolCoordinator``; see coordinator.py.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any
 
 from homeassistant.core import CoreState
@@ -28,10 +28,8 @@ from ..const import (
     Severity,
 )
 from ..pool.readings import KINDS, RANGE_ALERT_KINDS
-from ..pool.treatment import Phase
 from ..pool.tasks import TASKS
 from ..texts import text
-from .common import _parse_dt
 
 
 def _range_text(low: float | None, high: float | None) -> str:
@@ -40,13 +38,12 @@ def _range_text(low: float | None, high: float | None) -> str:
     if high is None:
         return f"≥ {low:g}"
     return f"{low:g}–{high:g}"
+
+
 REMINDERS_KEPT = 20
 # Rungs above freeze protection: with one of them deciding, the pump is not
 # kept running however cold the water is.
 FREEZE_BLOCKERS = ("unavailable", "hands_off", "maintenance_lock", "safety")
-# Vacuuming waits for the owner: they are reminded this long into it, then daily.
-VACUUMING_REMINDER_FIRST = timedelta(hours=3)
-VACUUMING_REMINDER_EVERY = timedelta(days=1)
 
 
 class AlertsMixin:
@@ -188,21 +185,6 @@ class AlertsMixin:
             "freeze_protection", Severity.WARNING, values, text_key=text_key
         )
 
-    async def _async_treatment_alerts(self) -> None:
-        """A frost interrupting the flocculant's settling; a probe back in range after a shock."""
-        frost = (
-            self.treatment_phase == Phase.SETTLING
-            and self.decision_source == "freeze_protection"
-        )
-        if frost:
-            self.treatment["frost_interrupted"] = True
-        await self._async_set("treatment_frost", frost, Severity.WARNING)
-        await self._async_vacuuming_alert()
-        if self.after_shock_since is not None:
-            probe = self._number(CONF_FREE_CHLORINE_SENSOR)
-            if probe is not None and not self._outside("free_chlorine", probe):
-                self.after_shock_since = None
-
     async def _async_closing_needs_pump(self) -> None:
         """Raised while it holds; notified only the first time, not after
         every restart (alerts are not kept across one)."""
@@ -221,33 +203,6 @@ class AlertsMixin:
         if not self.closing_needs_pump_notified:
             self.closing_needs_pump_notified = True
             self._save()
-
-    async def _async_vacuuming_alert(self) -> None:
-        """Vacuuming never ends by itself, and meanwhile nothing filters the
-        pool: 3 h into it that is an alert, raised again and notified once a
-        day. The time of the last one is kept with the treatment, so a
-        restart raises it without notifying it again."""
-        t = self.treatment
-        if t is None or self.treatment_phase != Phase.VACUUMING:
-            await self._async_clear("treatment_vacuuming")
-            return
-        now = dt_util.utcnow()
-        reminded = _parse_dt(t.get("vacuuming_reminded"))
-        if reminded is None:
-            started = _parse_dt(t.get("phase_started")) or now
-            if now - started < VACUUMING_REMINDER_FIRST:
-                return
-            due = True
-        else:
-            due = now - reminded >= VACUUMING_REMINDER_EVERY
-        if due:
-            t["vacuuming_reminded"] = now.isoformat()
-            self._save()
-            # Raised anew: the event and the notification go out again.
-            await self._async_clear("treatment_vacuuming")
-        await self._async_raise(
-            "treatment_vacuuming", Severity.WARNING, {}, reminder=True, notify=due
-        )
 
     async def _async_alerts(self, now: datetime) -> None:
         await self._async_set(
@@ -300,6 +255,7 @@ class AlertsMixin:
         await self._async_reading_alerts()
 
         today = dt_util.now().date().isoformat()
+        self._seed_task_first_seen()
         tasks = self.task_status()
         for task in tasks:
             name = task["task"]
@@ -347,7 +303,7 @@ class AlertsMixin:
                 _, high = self.reading_range(kind)
                 if (
                     out
-                    and (self.treatment is not None or self.after_shock_since is not None)
+                    and self.swimming_not_advised in ("treatment", "after_shock")
                     and high is not None
                     and value > high
                 ):
