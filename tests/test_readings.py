@@ -198,6 +198,39 @@ async def test_the_salinity_and_free_chlorine_sensors_show_a_stale_reading(
         assert st.attributes["recorded_at"]
 
 
+async def test_in_active_wintering_the_water_test_interval_keeps_ph_and_chlorine_fresh(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
+) -> None:
+    """The water test is every 14 days in active wintering: a pH or a free
+    chlorine measured on that schedule is not stale after 7."""
+    freezer.move_to(local(2026, 11, 2, 10, 0))
+    SwitchRouter(hass)
+    entry = await setup_pool(hass)
+    coordinator = entry.runtime_data
+    assert coordinator.season_state == "winter_active"
+    assert coordinator.reading_stale_days("ph") == 14
+    assert coordinator.reading_stale_days("free_chlorine") == 14
+    assert coordinator.reading_stale_days("salt") == 30  # not a water test kind
+    await _record(hass, "ph", 7.4)
+    await _record(hass, "free_chlorine", 1.0)
+    await next_day(hass, freezer, 10)
+    assert not coordinator.manual_status("ph").stale
+    assert not coordinator.manual_status("free_chlorine").stale
+    await next_day(hass, freezer, 5)
+    assert coordinator.manual_status("ph").stale
+
+    # A longer water test interval stretches it; a longer stale age wins over it.
+    hass.config_entries.async_update_entry(
+        entry, options={"tasks": {"water_test": {"days": 21}}, "ph_stale_days": 30}
+    )
+    assert coordinator.reading_stale_days("free_chlorine") == 21
+    assert coordinator.reading_stale_days("ph") == 30
+    # Swimming: the stale ages are their own again.
+    hass.config_entries.async_update_entry(entry, options={})
+    coordinator.settings["season_state"] = "swimming"
+    assert coordinator.reading_stale_days("ph") == 7
+
+
 async def test_a_stale_reading_keeps_no_range_alert_and_says_so(
     hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
 ) -> None:

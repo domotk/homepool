@@ -880,7 +880,15 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         )
 
     def reading_stale_days(self, kind: str) -> int:
-        return int(self.opt(f"{kind}_stale_days", DEFAULT_STALE_DAYS[kind]))
+        """How long a reading by hand is trusted. In active wintering the pH
+        and the free chlorine are measured on the water test's (longer)
+        interval, so they are not stale before it falls due."""
+        days = int(self.opt(f"{kind}_stale_days", DEFAULT_STALE_DAYS[kind]))
+        if kind in WATER_TEST_KINDS and self.season_state == SeasonState.WINTER_ACTIVE:
+            interval = self._task_days(TASKS_BY_KEY["water_test"])
+            if interval is not None:
+                days = max(days, interval)
+        return days
 
     def manual_status(self, kind: str) -> ReadingStatus:
         """The last reading taken by hand, whether it is stale and whether it is out of range."""
