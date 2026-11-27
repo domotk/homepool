@@ -174,6 +174,7 @@ from .const import (
 from .pool.geometry import PoolDimensions, calculate_volume
 from .pool.hardware import find, load_hardware
 from .pool.tasks import TASKS, TASKS_BY_KEY, configured_days, task_applies
+from .pool.readings import DEFAULT_STALE_DAYS, KINDS, NEW_SENSOR_KINDS, default_range
 from .pool.layouts import LayoutCatalog, get_orientation_options, load_catalog
 from .pool.season import default_swimming_months
 
@@ -569,6 +570,7 @@ class _Wizard:
             d.get(CONF_CHLORINATION_TYPE) == ChlorinationType.SALT,
             float(d.get(CONF_LATITUDE, self.hass.config.latitude) or 0),
         )
+        is_salt = d.get(CONF_CHLORINATION_TYPE, ChlorinationType.SALT) == ChlorinationType.SALT
         schema = vol.Schema(
             {
                 vol.Required(
@@ -619,12 +621,15 @@ class _Wizard:
                     default=d.get(CONF_WINTER_PRODUCT_INTERVAL_DAYS)
                     or DEFAULT_WINTER_PRODUCT_INTERVAL_DAYS,
                 ): _number(7, 365, 1, "d"),
+                **self._readings_fields(is_salt),
             }
         )
         errors: dict[str, str] = {}
         if user_input is not None:
             if not user_input.get(CONF_SWIMMING_MONTHS):
                 errors[CONF_SWIMMING_MONTHS] = "no_months"
+            elif bad := self._reading_range_error(user_input):
+                errors[bad] = "range_order"
             elif not (
                 user_input[CONF_PH_RANGE_MIN]
                 <= user_input[CONF_PH_TARGET]
@@ -642,8 +647,36 @@ class _Wizard:
                 self._data[CONF_SWIMMING_MONTHS] = sorted(
                     int(m) for m in self._data[CONF_SWIMMING_MONTHS]
                 )
+                for kind in KINDS:
+                    self._data[f"{kind}_stale_days"] = int(self._data[f"{kind}_stale_days"])
                 return await self._after("water")
         return self._form("water", schema, errors)
+
+    def _readings_fields(self, is_salt: bool) -> dict[Any, Any]:
+        """The ranges of the readings taken by hand, and how long each one is trusted."""
+        d = self._data
+        fields: dict[Any, Any] = {}
+        for kind in NEW_SENSOR_KINDS:
+            low, high = default_range(kind, is_salt)
+            if low is not None:
+                key = f"{kind}_range_min"
+                fields[vol.Required(key, default=d.get(key, low))] = _number(0, 5000, "any", "mg/L")
+            key = f"{kind}_range_max"
+            fields[vol.Required(key, default=d.get(key, high))] = _number(0, 5000, "any", "mg/L")
+        for kind in KINDS:
+            key = f"{kind}_stale_days"
+            fields[vol.Required(key, default=d.get(key, DEFAULT_STALE_DAYS[kind]))] = _number(
+                1, 365, 1, "d"
+            )
+        return fields
+
+    def _reading_range_error(self, user_input: dict[str, Any]) -> str | None:
+        """The first reading whose lowest value is above its highest, or None."""
+        for kind in NEW_SENSOR_KINDS:
+            low, high = user_input.get(f"{kind}_range_min"), user_input.get(f"{kind}_range_max")
+            if low is not None and high is not None and low > high:
+                return f"{kind}_range_min"
+        return None
 
     async def async_step_chlorinator_model(self, user_input: dict[str, Any] | None = None):
         _, hardware = await _catalogs(self.hass)

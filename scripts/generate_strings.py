@@ -30,6 +30,22 @@ task_names = {
 season_states = {"swimming": T("Swimming", "Baño"), "winter_active": T("Active wintering", "Invernaje activo"),
   "winter_passive": T("Passive wintering", "Invernaje pasivo"), "opening": T("Opening", "Puesta en marcha")}
 
+# Chemistry readings taken by hand: one name each, for the ranges, the stale ages and the service.
+reading_names = {
+  "ph": T("pH", "pH"), "free_chlorine": T("Free chlorine", "Cloro libre"),
+  "combined_chlorine": T("Combined chlorine", "Cloro combinado"), "total_alkalinity": T("Total alkalinity", "Alcalinidad total"),
+  "calcium_hardness": T("Calcium hardness", "Dureza cálcica"), "cyanuric_acid": T("Cyanuric acid", "Ácido cianúrico"),
+  "salt": T("Salt", "Sal"),
+}
+reading_data = {}
+for _k in ("combined_chlorine", "total_alkalinity", "calcium_hardness", "cyanuric_acid"):
+  _en, _es = reading_names[_k]
+  if _k != "combined_chlorine":
+    reading_data[f"{_k}_range_min"] = T(f"{_en}, lowest", f"{_es} mínima")
+  reading_data[f"{_k}_range_max"] = T(f"{_en}, highest", f"{_es} máxima")
+for _k, (_en, _es) in reading_names.items():
+  reading_data[f"{_k}_stale_days"] = T(f"{_en} reading, trusted for (days)", f"Lectura de {_es.lower()}, válida durante (días)")
+
 _pump_hours_tasks = ("backwash", "filter_cleaning")
 _optional_tasks = ("skimmer_baskets", "filter_media_check")
 tasks_data = {}
@@ -126,6 +142,7 @@ steps_fields = {
       "winter_product_type": T("Winter product", "Producto de invierno"),
       "winter_product_dose_per_m3": T("Winter product, dose per m³", "Producto de invierno, dosis por m³"),
       "winter_product_interval_days": T("Top up the winter product every", "Reponer el producto de invierno cada"),
+      **reading_data,
     },
     "data_description": {
       "swimming_months": T("HomePool proposes wintering when they end and opening two weeks before they start.", "HomePool propone invernar cuando terminan y la puesta en marcha dos semanas antes de que empiecen."),
@@ -247,6 +264,7 @@ steps_fields = {
 }
 
 errors = {
+  "range_order": T("The lowest value cannot be above the highest.", "El valor mínimo no puede ser mayor que el máximo."),
   "depth_order": T("The deepest depth cannot be less than the shallowest.", "La profundidad máxima no puede ser menor que la mínima."),
   "cover_entity_required": T("An automatic cover needs its entity.", "Una cubierta automática necesita su entidad."),
   "pressure_order": T("The high pressure must be above the low one.", "La presión máxima debe ser mayor que la mínima."),
@@ -301,6 +319,7 @@ selectors = {
   "pool_cleaner_type": {"none": T("None", "Ninguno"), "cable_electric": T("Robot with cable", "Robot con cable"),
             "battery": T("Robot with battery", "Robot con batería"), "hydraulic": T("Hydraulic", "Hidráulico")},
   "task": {k: v for k, v in task_names.items()},
+  "reading_kind": reading_names,
   "season_state": season_states,
   "checklist": {"closing": T("Closing", "Cierre"), "opening": T("Opening", "Apertura"), "treatment": T("Treatment", "Tratamiento")},
   "severity": {"info": T("Information", "Información"), "warning": T("Warning", "Aviso"), "critical": T("Critical", "Crítico")},
@@ -350,6 +369,11 @@ entity = {
   "ph_trend": (T("pH trend", "Tendencia del pH"), {"rising": T("Rising", "Subiendo"), "stable": T("Stable", "Estable"), "falling": T("Falling", "Bajando")}),
   "salinity": T("Salinity", "Salinidad"),
   "free_chlorine": T("Free chlorine", "Cloro libre"),
+  "ph_manual": T("pH", "pH"),
+  "combined_chlorine": T("Combined chlorine", "Cloro combinado"),
+  "total_alkalinity": T("Total alkalinity", "Alcalinidad total"),
+  "calcium_hardness": T("Calcium hardness", "Dureza cálcica"),
+  "cyanuric_acid": T("Cyanuric acid", "Ácido cianúrico"),
   "pump_energy_today": T("Pump energy today", "Energía de la bomba hoy"),
   "pump_cost_today": T("Pump cost today", "Coste de la bomba hoy"),
  },
@@ -435,6 +459,9 @@ services = {
       {"value": (T("Salt", "Sal"), T("Grams per litre.", "Gramos por litro."))}),
   "record_free_chlorine": (T("Record free chlorine", "Registrar cloro libre"), T("A free chlorine reading taken by hand.", "Una lectura de cloro libre tomada a mano."),
       {"value": (T("Free chlorine", "Cloro libre"), T("Parts per million.", "Partes por millón."))}),
+  "record_reading": (T("Record reading", "Registrar lectura"), T("A chemistry reading taken by hand. Measuring the pH or the free chlorine also counts as the water test.", "Una lectura química tomada a mano. Medir el pH o el cloro libre cuenta también como la medición del agua."),
+      {"kind": (T("Reading", "Lectura"), T("What was measured.", "Qué se ha medido.")),
+       "value": (T("Value", "Valor"), T("pH has no unit, salt is in g/L and the rest in mg/L.", "El pH no tiene unidad, la sal va en g/L y el resto en mg/L."))}),
   "recalculate_schedule": (T("Recalculate target", "Recalcular objetivo"), T("Works out today's target again now. Unlike the hourly update, it may also lower it.", "Vuelve a calcular el objetivo de hoy ahora. A diferencia de la actualización horaria, también puede bajarlo."), {}),
   "force_ph_correction_window": (T("Force pH correction window", "Forzar ventana de corrección de pH"), T("Runs the pump so the pH doser can work.", "Pone la bomba en marcha para que la dosificadora de pH pueda trabajar."),
       {"duration": (T("Duration", "Duración"), T("Minutes. The configured window if left out.", "Minutos. La ventana configurada si se omite."))}),
@@ -448,7 +475,8 @@ services = {
   "reset_daily_counters": (T("Reset today's counters", "Reiniciar contadores de hoy"), T("Starts today's filtration count from zero.", "Vuelve a poner a cero la filtración de hoy."), {}),
 }
 
-exceptions = {"no_pool_targeted": T("That target matches no HomePool pool.", "Ese destino no corresponde a ninguna piscina de HomePool."),
+exceptions = {"invalid_reading": T("{value} is not a possible {kind} reading.", "{value} no es una lectura posible de {kind}."),
+  "no_pool_targeted": T("That target matches no HomePool pool.", "Ese destino no corresponde a ninguna piscina de HomePool."),
   "date_in_future": T("That date has not happened yet.", "Esa fecha todavía no ha llegado."),
   "task_not_in_pool": T("{pool} has no {task} task.", "{pool} no tiene la tarea {task}."),
   "step_not_open": T("{pool} has no open step {step}.", "{pool} no tiene abierto el paso {step}."),

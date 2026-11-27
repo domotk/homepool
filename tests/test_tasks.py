@@ -410,6 +410,82 @@ async def test_winter_product_is_due_again_on_the_next_winter(
     assert row["due"] == "2027-10-05"
 
 
+async def test_winter_product_row_keeps_the_last_top_up_visible(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
+) -> None:
+    freezer.move_to(local(2026, 10, 2, 10, 0))
+    SwitchRouter(hass)
+    entry = await setup_pool(hass, winter_product_type="floater")
+    coordinator = entry.runtime_data
+    await set_season(hass, entry, "winter_active")
+    await coordinator.async_record_action("winter_product_added")
+    done = _task(coordinator, "winter_product")["last_done"]
+    assert done
+    await set_season(hass, entry, "opening")
+    await set_season(hass, entry, "swimming")
+    freezer.move_to(local(2027, 10, 5, 10, 0))
+    await set_season(hass, entry, "winter_active")
+    row = _task(coordinator, "winter_product")
+    # Due from the day the new winter began, yet the real last top-up shows.
+    assert row["overdue"] and row["due"] == "2027-10-05"
+    assert row["last_done"] == done
+
+
+async def test_a_pool_already_wintering_at_upgrade_counts_from_first_seen(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory, hass_storage
+) -> None:
+    """Ruling 14: without a winter_entered the product is not due at once."""
+    from pytest_homeassistant_custom_component.common import MockConfigEntry
+
+    from custom_components.homepool.const import DOMAIN
+
+    from .helpers import BASE, setup_helpers
+
+    freezer.move_to(local(2026, 12, 1, 10, 0))
+    hass_storage[f"{DOMAIN}.upg"] = {
+        "version": 1, "key": f"{DOMAIN}.upg",
+        "data": {
+            "day": "2026-12-01",
+            "tasks_since": local(2026, 6, 15, 10, 0).isoformat(),
+            "settings": {"season_state": "winter_active", "chlorinator_enabled": False},
+        },
+    }
+    SwitchRouter(hass)
+    await setup_helpers(hass)
+    entry = MockConfigEntry(
+        domain=DOMAIN, title="Pool", data={**BASE, "winter_product_type": "floater"},
+        version=1, entry_id="upg",
+    )
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    coordinator = entry.runtime_data
+    assert coordinator.winter_entered is None
+    row = _task(coordinator, "winter_product")
+    assert not row["overdue"]
+    assert row["last_done"] is None
+    assert row["due"] == "2027-01-26"  # first seen today, plus 56 days
+    assert coordinator.task_first_seen["winter_product"]
+
+
+async def test_winter_entered_survives_a_reload(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
+) -> None:
+    freezer.move_to(local(2026, 7, 15, 10, 0))
+    SwitchRouter(hass)
+    entry = await setup_pool(hass, winter_product_type="floater")
+    freezer.move_to(local(2026, 10, 2, 10, 0))
+    await set_season(hass, entry, "winter_active")
+    entered = entry.runtime_data.winter_entered
+    assert entered is not None
+    await hass.config_entries.async_reload(entry.entry_id)
+    await hass.async_block_till_done()
+    coordinator = entry.runtime_data
+    assert coordinator.winter_entered == entered
+    row = _task(coordinator, "winter_product")
+    assert row["overdue"] and row["due"] == "2026-10-02"
+
+
 async def test_next_manual_task_carries_the_winter_product_dose(
     hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
 ) -> None:

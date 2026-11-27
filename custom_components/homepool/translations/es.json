@@ -104,7 +104,21 @@
           "swimming_months": "Meses de baño",
           "winter_product_type": "Producto de invierno",
           "winter_product_dose_per_m3": "Producto de invierno, dosis por m³",
-          "winter_product_interval_days": "Reponer el producto de invierno cada"
+          "winter_product_interval_days": "Reponer el producto de invierno cada",
+          "combined_chlorine_range_max": "Cloro combinado máxima",
+          "total_alkalinity_range_min": "Alcalinidad total mínima",
+          "total_alkalinity_range_max": "Alcalinidad total máxima",
+          "calcium_hardness_range_min": "Dureza cálcica mínima",
+          "calcium_hardness_range_max": "Dureza cálcica máxima",
+          "cyanuric_acid_range_min": "Ácido cianúrico mínima",
+          "cyanuric_acid_range_max": "Ácido cianúrico máxima",
+          "ph_stale_days": "Lectura de ph, válida durante (días)",
+          "free_chlorine_stale_days": "Lectura de cloro libre, válida durante (días)",
+          "combined_chlorine_stale_days": "Lectura de cloro combinado, válida durante (días)",
+          "total_alkalinity_stale_days": "Lectura de alcalinidad total, válida durante (días)",
+          "calcium_hardness_stale_days": "Lectura de dureza cálcica, válida durante (días)",
+          "cyanuric_acid_stale_days": "Lectura de ácido cianúrico, válida durante (días)",
+          "salt_stale_days": "Lectura de sal, válida durante (días)"
         },
         "data_description": {
           "swimming_months": "HomePool propone invernar cuando terminan y la puesta en marcha dos semanas antes de que empiecen.",
@@ -275,6 +289,7 @@
       }
     },
     "error": {
+      "range_order": "El valor mínimo no puede ser mayor que el máximo.",
       "depth_order": "La profundidad máxima no puede ser menor que la mínima.",
       "cover_entity_required": "Una cubierta automática necesita su entidad.",
       "pressure_order": "La presión máxima debe ser mayor que la mínima.",
@@ -394,7 +409,21 @@
           "swimming_months": "Meses de baño",
           "winter_product_type": "Producto de invierno",
           "winter_product_dose_per_m3": "Producto de invierno, dosis por m³",
-          "winter_product_interval_days": "Reponer el producto de invierno cada"
+          "winter_product_interval_days": "Reponer el producto de invierno cada",
+          "combined_chlorine_range_max": "Cloro combinado máxima",
+          "total_alkalinity_range_min": "Alcalinidad total mínima",
+          "total_alkalinity_range_max": "Alcalinidad total máxima",
+          "calcium_hardness_range_min": "Dureza cálcica mínima",
+          "calcium_hardness_range_max": "Dureza cálcica máxima",
+          "cyanuric_acid_range_min": "Ácido cianúrico mínima",
+          "cyanuric_acid_range_max": "Ácido cianúrico máxima",
+          "ph_stale_days": "Lectura de ph, válida durante (días)",
+          "free_chlorine_stale_days": "Lectura de cloro libre, válida durante (días)",
+          "combined_chlorine_stale_days": "Lectura de cloro combinado, válida durante (días)",
+          "total_alkalinity_stale_days": "Lectura de alcalinidad total, válida durante (días)",
+          "calcium_hardness_stale_days": "Lectura de dureza cálcica, válida durante (días)",
+          "cyanuric_acid_stale_days": "Lectura de ácido cianúrico, válida durante (días)",
+          "salt_stale_days": "Lectura de sal, válida durante (días)"
         },
         "data_description": {
           "swimming_months": "HomePool propone invernar cuando terminan y la puesta en marcha dos semanas antes de que empiecen.",
@@ -581,6 +610,7 @@
       }
     },
     "error": {
+      "range_order": "El valor mínimo no puede ser mayor que el máximo.",
       "depth_order": "La profundidad máxima no puede ser menor que la mínima.",
       "cover_entity_required": "Una cubierta automática necesita su entidad.",
       "pressure_order": "La presión máxima debe ser mayor que la mínima.",
@@ -752,6 +782,17 @@
         "skimmer_baskets": "Cestos del skimmer",
         "cell_cleaning": "Limpieza de la célula",
         "filter_media_check": "Revisión de la arena o el vidrio"
+      }
+    },
+    "reading_kind": {
+      "options": {
+        "ph": "pH",
+        "free_chlorine": "Cloro libre",
+        "combined_chlorine": "Cloro combinado",
+        "total_alkalinity": "Alcalinidad total",
+        "calcium_hardness": "Dureza cálcica",
+        "cyanuric_acid": "Ácido cianúrico",
+        "salt": "Sal"
       }
     },
     "season_state": {
@@ -937,6 +978,21 @@
       },
       "free_chlorine": {
         "name": "Cloro libre"
+      },
+      "ph_manual": {
+        "name": "pH"
+      },
+      "combined_chlorine": {
+        "name": "Cloro combinado"
+      },
+      "total_alkalinity": {
+        "name": "Alcalinidad total"
+      },
+      "calcium_hardness": {
+        "name": "Dureza cálcica"
+      },
+      "cyanuric_acid": {
+        "name": "Ácido cianúrico"
       },
       "pump_energy_today": {
         "name": "Energía de la bomba hoy"
@@ -1136,6 +1192,20 @@
         }
       }
     },
+    "record_reading": {
+      "name": "Registrar lectura",
+      "description": "Una lectura química tomada a mano. Medir el pH o el cloro libre cuenta también como la medición del agua.",
+      "fields": {
+        "kind": {
+          "name": "Lectura",
+          "description": "Qué se ha medido."
+        },
+        "value": {
+          "name": "Valor",
+          "description": "El pH no tiene unidad, la sal va en g/L y el resto en mg/L."
+        }
+      }
+    },
     "recalculate_schedule": {
       "name": "Recalcular objetivo",
       "description": "Vuelve a calcular el objetivo de hoy ahora. A diferencia de la actualización horaria, también puede bajarlo.",
@@ -1193,6 +1263,9 @@
     }
   },
   "exceptions": {
+    "invalid_reading": {
+      "message": "{value} no es una lectura posible de {kind}."
+    },
     "no_pool_targeted": {
       "message": "Ese destino no corresponde a ninguna piscina de HomePool."
     },

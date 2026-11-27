@@ -31,6 +31,14 @@ TEXTS: dict[str, dict[str, str]] = {
         ),
         "ph_out_of_range": "{pool}: pH {value:.2f} is outside {low:.1f}–{high:.1f}.",
         "salt_low": "{pool}: salt at {value:.1f} g/L, below {low:.1f} g/L.",
+        "free_chlorine_out_of_range": "{pool}: free chlorine {value:g} mg/L, outside {range}.",
+        "combined_chlorine_out_of_range": "{pool}: combined chlorine {value:g} mg/L, outside {range}.",
+        "total_alkalinity_out_of_range": "{pool}: total alkalinity {value:g} mg/L, outside {range}.",
+        "calcium_hardness_out_of_range": "{pool}: calcium hardness {value:g} mg/L, outside {range}.",
+        "cyanuric_acid_out_of_range": "{pool}: cyanuric acid {value:g} mg/L, outside {range}.",
+        "reading_stale": (
+            "{pool}: readings too old to be used: {kinds}. Measure them again."
+        ),
         "chlorinator_cold": (
             "{pool}: water at {value:.0f} °C, too cold for the salt cell; "
             "it stays off until the water warms up."
@@ -128,6 +136,14 @@ TEXTS: dict[str, dict[str, str]] = {
         ),
         "ph_out_of_range": "{pool}: el pH {value:.2f} está fuera de {low:.1f}–{high:.1f}.",
         "salt_low": "{pool}: sal en {value:.1f} g/L, por debajo de {low:.1f} g/L.",
+        "free_chlorine_out_of_range": "{pool}: cloro libre {value:g} mg/L, fuera de {range}.",
+        "combined_chlorine_out_of_range": "{pool}: cloro combinado {value:g} mg/L, fuera de {range}.",
+        "total_alkalinity_out_of_range": "{pool}: alcalinidad {value:g} mg/L, fuera de {range}.",
+        "calcium_hardness_out_of_range": "{pool}: dureza cálcica {value:g} mg/L, fuera de {range}.",
+        "cyanuric_acid_out_of_range": "{pool}: ácido cianúrico {value:g} mg/L, fuera de {range}.",
+        "reading_stale": (
+            "{pool}: lecturas demasiado antiguas para usarse: {kinds}. Vuelve a medirlas."
+        ),
         "chlorinator_cold": (
             "{pool}: el agua está a {value:.0f} °C, demasiado fría para la célula; "
             "el clorador no funcionará hasta que se caliente."

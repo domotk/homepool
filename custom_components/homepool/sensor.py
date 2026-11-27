@@ -33,6 +33,7 @@ from .const import (
     PhTrend,
 )
 from .coordinator import PoolCoordinator
+from .pool.readings import NEW_SENSOR_KINDS
 from .entity import PoolEntity
 
 
@@ -85,6 +86,19 @@ def _control_attrs(c: PoolCoordinator) -> dict[str, Any]:
         ),
         "manual_cycle_until": c.cycle_until.isoformat() if c.cycle_until else None,
         "safety_conditions": c.safety_reasons,
+    }
+
+
+def _manual_value(c: PoolCoordinator, kind: str) -> float | None:
+    """The last reading by hand; when it is too old, the attributes say so."""
+    return c.manual_status(kind).value
+
+
+def _manual_attrs(c: PoolCoordinator, kind: str) -> dict[str, Any]:
+    status = c.manual_status(kind)
+    return {
+        "recorded_at": status.at.isoformat() if status.at else None,
+        "stale": status.stale,
     }
 
 
@@ -247,6 +261,25 @@ SENSORS: tuple[PoolSensorDescription, ...] = (
             "source": c.free_chlorine[1],
             "recorded_at": (c.manual_readings.get("free_chlorine") or {}).get("at"),
         },
+    ),
+    PoolSensorDescription(
+        key="ph_manual",
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=1,
+        exists_fn=lambda c: not c.has(CONF_PH_SENSOR),
+        value_fn=lambda c: _manual_value(c, "ph"),
+        attrs_fn=lambda c: _manual_attrs(c, "ph"),
+    ),
+    *(
+        PoolSensorDescription(
+            key=_kind,
+            native_unit_of_measurement="mg/L",
+            state_class=SensorStateClass.MEASUREMENT,
+            suggested_display_precision=1,
+            value_fn=lambda c, _kind=_kind: _manual_value(c, _kind),
+            attrs_fn=lambda c, _kind=_kind: _manual_attrs(c, _kind),
+        )
+        for _kind in NEW_SENSOR_KINDS
     ),
     PoolSensorDescription(
         key="pump_energy_today",

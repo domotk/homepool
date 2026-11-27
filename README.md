@@ -201,6 +201,7 @@ target sensor's attributes for the card.
 | `homepool.stop_cycle` | Stops a manual cycle and holds the pump off for the override time |
 | `homepool.record_manual_action` | Logs backwash, salt added, probe calibrated, … and resets its reminder. A task never logged counts from when HomePool was installed (or updated to 0.1.4), so press its button the next time you do it |
 | `homepool.record_salt_level` · `homepool.record_free_chlorine` | A reading taken by hand, used until a newer one |
+| `homepool.record_reading` | Any reading by hand (`kind`: pH, free or combined chlorine, alkalinity, hardness, cyanuric acid, salt). Out of range it raises an alert; past its stale age it is no longer used |
 | `homepool.recalculate_schedule` | Today's target again, now — the only way it can go down during the day |
 | `homepool.force_ph_correction_window` | Runs the pump so the pH doser can work |
 | `homepool.reset_daily_counters` | Starts today's count from zero |

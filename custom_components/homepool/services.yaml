@@ -107,6 +107,33 @@ record_free_chlorine:
           unit_of_measurement: ppm
           mode: box
 
+record_reading:
+  target:
+    entity:
+      integration: homepool
+  fields:
+    kind:
+      required: true
+      selector:
+        select:
+          translation_key: reading_kind
+          options:
+            - ph
+            - free_chlorine
+            - combined_chlorine
+            - total_alkalinity
+            - calcium_hardness
+            - cyanuric_acid
+            - salt
+    value:
+      required: true
+      selector:
+        number:
+          min: 0
+          max: 5000
+          step: any
+          mode: box
+
 recalculate_schedule:
   target:
     entity:

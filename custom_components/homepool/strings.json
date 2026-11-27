@@ -104,7 +104,21 @@
           "swimming_months": "Months the pool is used",
           "winter_product_type": "Winter product",
           "winter_product_dose_per_m3": "Winter product, dose per m³",
-          "winter_product_interval_days": "Top up the winter product every"
+          "winter_product_interval_days": "Top up the winter product every",
+          "combined_chlorine_range_max": "Combined chlorine, highest",
+          "total_alkalinity_range_min": "Total alkalinity, lowest",
+          "total_alkalinity_range_max": "Total alkalinity, highest",
+          "calcium_hardness_range_min": "Calcium hardness, lowest",
+          "calcium_hardness_range_max": "Calcium hardness, highest",
+          "cyanuric_acid_range_min": "Cyanuric acid, lowest",
+          "cyanuric_acid_range_max": "Cyanuric acid, highest",
+          "ph_stale_days": "pH reading, trusted for (days)",
+          "free_chlorine_stale_days": "Free chlorine reading, trusted for (days)",
+          "combined_chlorine_stale_days": "Combined chlorine reading, trusted for (days)",
+          "total_alkalinity_stale_days": "Total alkalinity reading, trusted for (days)",
+          "calcium_hardness_stale_days": "Calcium hardness reading, trusted for (days)",
+          "cyanuric_acid_stale_days": "Cyanuric acid reading, trusted for (days)",
+          "salt_stale_days": "Salt reading, trusted for (days)"
         },
         "data_description": {
           "swimming_months": "HomePool proposes wintering when they end and opening two weeks before they start.",
@@ -275,6 +289,7 @@
       }
     },
     "error": {
+      "range_order": "The lowest value cannot be above the highest.",
       "depth_order": "The deepest depth cannot be less than the shallowest.",
       "cover_entity_required": "An automatic cover needs its entity.",
       "pressure_order": "The high pressure must be above the low one.",
@@ -394,7 +409,21 @@
           "swimming_months": "Months the pool is used",
           "winter_product_type": "Winter product",
           "winter_product_dose_per_m3": "Winter product, dose per m³",
-          "winter_product_interval_days": "Top up the winter product every"
+          "winter_product_interval_days": "Top up the winter product every",
+          "combined_chlorine_range_max": "Combined chlorine, highest",
+          "total_alkalinity_range_min": "Total alkalinity, lowest",
+          "total_alkalinity_range_max": "Total alkalinity, highest",
+          "calcium_hardness_range_min": "Calcium hardness, lowest",
+          "calcium_hardness_range_max": "Calcium hardness, highest",
+          "cyanuric_acid_range_min": "Cyanuric acid, lowest",
+          "cyanuric_acid_range_max": "Cyanuric acid, highest",
+          "ph_stale_days": "pH reading, trusted for (days)",
+          "free_chlorine_stale_days": "Free chlorine reading, trusted for (days)",
+          "combined_chlorine_stale_days": "Combined chlorine reading, trusted for (days)",
+          "total_alkalinity_stale_days": "Total alkalinity reading, trusted for (days)",
+          "calcium_hardness_stale_days": "Calcium hardness reading, trusted for (days)",
+          "cyanuric_acid_stale_days": "Cyanuric acid reading, trusted for (days)",
+          "salt_stale_days": "Salt reading, trusted for (days)"
         },
         "data_description": {
           "swimming_months": "HomePool proposes wintering when they end and opening two weeks before they start.",
@@ -581,6 +610,7 @@
       }
     },
     "error": {
+      "range_order": "The lowest value cannot be above the highest.",
       "depth_order": "The deepest depth cannot be less than the shallowest.",
       "cover_entity_required": "An automatic cover needs its entity.",
       "pressure_order": "The high pressure must be above the low one.",
@@ -752,6 +782,17 @@
         "skimmer_baskets": "Skimmer baskets",
         "cell_cleaning": "Cell cleaning",
         "filter_media_check": "Filter media check"
+      }
+    },
+    "reading_kind": {
+      "options": {
+        "ph": "pH",
+        "free_chlorine": "Free chlorine",
+        "combined_chlorine": "Combined chlorine",
+        "total_alkalinity": "Total alkalinity",
+        "calcium_hardness": "Calcium hardness",
+        "cyanuric_acid": "Cyanuric acid",
+        "salt": "Salt"
       }
     },
     "season_state": {
@@ -937,6 +978,21 @@
       },
       "free_chlorine": {
         "name": "Free chlorine"
+      },
+      "ph_manual": {
+        "name": "pH"
+      },
+      "combined_chlorine": {
+        "name": "Combined chlorine"
+      },
+      "total_alkalinity": {
+        "name": "Total alkalinity"
+      },
+      "calcium_hardness": {
+        "name": "Calcium hardness"
+      },
+      "cyanuric_acid": {
+        "name": "Cyanuric acid"
       },
       "pump_energy_today": {
         "name": "Pump energy today"
@@ -1136,6 +1192,20 @@
         }
       }
     },
+    "record_reading": {
+      "name": "Record reading",
+      "description": "A chemistry reading taken by hand. Measuring the pH or the free chlorine also counts as the water test.",
+      "fields": {
+        "kind": {
+          "name": "Reading",
+          "description": "What was measured."
+        },
+        "value": {
+          "name": "Value",
+          "description": "pH has no unit, salt is in g/L and the rest in mg/L."
+        }
+      }
+    },
     "recalculate_schedule": {
       "name": "Recalculate target",
       "description": "Works out today's target again now. Unlike the hourly update, it may also lower it.",
@@ -1193,6 +1263,9 @@
     }
   },
   "exceptions": {
+    "invalid_reading": {
+      "message": "{value} is not a possible {kind} reading."
+    },
     "no_pool_targeted": {
       "message": "That target matches no HomePool pool."
     },

@@ -21,6 +21,7 @@ from .const import (
     ATTR_CHECKLIST,
     ATTR_DATE,
     ATTR_DURATION,
+    ATTR_KIND,
     ATTR_NOTES,
     ATTR_STATE,
     ATTR_STEP,
@@ -37,6 +38,7 @@ from .const import (
     SERVICE_RECALCULATE,
     SERVICE_RECORD_FREE_CHLORINE,
     SERVICE_RECORD_MANUAL_ACTION,
+    SERVICE_RECORD_READING,
     SERVICE_RECORD_SALT_LEVEL,
     SERVICE_RESET_DAILY,
     SERVICE_SET_SEASON_STATE,
@@ -46,6 +48,7 @@ from .const import (
 )
 from .coordinator import PoolCoordinator
 from .pool.checklists import LIST_IDS
+from .pool.readings import KINDS
 from .pool.season import SeasonState
 from .pool.tasks import TASKS_BY_KEY
 
@@ -81,6 +84,9 @@ SALT_SCHEMA = cv.make_entity_service_schema(
 )
 CHLORINE_SCHEMA = cv.make_entity_service_schema(
     {vol.Required(ATTR_VALUE): vol.All(vol.Coerce(float), vol.Range(min=0, max=20))}
+)
+READING_SCHEMA = cv.make_entity_service_schema(
+    {vol.Required(ATTR_KIND): vol.In(KINDS), vol.Required(ATTR_VALUE): vol.Coerce(float)}
 )
 
 
@@ -121,6 +127,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: HomePoolConfigEntry) ->
             SERVICE_COMPLETE_TASK,
             SERVICE_RECORD_SALT_LEVEL,
             SERVICE_RECORD_FREE_CHLORINE,
+            SERVICE_RECORD_READING,
             SERVICE_RECALCULATE,
             SERVICE_FORCE_PH_WINDOW,
             SERVICE_RESET_DAILY,
@@ -248,6 +255,10 @@ def _async_register_services(hass: HomeAssistant) -> None:
         for pool in await _pools(call):
             await pool.async_record_reading("free_chlorine", call.data[ATTR_VALUE])
 
+    async def _record_reading(call: ServiceCall) -> None:
+        for pool in await _pools(call):
+            await pool.async_record_reading(call.data[ATTR_KIND], call.data[ATTR_VALUE])
+
     async def _recalculate(call: ServiceCall) -> None:
         for pool in await _pools(call):
             await pool.async_recalculate()
@@ -269,6 +280,7 @@ def _async_register_services(hass: HomeAssistant) -> None:
         SERVICE_DISMISS_CHECKLIST: (_dismiss_checklist, CHECKLIST_SCHEMA),
         SERVICE_RECORD_SALT_LEVEL: (_record_salt, SALT_SCHEMA),
         SERVICE_RECORD_FREE_CHLORINE: (_record_chlorine, CHLORINE_SCHEMA),
+        SERVICE_RECORD_READING: (_record_reading, READING_SCHEMA),
         SERVICE_RECALCULATE: (_recalculate, EMPTY_SCHEMA),
         SERVICE_FORCE_PH_WINDOW: (_ph_window, DURATION_SCHEMA),
         SERVICE_RESET_DAILY: (_reset, EMPTY_SCHEMA),

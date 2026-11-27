@@ -195,6 +195,15 @@ from .pool.scheduler import (
     solar_noon_utc,
     surplus_watts,
 )
+from .pool.readings import (
+    DEFAULT_STALE_DAYS,
+    KINDS,
+    RANGE_ALERT_KINDS,
+    ReadingStatus,
+    default_range,
+    reading_status,
+    validate,
+)
 from .pool.tasks import (
     FILTER_TASKS,
     LEGACY_TASKS,
@@ -243,6 +252,18 @@ def _whole_minutes(seconds: float) -> int:
 
 def _iso(value: datetime | None) -> str | None:
     return value.isoformat() if value else None
+
+
+# Measuring either of these is the water test.
+WATER_TEST_KINDS = ("ph", "free_chlorine")
+
+
+def _range_text(low: float | None, high: float | None) -> str:
+    if low is None:
+        return f"≤ {high:g}"
+    if high is None:
+        return f"≥ {low:g}"
+    return f"{low:g}–{high:g}"
 
 
 def _parse_dt(value: str | None) -> datetime | None:
@@ -748,17 +769,25 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         return None
 
     @property
-    def ph(self) -> float | None:
+    def ph_probe(self) -> float | None:
+        """The pH probe alone: the correction and the trend never run on a reading by hand."""
         return self._number(CONF_PH_SENSOR)
+
+    @property
+    def ph(self) -> float | None:
+        probe = self.ph_probe
+        if probe is not None:
+            return probe
+        return self._fresh_manual("ph")
 
     @property
     def salinity(self) -> tuple[float | None, str | None]:
         value = self._number(CONF_SALINITY_SENSOR)
         if value is not None:
             return value, "salinity_sensor"
-        record = self.manual_readings.get("salt")
-        if record:
-            return float(record["value"]), "manual_record"
+        manual = self._fresh_manual("salt")
+        if manual is not None:
+            return manual, "manual_record"
         return None, None
 
     @property
@@ -766,10 +795,42 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         value = self._number(CONF_FREE_CHLORINE_SENSOR)
         if value is not None:
             return value, "free_chlorine_sensor"
-        record = self.manual_readings.get("free_chlorine")
-        if record:
-            return float(record["value"]), "manual_record"
+        manual = self._fresh_manual("free_chlorine")
+        if manual is not None:
+            return manual, "manual_record"
         return None, None
+
+    def reading_range(self, kind: str) -> tuple[float | None, float | None]:
+        """The acceptable range of a kind: its options over the defaults."""
+        low, high = default_range(kind, self.is_salt)
+        low = self.opt(f"{kind}_range_min", low)
+        high = self.opt(f"{kind}_range_max", high)
+        return (
+            None if low is None else float(low),
+            None if high is None else float(high),
+        )
+
+    def reading_stale_days(self, kind: str) -> int:
+        return int(self.opt(f"{kind}_stale_days", DEFAULT_STALE_DAYS[kind]))
+
+    def manual_status(self, kind: str) -> ReadingStatus:
+        """The last reading taken by hand, whether it is stale and whether it is out of range."""
+        record = self.manual_readings.get(kind)
+        low, high = self.reading_range(kind)
+        return reading_status(
+            kind,
+            float(record["value"]) if record else None,
+            _parse_dt(record.get("at")) if record else None,
+            dt_util.utcnow(),
+            low,
+            high,
+            self.reading_stale_days(kind),
+        )
+
+    def _fresh_manual(self, kind: str) -> float | None:
+        """A reading by hand that is not stale, or None."""
+        status = self.manual_status(kind)
+        return None if status.stale else status.value
 
     @property
     def orp(self) -> float | None:
@@ -945,13 +1006,16 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             counted_from = max(counted_from, first_seen) if counted_from else first_seen
         days = self._task_days(defn)
         task_days = days
+        # The date it was really done stays in the row; the due date may count
+        # from somewhere else.
+        counts_done = done
         if defn.key == "winter_product" and self.winter_entered is not None:
             if done is None or done < self.winter_entered:
                 # Not done since going into winter: it is due that very day.
-                done, counted_from, days = None, self.winter_entered, 0
+                counts_done, counted_from, days = None, self.winter_entered, 0
         state = task_state(
             defn,
-            last_done=dt_util.as_local(done) if done else None,
+            last_done=dt_util.as_local(counts_done) if counts_done else None,
             counted_from=dt_util.as_local(counted_from) if counted_from else None,
             today=dt_util.now().date(),
             season_state=self.season_state,
@@ -1488,7 +1552,7 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             current = self.air_max.get("today")
             if current is None or air > current:
                 self.air_max["today"] = air
-        ph = self.ph
+        ph = self.ph_probe
         if ph is not None and (
             not self._ph_samples or now - self._ph_samples[-1][0] >= timedelta(minutes=10)
         ):
@@ -1857,7 +1921,8 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         elif self.conf.get(CONF_HAS_PH_DOSING) and self._ph_plausible(now):
             high = float(self.opt(CONF_PH_RANGE_MAX, DEFAULT_PH_RANGE_MAX))
             # Hysteresis: start above the range, stop once back at the target.
-            needed = self.ph > high or (self.ph_correction_active and self.ph > self.ph_target)
+            ph = self.ph_probe
+            needed = ph > high or (self.ph_correction_active and ph > self.ph_target)
         self.ph_correction_active = needed
         cap = float(self.opt(CONF_PH_CORRECTION_MAX_DAILY, DEFAULT_PH_CORRECTION_MAX_DAILY))
         if not needed or self.ph_correction_minutes >= cap:
@@ -1873,7 +1938,7 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     def _ph_plausible(self, now: datetime) -> bool:
         """Is the probe's reading believable enough to run the pump for?"""
-        ph = self.ph
+        ph = self.ph_probe
         if ph is None:
             self._ph_seen = None
             return False
@@ -2277,6 +2342,8 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             )
             await self._async_set("chlorinator_not_producing", bool(not_producing), Severity.WARNING)
 
+        await self._async_reading_alerts()
+
         today = dt_util.now().date().isoformat()
         tasks = self.task_status()
         for task in tasks:
@@ -2309,6 +2376,55 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             if defn.key not in listed:
                 await self._async_clear(f"{defn.key}_due")
                 self.due_notified.pop(defn.key, None)
+
+    async def _async_reading_alerts(self) -> None:
+        """Out of range, from readings that are not stale; and the ones that are."""
+        for kind in RANGE_ALERT_KINDS:
+            alert = f"{kind}_out_of_range"
+            if kind == "free_chlorine":
+                value, _ = self.free_chlorine
+                out = value is not None and self._outside(kind, value)
+            else:
+                status = self.manual_status(kind)
+                value, out = status.value, status.out_of_range
+            low, high = self.reading_range(kind)
+            await self._async_set(
+                alert,
+                out,
+                Severity.WARNING,
+                {"value": value or 0, "range": _range_text(low, high)},
+            )
+        stale = [
+            kind
+            for kind in KINDS
+            if kind in self.manual_readings
+            and self.manual_status(kind).stale
+            and self._manual_is_used(kind)
+        ]
+        if not stale:
+            await self._async_clear("reading_stale")
+            return
+        values = {"kinds": ", ".join(stale)}
+        current = self.alerts.get("reading_stale")
+        message = text(self.hass.config.language, "reading_stale", pool=self.pool_name, **values)
+        if current and current["message"] != message:
+            # Another reading went stale: say so again, with the new list.
+            await self._async_clear("reading_stale")
+        await self._async_raise("reading_stale", Severity.INFO, values)
+
+    def _outside(self, kind: str, value: float) -> bool:
+        low, high = self.reading_range(kind)
+        return (low is not None and value < low) or (high is not None and value > high)
+
+    def _manual_is_used(self, kind: str) -> bool:
+        """Is the reading by hand the one in use, rather than a probe or something that is not there?"""
+        if kind == "ph":
+            return self.ph_probe is None
+        if kind == "free_chlorine":
+            return self._number(CONF_FREE_CHLORINE_SENSOR) is None
+        if kind == "salt":
+            return self.is_salt and self._number(CONF_SALINITY_SENSOR) is None
+        return True
 
     # ──────────────────────────────────────────
     # Actions from entities and services
@@ -2473,6 +2589,14 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         await self.async_refresh()
 
     async def async_record_reading(self, kind: str, value: float) -> None:
+        try:
+            validate(kind, value)
+        except ValueError as err:
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="invalid_reading",
+                translation_placeholders={"kind": str(kind), "value": str(value)},
+            ) from err
         now = dt_util.utcnow()
         self.manual_readings[kind] = {"value": value, "at": now.isoformat()}
         self.actions = [
@@ -2481,6 +2605,10 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         ][-ACTIONS_KEPT:]
         if kind == "salt":
             await self._async_maybe_recalculate(now, force=True)
+        if kind in WATER_TEST_KINDS:
+            # Measuring the pH or the chlorine is the water test.
+            await self.async_record_action(ManualAction.WATER_TESTED)
+            return
         self._save()
         await self.async_refresh()
 
