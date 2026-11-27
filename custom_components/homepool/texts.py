@@ -26,8 +26,19 @@ TEXTS: dict[str, dict[str, str]] = {
             "{pool}: water near freezing, but HomePool cannot keep the pump running "
             "({reason}). Make sure the pipes are protected."
         ),
+        "freeze_protection_passive": (
+            "{pool}: frost expected: check that the plugs and gizmos are in."
+        ),
         "ph_out_of_range": "{pool}: pH {value:.2f} is outside {low:.1f}–{high:.1f}.",
         "salt_low": "{pool}: salt at {value:.1f} g/L, below {low:.1f} g/L.",
+        "free_chlorine_out_of_range": "{pool}: free chlorine {value:g} mg/L, outside {range}.",
+        "combined_chlorine_out_of_range": "{pool}: combined chlorine {value:g} mg/L, outside {range}.",
+        "total_alkalinity_out_of_range": "{pool}: total alkalinity {value:g} mg/L, outside {range}.",
+        "calcium_hardness_out_of_range": "{pool}: calcium hardness {value:g} mg/L, outside {range}.",
+        "cyanuric_acid_out_of_range": "{pool}: cyanuric acid {value:g} mg/L, outside {range}.",
+        "reading_stale": (
+            "{pool}: readings too old to be used: {kinds}. Measure them again."
+        ),
         "chlorinator_cold": (
             "{pool}: water at {value:.0f} °C, too cold for the salt cell; "
             "it stays off until the water warms up."
@@ -42,6 +53,11 @@ TEXTS: dict[str, dict[str, str]] = {
         "backwash_due": "{pool}: the filter is due a backwash.",
         "filter_cleaning_due": "{pool}: the filter cartridge is due a clean.",
         "ph_calibration_due": "{pool}: the pH probe is due a calibration.",
+        "winter_product_due": "{pool}: the winter product needs topping up.",
+        "water_test_due": "{pool}: time to measure the pH and the free chlorine.",
+        "skimmer_baskets_due": "{pool}: time to empty the skimmer and pump baskets.",
+        "cell_cleaning_due": "{pool}: the salt cell is due a check and a clean.",
+        "filter_media_check_due": "{pool}: the filter sand or glass is due a check.",
         "season_start": (
             "{pool}: chlorinator season starts. Check the salt, clean the cell and "
             "calibrate the pH probe."
@@ -50,6 +66,60 @@ TEXTS: dict[str, dict[str, str]] = {
             "{pool}: chlorinator season ends. Clean the cell, switch to tablets if "
             "you use them, and protect the pH probe."
         ),
+        "season_proposal_winter": (
+            "{pool}: the swimming season is over. Choose active or passive wintering "
+            "in the season state when you close the pool."
+        ),
+        "season_proposal_opening": (
+            "{pool}: the swimming season is about to start. Set the season state to "
+            "opening when you start getting the pool ready."
+        ),
+        "season_state_introduced": (
+            "{pool}: HomePool now keeps a season state, and it is set to {state}. "
+            "Change it if that is not right."
+        ),
+        "season_proposal_swimming": (
+            "{pool}: the pool is ready. Set the season state to swimming to start the season."
+        ),
+        "closing_needs_pump": (
+            "{pool}: passive wintering was confirmed with closing steps that need the "
+            "pump still open. The pump will no longer start."
+        ),
+        "treatment_frost": (
+            "{pool}: freeze protection is running the pump, so the flocculant's "
+            "settling is interrupted. It carries on counting once the frost has passed."
+        ),
+        "treatment_vacuuming": (
+            "{pool}: the flocculant is waiting for you to vacuum the floor. When you "
+            "are done, press \"Next treatment phase (vacuuming done)\": until then "
+            "HomePool leaves the pump to you."
+        ),
+        "step_closing_shock": "Shock the water with the pH at 7.2–7.4.",
+        "step_closing_cell": "Clean the salt cell and store it.",
+        "step_closing_backwash": "Backwash the filter.",
+        "step_closing_lower_level": "Lower the water level below the skimmers.",
+        "step_closing_plugs": "Fit the plugs and gizmos and drain the pipes.",
+        "step_closing_winter_product": "Add the winter product.",
+        "step_opening_remove_winter_product": "Remove the winter product.",
+        "step_opening_backwash": "Backwash the filter.",
+        "step_opening_measure": "Measure pH, alkalinity, cyanuric acid and salt.",
+        "step_opening_salt": "Add salt up to the target.",
+        "step_opening_reconnect_cell": "Reconnect the salt cell; this turns the chlorinator on.",
+        "step_opening_calibrate_ph": "Calibrate the pH probe.",
+        "step_opening_shock": "Shock the water.",
+        "step_treatment_brush": "Brush the walls and the floor.",
+        "step_treatment_ph_shock": "Adjust the pH to 7.0–7.4.",
+        "step_treatment_ph_settle": "Adjust the pH to 7.2–7.6.",
+        "step_treatment_dose": "Add the dose.",
+        "step_treatment_algaecide": "Add a copper-free algaecide.",
+        "step_treatment_measure": "Measure pH and chlorine after 12–24 h.",
+        "step_treatment_vacuum": "Vacuum the floor to waste.",
+        "step_treatment_backwash": "Backwash when it is done.",
+        "step_treatment_refill": "Refill the water.",
+        "season_swimming": "swimming",
+        "season_winter_active": "active wintering",
+        "season_winter_passive": "passive wintering",
+        "season_opening": "opening",
         "title": "Pool",
     },
     "es": {
@@ -70,8 +140,19 @@ TEXTS: dict[str, dict[str, str]] = {
             "{pool}: el agua está cerca de congelarse, pero HomePool no puede mantener "
             "la bomba en marcha ({reason}). Asegúrate de que las tuberías están protegidas."
         ),
+        "freeze_protection_passive": (
+            "{pool}: helada prevista: revisa que los tapones y los gizmos estén puestos."
+        ),
         "ph_out_of_range": "{pool}: el pH {value:.2f} está fuera de {low:.1f}–{high:.1f}.",
         "salt_low": "{pool}: sal en {value:.1f} g/L, por debajo de {low:.1f} g/L.",
+        "free_chlorine_out_of_range": "{pool}: cloro libre {value:g} mg/L, fuera de {range}.",
+        "combined_chlorine_out_of_range": "{pool}: cloro combinado {value:g} mg/L, fuera de {range}.",
+        "total_alkalinity_out_of_range": "{pool}: alcalinidad {value:g} mg/L, fuera de {range}.",
+        "calcium_hardness_out_of_range": "{pool}: dureza cálcica {value:g} mg/L, fuera de {range}.",
+        "cyanuric_acid_out_of_range": "{pool}: ácido cianúrico {value:g} mg/L, fuera de {range}.",
+        "reading_stale": (
+            "{pool}: lecturas demasiado antiguas para usarse: {kinds}. Vuelve a medirlas."
+        ),
         "chlorinator_cold": (
             "{pool}: el agua está a {value:.0f} °C, demasiado fría para la célula; "
             "el clorador no funcionará hasta que se caliente."
@@ -86,6 +167,11 @@ TEXTS: dict[str, dict[str, str]] = {
         "backwash_due": "{pool}: toca hacer un contralavado del filtro.",
         "filter_cleaning_due": "{pool}: toca limpiar el cartucho del filtro.",
         "ph_calibration_due": "{pool}: toca calibrar la sonda de pH.",
+        "winter_product_due": "{pool}: toca reponer el producto de invierno.",
+        "water_test_due": "{pool}: toca medir el pH y el cloro libre.",
+        "skimmer_baskets_due": "{pool}: toca vaciar los cestos del skimmer y del prefiltro.",
+        "cell_cleaning_due": "{pool}: toca revisar y limpiar la célula del clorador.",
+        "filter_media_check_due": "{pool}: toca revisar la arena o el vidrio del filtro.",
         "season_start": (
             "{pool}: empieza la temporada del clorador. Revisa la sal, limpia la "
             "célula y calibra la sonda de pH."
@@ -94,6 +180,61 @@ TEXTS: dict[str, dict[str, str]] = {
             "{pool}: termina la temporada del clorador. Limpia la célula, pasa a "
             "pastillas si las usas y protege la sonda de pH."
         ),
+        "season_proposal_winter": (
+            "{pool}: ha terminado la temporada de baño. Elige invernaje activo o pasivo "
+            "en el estado de temporada cuando cierres la piscina."
+        ),
+        "season_proposal_opening": (
+            "{pool}: la temporada de baño está a punto de empezar. Pon el estado "
+            "de temporada en puesta en marcha cuando empieces a prepararla."
+        ),
+        "season_state_introduced": (
+            "{pool}: HomePool tiene ahora estado de temporada: está en {state}; "
+            "cámbialo si no es así."
+        ),
+        "season_proposal_swimming": (
+            "{pool}: la piscina está lista. Cambia el estado de temporada a baño para "
+            "empezar la temporada."
+        ),
+        "closing_needs_pump": (
+            "{pool}: se ha confirmado el invernaje pasivo con pasos de cierre que "
+            "necesitan la bomba sin hacer. La bomba ya no arrancará."
+        ),
+        "treatment_frost": (
+            "{pool}: la antiheladas tiene la bomba en marcha, así que el reposo del "
+            "floculante se ha interrumpido. Sigue contando cuando pase la helada."
+        ),
+        "treatment_vacuuming": (
+            "{pool}: el floculante está esperando a que aspires el fondo. Cuando "
+            "termines, pulsa «Siguiente fase del tratamiento (aspirado terminado)»: "
+            "hasta entonces la bomba la manejas tú."
+        ),
+        "step_closing_shock": "Choque con el pH en 7,2–7,4.",
+        "step_closing_cell": "Limpia la célula y guárdala.",
+        "step_closing_backwash": "Haz un contralavado.",
+        "step_closing_lower_level": "Baja el nivel del agua bajo los skimmers.",
+        "step_closing_plugs": "Pon los tapones y gizmos y vacía las tuberías.",
+        "step_closing_winter_product": "Echa el producto de invierno.",
+        "step_opening_remove_winter_product": "Retira el producto de invierno.",
+        "step_opening_backwash": "Haz un contralavado.",
+        "step_opening_measure": "Mide pH, alcalinidad, ácido cianúrico y sal.",
+        "step_opening_salt": "Añade sal hasta el objetivo.",
+        "step_opening_reconnect_cell": "Reconecta la célula; esto enciende el clorador.",
+        "step_opening_calibrate_ph": "Calibra la sonda de pH.",
+        "step_opening_shock": "Haz el choque.",
+        "step_treatment_brush": "Cepilla paredes y fondo.",
+        "step_treatment_ph_shock": "Ajusta el pH a 7,0–7,4.",
+        "step_treatment_ph_settle": "Ajusta el pH a 7,2–7,6.",
+        "step_treatment_dose": "Echa la dosis.",
+        "step_treatment_algaecide": "Echa un alguicida sin cobre.",
+        "step_treatment_measure": "Mide pH y cloro a las 12–24 h.",
+        "step_treatment_vacuum": "Aspira el fondo a desagüe.",
+        "step_treatment_backwash": "Haz un contralavado al terminar.",
+        "step_treatment_refill": "Rellena el agua.",
+        "season_swimming": "baño",
+        "season_winter_active": "invernaje activo",
+        "season_winter_passive": "invernaje pasivo",
+        "season_opening": "puesta en marcha",
         "title": "Piscina",
     },
 }
@@ -117,10 +258,15 @@ REASONS: dict[str, dict[str, str]] = {
         "unavailable": "The pump switch is unavailable",
         "hands_off": "Hands off: the pump is being run by hand",
         "maintenance_lock": "Maintenance lock is on",
+        "winter_passive": "Passive wintering: the pump stays off",
         "safety": "Safety shutoff: {reason}",
         "freeze_protection": "Freeze protection: water near 0 °C",
         "ph_correction": "pH correction needs water flowing",
         "manual_cycle": "Manual cycle in progress",
+        "treatment_filtering": "Water treatment: filtering without a break",
+        "treatment_mixing": "Flocculant: mixing it in with the pump on",
+        "treatment_settling": "Flocculant: settling, the pump stays off",
+        "treatment_vacuuming": "Flocculant: vacuuming, the pump is yours to run",
         "manual_override_on": "Switched on by hand; respected for now",
         "manual_override_off": "Switched off by hand; respected for now",
         "automation_override_on": "Switched on by the automation «{name}»; respected for now",
@@ -132,6 +278,7 @@ REASONS: dict[str, dict[str, str]] = {
         "released_freeze_protection": "No longer needed for freeze protection",
         "released_ph_correction": "No longer needed for pH correction",
         "released_manual_cycle": "The manual cycle has ended",
+        "released_treatment": "The water treatment has ended",
         "no_mode": "No mode",
         "min_run": "{reason} (waiting {minutes} min: minimum run time)",
         "min_rest": "{reason} (waiting {minutes} min: minimum rest time)",
@@ -156,10 +303,15 @@ REASONS: dict[str, dict[str, str]] = {
         "unavailable": "El interruptor de la bomba no está disponible",
         "hands_off": "Manos fuera: la bomba se maneja a mano",
         "maintenance_lock": "El bloqueo de mantenimiento está activado",
+        "winter_passive": "Invernaje pasivo: la bomba se queda parada",
         "safety": "Parada de seguridad: {reason}",
         "freeze_protection": "Protección antiheladas: agua cerca de 0 °C",
         "ph_correction": "La corrección del pH necesita el agua en movimiento",
         "manual_cycle": "Ciclo manual en marcha",
+        "treatment_filtering": "Tratamiento del agua: filtrando sin parar",
+        "treatment_mixing": "Floculante: mezclándolo con la bomba en marcha",
+        "treatment_settling": "Floculante: en reposo, la bomba se queda parada",
+        "treatment_vacuuming": "Floculante: aspirando, la bomba la manejas tú",
         "manual_override_on": "Encendida a mano; se respeta por ahora",
         "manual_override_off": "Apagada a mano; se respeta por ahora",
         "automation_override_on": "Encendida por la automatización «{name}»; se respeta por ahora",
@@ -171,6 +323,7 @@ REASONS: dict[str, dict[str, str]] = {
         "released_freeze_protection": "Ya no hace falta para la protección antiheladas",
         "released_ph_correction": "Ya no hace falta para corregir el pH",
         "released_manual_cycle": "El ciclo manual ha terminado",
+        "released_treatment": "El tratamiento del agua ha terminado",
         "no_mode": "Sin modo",
         "min_run": "{reason} (esperando {minutes} min: tiempo mínimo en marcha)",
         "min_rest": "{reason} (esperando {minutes} min: tiempo mínimo de descanso)",

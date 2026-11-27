@@ -38,6 +38,10 @@ record_manual_action:
             - ph_adjusted
             - water_added
             - cell_cleaned
+            - winter_product_added
+            - water_tested
+            - skimmer_baskets_emptied
+            - filter_media_checked
             - other
     value:
       selector:
@@ -49,6 +53,29 @@ record_manual_action:
     notes:
       selector:
         text:
+
+complete_task:
+  target:
+    entity:
+      integration: homepool
+  fields:
+    task:
+      required: true
+      selector:
+        select:
+          translation_key: task
+          options:
+            - backwash
+            - filter_cleaning
+            - ph_calibration
+            - winter_product
+            - water_test
+            - skimmer_baskets
+            - cell_cleaning
+            - filter_media_check
+    date:
+      selector:
+        date:
 
 record_salt_level:
   target:
@@ -80,6 +107,33 @@ record_free_chlorine:
           unit_of_measurement: ppm
           mode: box
 
+record_reading:
+  target:
+    entity:
+      integration: homepool
+  fields:
+    kind:
+      required: true
+      selector:
+        select:
+          translation_key: reading_kind
+          options:
+            - ph
+            - free_chlorine
+            - combined_chlorine
+            - total_alkalinity
+            - calcium_hardness
+            - cyanuric_acid
+            - salt
+    value:
+      required: true
+      selector:
+        number:
+          min: 0
+          max: 5000
+          step: any
+          mode: box
+
 recalculate_schedule:
   target:
     entity:
@@ -100,6 +154,95 @@ force_ph_correction_window:
           mode: box
 
 reset_daily_counters:
+  target:
+    entity:
+      integration: homepool
+
+set_season_state:
+  target:
+    entity:
+      integration: homepool
+  fields:
+    state:
+      required: true
+      selector:
+        select:
+          translation_key: season_state
+          options:
+            - swimming
+            - winter_active
+            - winter_passive
+            - opening
+
+dismiss_season_proposal:
+  target:
+    entity:
+      integration: homepool
+
+complete_step:
+  target:
+    entity:
+      integration: homepool
+  fields:
+    step:
+      required: true
+      example: closing.backwash
+      selector:
+        text:
+
+dismiss_checklist:
+  target:
+    entity:
+      integration: homepool
+  fields:
+    checklist:
+      required: true
+      selector:
+        select:
+          translation_key: checklist
+          options:
+            - closing
+            - opening
+            - treatment
+
+start_treatment:
+  target:
+    entity:
+      integration: homepool
+  fields:
+    type:
+      required: true
+      selector:
+        select:
+          translation_key: treatment_type
+          options:
+            - shock
+            - clarifier
+            - flocculant
+    severity:
+      default: green
+      selector:
+        select:
+          translation_key: shock_severity
+          options:
+            - light
+            - green
+            - dark
+    hours:
+      selector:
+        number:
+          min: 0.5
+          max: 168
+          step: 0.5
+          unit_of_measurement: h
+          mode: box
+
+advance_treatment:
+  target:
+    entity:
+      integration: homepool
+
+end_treatment:
   target:
     entity:
       integration: homepool

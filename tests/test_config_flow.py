@@ -188,12 +188,25 @@ async def test_full_wizard_creates_entry(hass: HomeAssistant) -> None:
             "critical_ignore_quiet_hours": True,
         },
     )
+    assert result["step_id"] == "tasks"
+    shown = [str(k) for k in result["data_schema"].schema]
+    assert "backwash_days" in shown
+    assert "cell_cleaning_days" in shown  # salt
+    assert "filter_cleaning_days" not in shown  # sand filter
+    assert "skimmer_baskets_enabled" in shown
+    assert "water_test_enabled" in shown  # optional since ruling 27
+    assert "has_ph_probe_outside" in shown
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {})
     assert result["type"] is FlowResultType.CREATE_ENTRY
     data = result["data"]
+    assert data["tasks"] == {}
+    assert data["has_ph_probe_outside"] is False
     assert data["name"] == "Back garden"
     assert data["pump_switch"] == PUMP
     assert data["chlorinator_switch"] == CHLORINATOR
     assert data["chlorinator_active_months"] == [6, 7, 8, 9]
+    # Asked in the water step, before the chlorinator: summer by default.
+    assert data["swimming_months"] == [6, 7, 8, 9]
     assert data["pump_model"] == "Astralpool Sena 25465"
     assert 25 < data["volume"] < 35
     assert data["water_temperature_sensor"] is None
@@ -242,3 +255,66 @@ def test_every_layout_has_a_label_in_each_language(language: str) -> None:
             continue
         options = selectors[f"layout_variant_{shape}"]["options"]
         assert {v["id"] for v in variants} == set(options), shape
+
+
+async def _open_water(hass: HomeAssistant, entry) -> dict:
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    return await hass.config_entries.options.async_configure(
+        result["flow_id"], {"next_step_id": "water"}
+    )
+
+
+async def test_a_custom_shock_concentration_does_not_carry_to_another_product(
+    hass: HomeAssistant,
+) -> None:
+    entry = await setup_pool(hass)
+    result = await _open_water(hass, entry)
+    done = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"shock_concentration": 70}
+    )
+    assert done["type"] is FlowResultType.CREATE_ENTRY
+    await hass.async_block_till_done()
+    assert entry.options["shock_concentration"] == 70
+
+    # Switched to a liquid with the 70 % still in the box: it is not 70 g/L.
+    result = await _open_water(hass, entry)
+    done = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"shock_product": "sodium_hypochlorite", "shock_concentration": 70}
+    )
+    assert done["type"] is FlowResultType.CREATE_ENTRY
+    await hass.async_block_till_done()
+    assert entry.options.get("shock_concentration") is None
+    dose = entry.runtime_data._treatment_dose("shock", "green")  # noqa: SLF001
+    assert (dose.concentration, dose.unit) == (150, "L")
+
+    # A figure typed for the new product along with it is kept.
+    result = await _open_water(hass, entry)
+    done = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"shock_product": "dichlor", "shock_concentration": 60}
+    )
+    await hass.async_block_till_done()
+    assert entry.options["shock_concentration"] == 60
+
+
+@pytest.mark.parametrize(
+    ("product", "value", "ok"),
+    [
+        ("calcium_hypochlorite", 120, False),
+        ("dichlor", 101, False),
+        ("calcium_hypochlorite", 70, True),
+        ("sodium_hypochlorite", 120, True),
+        ("sodium_hypochlorite", 301, False),
+    ],
+)
+async def test_the_shock_concentration_must_be_possible_for_its_product(
+    hass: HomeAssistant, product: str, value: float, ok: bool
+) -> None:
+    entry = await setup_pool(hass, shock_product=product)
+    result = await _open_water(hass, entry)
+    done = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"shock_concentration": value}
+    )
+    if ok:
+        assert done["type"] is FlowResultType.CREATE_ENTRY
+    else:
+        assert done["errors"] == {"shock_concentration": "concentration_range"}

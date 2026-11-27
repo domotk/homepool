@@ -4,36 +4,63 @@ from __future__ import annotations
 
 import inspect
 import logging
+import math
 from typing import Any
 
 import voluptuous as vol
 
+from homeassistant.auth.permissions.const import POLICY_CONTROL
 from homeassistant.config_entries import ConfigEntry, ConfigEntryState
 from homeassistant.core import HomeAssistant, ServiceCall
-from homeassistant.exceptions import ServiceValidationError
+from homeassistant.exceptions import ServiceValidationError, Unauthorized, UnknownUser
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.service import async_extract_entity_ids
+from homeassistant.util import dt as dt_util
 
 from .const import (
     ATTR_ACTION_TYPE,
+    ATTR_CHECKLIST,
+    ATTR_DATE,
     ATTR_DURATION,
+    ATTR_HOURS,
+    ATTR_KIND,
     ATTR_NOTES,
+    ATTR_SEVERITY,
+    ATTR_STATE,
+    ATTR_STEP,
+    ATTR_TASK,
+    ATTR_TYPE,
     ATTR_VALUE,
     CONFIG_VERSION,
     DOMAIN,
     PLATFORMS,
+    SERVICE_ADVANCE_TREATMENT,
+    SERVICE_COMPLETE_STEP,
+    SERVICE_COMPLETE_TASK,
+    SERVICE_DISMISS_CHECKLIST,
+    SERVICE_DISMISS_SEASON_PROPOSAL,
+    SERVICE_END_TREATMENT,
     SERVICE_FORCE_PH_WINDOW,
     SERVICE_RECALCULATE,
     SERVICE_RECORD_FREE_CHLORINE,
     SERVICE_RECORD_MANUAL_ACTION,
+    SERVICE_RECORD_READING,
     SERVICE_RECORD_SALT_LEVEL,
     SERVICE_RESET_DAILY,
+    SERVICE_SET_SEASON_STATE,
     SERVICE_START_CYCLE,
+    SERVICE_START_TREATMENT,
     SERVICE_STOP_CYCLE,
     ManualAction,
 )
 from .coordinator import PoolCoordinator
+from .pool.checklists import LIST_IDS
+from .pool.dosing import SHOCK_RISE
+from .pool.readings import KINDS
+from .pool.season import SeasonState
+from .pool.tasks import TASKS_BY_KEY
+from .pool.treatment import TreatmentType
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -45,18 +72,47 @@ DURATION_SCHEMA = cv.make_entity_service_schema(
     {vol.Optional(ATTR_DURATION): vol.All(vol.Coerce(float), vol.Range(min=1, max=1440))}
 )
 EMPTY_SCHEMA = cv.make_entity_service_schema({})
+
+
+def _finite(value: float) -> float:
+    if not math.isfinite(value):
+        raise vol.Invalid("must be a finite number")
+    return value
+
+
 ACTION_SCHEMA = cv.make_entity_service_schema(
     {
         vol.Required(ATTR_ACTION_TYPE): vol.In([a.value for a in ManualAction]),
-        vol.Optional(ATTR_VALUE): vol.Coerce(float),
-        vol.Optional(ATTR_NOTES): cv.string,
+        vol.Optional(ATTR_VALUE): vol.All(vol.Coerce(float), _finite),
+        # Kept in the store and shown in an attribute the recorder writes.
+        vol.Optional(ATTR_NOTES): vol.All(cv.string, vol.Length(max=500)),
     }
+)
+TASK_SCHEMA = cv.make_entity_service_schema(
+    {vol.Required(ATTR_TASK): vol.In(list(TASKS_BY_KEY)), vol.Optional(ATTR_DATE): cv.date}
+)
+SEASON_SCHEMA = cv.make_entity_service_schema(
+    {vol.Required(ATTR_STATE): vol.In([s.value for s in SeasonState])}
+)
+STEP_SCHEMA = cv.make_entity_service_schema({vol.Required(ATTR_STEP): cv.string})
+CHECKLIST_SCHEMA = cv.make_entity_service_schema(
+    {vol.Required(ATTR_CHECKLIST): vol.In(list(LIST_IDS))}
 )
 SALT_SCHEMA = cv.make_entity_service_schema(
     {vol.Required(ATTR_VALUE): vol.All(vol.Coerce(float), vol.Range(min=0, max=15))}
 )
 CHLORINE_SCHEMA = cv.make_entity_service_schema(
     {vol.Required(ATTR_VALUE): vol.All(vol.Coerce(float), vol.Range(min=0, max=20))}
+)
+TREATMENT_SCHEMA = cv.make_entity_service_schema(
+    {
+        vol.Required(ATTR_TYPE): vol.In([t.value for t in TreatmentType]),
+        vol.Optional(ATTR_SEVERITY, default="green"): vol.In(list(SHOCK_RISE)),
+        vol.Optional(ATTR_HOURS): vol.All(vol.Coerce(float), vol.Range(min=0.5, max=168)),
+    }
+)
+READING_SCHEMA = cv.make_entity_service_schema(
+    {vol.Required(ATTR_KIND): vol.In(KINDS), vol.Required(ATTR_VALUE): vol.Coerce(float)}
 )
 
 
@@ -94,11 +150,20 @@ async def async_unload_entry(hass: HomeAssistant, entry: HomePoolConfigEntry) ->
             SERVICE_START_CYCLE,
             SERVICE_STOP_CYCLE,
             SERVICE_RECORD_MANUAL_ACTION,
+            SERVICE_COMPLETE_TASK,
             SERVICE_RECORD_SALT_LEVEL,
             SERVICE_RECORD_FREE_CHLORINE,
+            SERVICE_RECORD_READING,
             SERVICE_RECALCULATE,
             SERVICE_FORCE_PH_WINDOW,
             SERVICE_RESET_DAILY,
+            SERVICE_SET_SEASON_STATE,
+            SERVICE_DISMISS_SEASON_PROPOSAL,
+            SERVICE_COMPLETE_STEP,
+            SERVICE_DISMISS_CHECKLIST,
+            SERVICE_START_TREATMENT,
+            SERVICE_ADVANCE_TREATMENT,
+            SERVICE_END_TREATMENT,
         ):
             hass.services.async_remove(DOMAIN, service)
     return unloaded
@@ -135,8 +200,20 @@ def _async_register_services(hass: HomeAssistant) -> None:
         return
 
     async def _pools(call: ServiceCall) -> list[PoolCoordinator]:
-        """Every pool the call points at, each once, however it was targeted."""
+        """Every pool the call points at, each once, however it was targeted.
+
+        A call made by a person needs control of every pool entity it targets,
+        as an entity's own service would: these services move the pump. A
+        call without a user (an automation, a script) is not checked.
+        """
         registry = er.async_get(hass)
+        user = None
+        if call.context.user_id:
+            user = await hass.auth.async_get_user(call.context.user_id)
+            if user is None:
+                raise UnknownUser(context=call.context)
+            if user.is_admin:
+                user = None
         found: dict[str, PoolCoordinator] = {}
         for entity_id in await _extract_entity_ids(hass, call):
             entity = registry.async_get(entity_id)
@@ -145,6 +222,10 @@ def _async_register_services(hass: HomeAssistant) -> None:
             entry = hass.config_entries.async_get_entry(entity.config_entry_id)
             if entry is None or entry.domain != DOMAIN or not hasattr(entry, "runtime_data"):
                 continue
+            if user is not None and not user.permissions.check_entity(entity_id, POLICY_CONTROL):
+                raise Unauthorized(
+                    context=call.context, entity_id=entity_id, permission=POLICY_CONTROL
+                )
             found.setdefault(entry.entry_id, entry.runtime_data)
         if not found:
             raise ServiceValidationError(
@@ -166,6 +247,64 @@ def _async_register_services(hass: HomeAssistant) -> None:
                 call.data[ATTR_ACTION_TYPE], call.data.get(ATTR_VALUE), call.data.get(ATTR_NOTES)
             )
 
+    async def _complete_task(call: ServiceCall) -> None:
+        when = call.data.get(ATTR_DATE)
+        if when is not None and when > dt_util.now().date():
+            raise ServiceValidationError(
+                translation_domain=DOMAIN, translation_key="date_in_future"
+            )
+        task = call.data[ATTR_TASK]
+        pools = await _pools(call)
+        # Every pool first, so a call that one of them refuses changes none.
+        for pool in pools:
+            if not pool.has_task(task):
+                raise ServiceValidationError(
+                    translation_domain=DOMAIN,
+                    translation_key="task_not_in_pool",
+                    translation_placeholders={"task": task, "pool": pool.pool_name},
+                )
+        for pool in pools:
+            await pool.async_complete_task(task, when)
+
+    async def _set_season_state(call: ServiceCall) -> None:
+        for pool in await _pools(call):
+            await pool.async_set_season_state(call.data[ATTR_STATE])
+
+    async def _dismiss_season_proposal(call: ServiceCall) -> None:
+        for pool in await _pools(call):
+            await pool.async_dismiss_season_proposal()
+
+    async def _complete_step(call: ServiceCall) -> None:
+        step = call.data[ATTR_STEP]
+        pools = await _pools(call)
+        # Every pool first, so a call that one of them refuses changes none.
+        for pool in pools:
+            pool.check_step_open(step)
+        for pool in pools:
+            await pool.async_complete_step(step)
+
+    async def _dismiss_checklist(call: ServiceCall) -> None:
+        for pool in await _pools(call):
+            await pool.async_dismiss_checklist(call.data[ATTR_CHECKLIST])
+
+    async def _start_treatment(call: ServiceCall) -> None:
+        pools = await _pools(call)
+        # Every pool first, so a call that one of them refuses changes none.
+        for pool in pools:
+            pool.check_can_start_treatment()
+        for pool in pools:
+            await pool.async_start_treatment(
+                call.data[ATTR_TYPE], call.data[ATTR_SEVERITY], call.data.get(ATTR_HOURS)
+            )
+
+    async def _advance_treatment(call: ServiceCall) -> None:
+        for pool in await _pools(call):
+            await pool.async_advance_treatment()
+
+    async def _end_treatment(call: ServiceCall) -> None:
+        for pool in await _pools(call):
+            await pool.async_end_treatment()
+
     async def _record_salt(call: ServiceCall) -> None:
         for pool in await _pools(call):
             await pool.async_record_reading("salt", call.data[ATTR_VALUE])
@@ -173,6 +312,10 @@ def _async_register_services(hass: HomeAssistant) -> None:
     async def _record_chlorine(call: ServiceCall) -> None:
         for pool in await _pools(call):
             await pool.async_record_reading("free_chlorine", call.data[ATTR_VALUE])
+
+    async def _record_reading(call: ServiceCall) -> None:
+        for pool in await _pools(call):
+            await pool.async_record_reading(call.data[ATTR_KIND], call.data[ATTR_VALUE])
 
     async def _recalculate(call: ServiceCall) -> None:
         for pool in await _pools(call):
@@ -190,11 +333,20 @@ def _async_register_services(hass: HomeAssistant) -> None:
         SERVICE_START_CYCLE: (_start_cycle, DURATION_SCHEMA),
         SERVICE_STOP_CYCLE: (_stop_cycle, EMPTY_SCHEMA),
         SERVICE_RECORD_MANUAL_ACTION: (_record_action, ACTION_SCHEMA),
+        SERVICE_COMPLETE_TASK: (_complete_task, TASK_SCHEMA),
+        SERVICE_COMPLETE_STEP: (_complete_step, STEP_SCHEMA),
+        SERVICE_DISMISS_CHECKLIST: (_dismiss_checklist, CHECKLIST_SCHEMA),
         SERVICE_RECORD_SALT_LEVEL: (_record_salt, SALT_SCHEMA),
         SERVICE_RECORD_FREE_CHLORINE: (_record_chlorine, CHLORINE_SCHEMA),
+        SERVICE_RECORD_READING: (_record_reading, READING_SCHEMA),
         SERVICE_RECALCULATE: (_recalculate, EMPTY_SCHEMA),
         SERVICE_FORCE_PH_WINDOW: (_ph_window, DURATION_SCHEMA),
         SERVICE_RESET_DAILY: (_reset, EMPTY_SCHEMA),
+        SERVICE_SET_SEASON_STATE: (_set_season_state, SEASON_SCHEMA),
+        SERVICE_DISMISS_SEASON_PROPOSAL: (_dismiss_season_proposal, EMPTY_SCHEMA),
+        SERVICE_START_TREATMENT: (_start_treatment, TREATMENT_SCHEMA),
+        SERVICE_ADVANCE_TREATMENT: (_advance_treatment, EMPTY_SCHEMA),
+        SERVICE_END_TREATMENT: (_end_treatment, EMPTY_SCHEMA),
     }
     for name, (handler, schema) in handlers.items():
         hass.services.async_register(DOMAIN, name, handler, schema=schema)

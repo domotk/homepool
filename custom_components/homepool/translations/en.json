@@ -100,10 +100,42 @@
           "ph_calibration_interval_days": "Calibrate the pH probe every",
           "free_chlorine_target": "Free chlorine target",
           "free_chlorine_range_min": "Free chlorine, lowest",
-          "free_chlorine_range_max": "Free chlorine, highest"
+          "free_chlorine_range_max": "Free chlorine, highest",
+          "swimming_months": "Months the pool is used",
+          "winter_product_type": "Winter product",
+          "winter_product_dose_per_m3": "Winter product, dose per m³",
+          "winter_product_interval_days": "Top up the winter product every",
+          "combined_chlorine_range_max": "Combined chlorine, highest",
+          "total_alkalinity_range_min": "Total alkalinity, lowest",
+          "total_alkalinity_range_max": "Total alkalinity, highest",
+          "calcium_hardness_range_min": "Calcium hardness, lowest",
+          "calcium_hardness_range_max": "Calcium hardness, highest",
+          "cyanuric_acid_range_min": "Cyanuric acid, lowest",
+          "cyanuric_acid_range_max": "Cyanuric acid, highest",
+          "ph_stale_days": "pH reading, trusted for (days)",
+          "free_chlorine_stale_days": "Free chlorine reading, trusted for (days)",
+          "combined_chlorine_stale_days": "Combined chlorine reading, trusted for (days)",
+          "total_alkalinity_stale_days": "Total alkalinity reading, trusted for (days)",
+          "calcium_hardness_stale_days": "Calcium hardness reading, trusted for (days)",
+          "cyanuric_acid_stale_days": "Cyanuric acid reading, trusted for (days)",
+          "salt_stale_days": "Salt reading, trusted for (days)",
+          "shock_product": "Shock product",
+          "shock_concentration": "Shock product concentration",
+          "clarifier_dose_per_10m3": "Clarifier, dose per 10 m³",
+          "clarifier_dose_unit": "Clarifier, unit",
+          "flocculant_dose_per_10m3": "Flocculant, dose per 10 m³",
+          "flocculant_dose_unit": "Flocculant, unit"
         },
         "data_description": {
-          "has_ph_dosing": "When the pH is too high, the pump is run for a while so the doser can work."
+          "swimming_months": "HomePool proposes wintering when they end and opening two weeks before they start.",
+          "winter_product_type": "What goes in the water while the pool is wintering. HomePool works out the dose and reminds you to top it up.",
+          "winter_product_dose_per_m3": "Units per m³ (litres per m³ for a liquid), as on the label. One floater for 50 m³ is 0.02.",
+          "winter_product_interval_days": "Days between top-ups.",
+          "has_ph_dosing": "When the pH is too high, the pump is run for a while so the doser can work.",
+          "shock_product": "What you shock green water with. HomePool works out the dose from the pool's volume.",
+          "shock_concentration": "Per cent of chlorine for a granular product, g/L for a liquid one, as on the label. Empty: 65 % calcium hypochlorite, 150 g/L sodium hypochlorite, 56 % dichlor.",
+          "clarifier_dose_per_10m3": "As on the label. Empty, the dose says to follow the label.",
+          "flocculant_dose_per_10m3": "As on the label. Empty, the dose says to follow the label."
         }
       },
       "chlorinator_model": {
@@ -121,14 +153,15 @@
           "chlorinator_self_regulating": "Regulates itself (ORP or chlorine probe)",
           "chlorinator_controllable": "Its production can be set from Home Assistant",
           "chlorinator_active_months": "Months it is used",
-          "chlorinator_auto_toggle": "Switch it on and off with the calendar",
+          "chlorinator_auto_toggle": "Propose the season change from the calendar",
           "chlorinator_min_water_temp": "Coldest water it may run in",
           "salt_target": "Salt target",
           "salt_range_min": "Salt, lowest",
           "salt_range_max": "Salt, highest"
         },
         "data_description": {
-          "chlorinator_auto_toggle": "Otherwise HomePool only tells you when the season starts and ends."
+          "chlorinator_active_months": "The swimming months start from these when you give none, and the chlorinator's season events follow them. Whether the cell works follows the season state: in swimming it works whatever the month, in wintering it does not.",
+          "chlorinator_auto_toggle": "When the swimming months end or are about to start, HomePool proposes changing the season state; you confirm it. Otherwise you change it yourself. Either way, finishing the opening checklist while the pool is in the opening state proposes swimming."
         }
       },
       "connections": {
@@ -234,16 +267,50 @@
           "notification_quiet_hours_end": "Quiet until",
           "critical_ignore_quiet_hours": "Critical alerts ignore the quiet hours"
         }
+      },
+      "tasks": {
+        "title": "Recurring tasks",
+        "description": "How often each job comes round, and when you last did it. Only the tasks your pool needs are listed. In winter the filter jobs count hours of pump instead of days.",
+        "data": {
+          "backwash_days": "Backwash: every (days)",
+          "backwash_pump_hours": "Backwash in winter: every (pump hours)",
+          "backwash_last_done": "Backwash: last done",
+          "filter_cleaning_days": "Filter cleaning: every (days)",
+          "filter_cleaning_pump_hours": "Filter cleaning in winter: every (pump hours)",
+          "filter_cleaning_last_done": "Filter cleaning: last done",
+          "ph_calibration_days": "pH probe calibration: every (days)",
+          "ph_calibration_last_done": "pH probe calibration: last done",
+          "winter_product_days": "Winter product: every (days)",
+          "winter_product_last_done": "Winter product: last done",
+          "water_test_days": "Water test: every (days)",
+          "water_test_enabled": "Water test: remind me",
+          "water_test_last_done": "Water test: last done",
+          "skimmer_baskets_days": "Skimmer baskets: every (days)",
+          "skimmer_baskets_enabled": "Skimmer baskets: remind me",
+          "skimmer_baskets_last_done": "Skimmer baskets: last done",
+          "cell_cleaning_days": "Cell cleaning: every (days)",
+          "cell_cleaning_last_done": "Cell cleaning: last done",
+          "filter_media_check_days": "Filter media check: every (days)",
+          "filter_media_check_enabled": "Filter media check: remind me",
+          "filter_media_check_last_done": "Filter media check: last done",
+          "has_ph_probe_outside": "I check the pH with a probe or kit of my own"
+        },
+        "data_description": {
+          "has_ph_probe_outside": "Turns on the pH calibration reminder when HomePool has no pH sensor. Save, then open this page again to set its interval."
+        }
       }
     },
     "error": {
+      "range_order": "The lowest value cannot be above the highest.",
       "depth_order": "The deepest depth cannot be less than the shallowest.",
       "cover_entity_required": "An automatic cover needs its entity.",
       "pressure_order": "The high pressure must be above the low one.",
       "ph_order": "The target must be inside the acceptable range.",
       "no_months": "Pick at least one month.",
+      "concentration_range": "That concentration cannot be right: up to 100 % for a granular product, up to 300 g/L for a liquid one.",
       "same_switch": "The chlorinator switch must be a different entity from the pump switch. If the cell is wired with the pump, leave it empty.",
       "bad_slots": "Write the slots as HH:MM-HH:MM, separated by commas.",
+      "date_in_future": "That date has not happened yet.",
       "service_required": "Pick a notify service, or switch notifications off."
     },
     "abort": {
@@ -351,10 +418,42 @@
           "ph_calibration_interval_days": "Calibrate the pH probe every",
           "free_chlorine_target": "Free chlorine target",
           "free_chlorine_range_min": "Free chlorine, lowest",
-          "free_chlorine_range_max": "Free chlorine, highest"
+          "free_chlorine_range_max": "Free chlorine, highest",
+          "swimming_months": "Months the pool is used",
+          "winter_product_type": "Winter product",
+          "winter_product_dose_per_m3": "Winter product, dose per m³",
+          "winter_product_interval_days": "Top up the winter product every",
+          "combined_chlorine_range_max": "Combined chlorine, highest",
+          "total_alkalinity_range_min": "Total alkalinity, lowest",
+          "total_alkalinity_range_max": "Total alkalinity, highest",
+          "calcium_hardness_range_min": "Calcium hardness, lowest",
+          "calcium_hardness_range_max": "Calcium hardness, highest",
+          "cyanuric_acid_range_min": "Cyanuric acid, lowest",
+          "cyanuric_acid_range_max": "Cyanuric acid, highest",
+          "ph_stale_days": "pH reading, trusted for (days)",
+          "free_chlorine_stale_days": "Free chlorine reading, trusted for (days)",
+          "combined_chlorine_stale_days": "Combined chlorine reading, trusted for (days)",
+          "total_alkalinity_stale_days": "Total alkalinity reading, trusted for (days)",
+          "calcium_hardness_stale_days": "Calcium hardness reading, trusted for (days)",
+          "cyanuric_acid_stale_days": "Cyanuric acid reading, trusted for (days)",
+          "salt_stale_days": "Salt reading, trusted for (days)",
+          "shock_product": "Shock product",
+          "shock_concentration": "Shock product concentration",
+          "clarifier_dose_per_10m3": "Clarifier, dose per 10 m³",
+          "clarifier_dose_unit": "Clarifier, unit",
+          "flocculant_dose_per_10m3": "Flocculant, dose per 10 m³",
+          "flocculant_dose_unit": "Flocculant, unit"
         },
         "data_description": {
-          "has_ph_dosing": "When the pH is too high, the pump is run for a while so the doser can work."
+          "swimming_months": "HomePool proposes wintering when they end and opening two weeks before they start.",
+          "winter_product_type": "What goes in the water while the pool is wintering. HomePool works out the dose and reminds you to top it up.",
+          "winter_product_dose_per_m3": "Units per m³ (litres per m³ for a liquid), as on the label. One floater for 50 m³ is 0.02.",
+          "winter_product_interval_days": "Days between top-ups.",
+          "has_ph_dosing": "When the pH is too high, the pump is run for a while so the doser can work.",
+          "shock_product": "What you shock green water with. HomePool works out the dose from the pool's volume.",
+          "shock_concentration": "Per cent of chlorine for a granular product, g/L for a liquid one, as on the label. Empty: 65 % calcium hypochlorite, 150 g/L sodium hypochlorite, 56 % dichlor.",
+          "clarifier_dose_per_10m3": "As on the label. Empty, the dose says to follow the label.",
+          "flocculant_dose_per_10m3": "As on the label. Empty, the dose says to follow the label."
         }
       },
       "chlorinator_model": {
@@ -372,14 +471,15 @@
           "chlorinator_self_regulating": "Regulates itself (ORP or chlorine probe)",
           "chlorinator_controllable": "Its production can be set from Home Assistant",
           "chlorinator_active_months": "Months it is used",
-          "chlorinator_auto_toggle": "Switch it on and off with the calendar",
+          "chlorinator_auto_toggle": "Propose the season change from the calendar",
           "chlorinator_min_water_temp": "Coldest water it may run in",
           "salt_target": "Salt target",
           "salt_range_min": "Salt, lowest",
           "salt_range_max": "Salt, highest"
         },
         "data_description": {
-          "chlorinator_auto_toggle": "Otherwise HomePool only tells you when the season starts and ends."
+          "chlorinator_active_months": "The swimming months start from these when you give none, and the chlorinator's season events follow them. Whether the cell works follows the season state: in swimming it works whatever the month, in wintering it does not.",
+          "chlorinator_auto_toggle": "When the swimming months end or are about to start, HomePool proposes changing the season state; you confirm it. Otherwise you change it yourself. Either way, finishing the opening checklist while the pool is in the opening state proposes swimming."
         }
       },
       "connections": {
@@ -486,6 +586,37 @@
           "critical_ignore_quiet_hours": "Critical alerts ignore the quiet hours"
         }
       },
+      "tasks": {
+        "title": "Recurring tasks",
+        "description": "How often each job comes round, and when you last did it. Only the tasks your pool needs are listed. In winter the filter jobs count hours of pump instead of days.",
+        "data": {
+          "backwash_days": "Backwash: every (days)",
+          "backwash_pump_hours": "Backwash in winter: every (pump hours)",
+          "backwash_last_done": "Backwash: last done",
+          "filter_cleaning_days": "Filter cleaning: every (days)",
+          "filter_cleaning_pump_hours": "Filter cleaning in winter: every (pump hours)",
+          "filter_cleaning_last_done": "Filter cleaning: last done",
+          "ph_calibration_days": "pH probe calibration: every (days)",
+          "ph_calibration_last_done": "pH probe calibration: last done",
+          "winter_product_days": "Winter product: every (days)",
+          "winter_product_last_done": "Winter product: last done",
+          "water_test_days": "Water test: every (days)",
+          "water_test_enabled": "Water test: remind me",
+          "water_test_last_done": "Water test: last done",
+          "skimmer_baskets_days": "Skimmer baskets: every (days)",
+          "skimmer_baskets_enabled": "Skimmer baskets: remind me",
+          "skimmer_baskets_last_done": "Skimmer baskets: last done",
+          "cell_cleaning_days": "Cell cleaning: every (days)",
+          "cell_cleaning_last_done": "Cell cleaning: last done",
+          "filter_media_check_days": "Filter media check: every (days)",
+          "filter_media_check_enabled": "Filter media check: remind me",
+          "filter_media_check_last_done": "Filter media check: last done",
+          "has_ph_probe_outside": "I check the pH with a probe or kit of my own"
+        },
+        "data_description": {
+          "has_ph_probe_outside": "Turns on the pH calibration reminder when HomePool has no pH sensor. Save, then open this page again to set its interval."
+        }
+      },
       "init": {
         "title": "Change the pool",
         "description": "Pick what to change.",
@@ -498,18 +629,22 @@
           "chlorinator_model": "Salt chlorinator",
           "connections": "Entities",
           "control": "Control",
-          "notifications": "Notifications"
+          "notifications": "Notifications",
+          "tasks": "Recurring tasks"
         }
       }
     },
     "error": {
+      "range_order": "The lowest value cannot be above the highest.",
       "depth_order": "The deepest depth cannot be less than the shallowest.",
       "cover_entity_required": "An automatic cover needs its entity.",
       "pressure_order": "The high pressure must be above the low one.",
       "ph_order": "The target must be inside the acceptable range.",
       "no_months": "Pick at least one month.",
+      "concentration_range": "That concentration cannot be right: up to 100 % for a granular product, up to 300 g/L for a liquid one.",
       "same_switch": "The chlorinator switch must be a different entity from the pump switch. If the cell is wired with the pump, leave it empty.",
       "bad_slots": "Write the slots as HH:MM-HH:MM, separated by commas.",
+      "date_in_future": "That date has not happened yet.",
       "service_required": "Pick a notify service, or switch notifications off."
     }
   },
@@ -624,6 +759,35 @@
         "other": "Other"
       }
     },
+    "winter_product_type": {
+      "options": {
+        "none": "None",
+        "floater": "Floater",
+        "liquid": "Liquid",
+        "tablets": "Tablets"
+      }
+    },
+    "shock_product": {
+      "options": {
+        "calcium_hypochlorite": "Calcium hypochlorite (granular)",
+        "sodium_hypochlorite": "Sodium hypochlorite (liquid)",
+        "dichlor": "Dichlor (granular, raises the cyanuric acid)"
+      }
+    },
+    "treatment_type": {
+      "options": {
+        "shock": "Shock (green water)",
+        "clarifier": "Clarifier (cloudy water)",
+        "flocculant": "Flocculant (cloudy water)"
+      }
+    },
+    "shock_severity": {
+      "options": {
+        "light": "Light green",
+        "green": "Green",
+        "dark": "Dark green or black"
+      }
+    },
     "month": {
       "options": {
         "1": "January",
@@ -655,6 +819,44 @@
         "hydraulic": "Hydraulic"
       }
     },
+    "task": {
+      "options": {
+        "backwash": "Backwash",
+        "filter_cleaning": "Filter cleaning",
+        "ph_calibration": "pH probe calibration",
+        "winter_product": "Winter product",
+        "water_test": "Water test",
+        "skimmer_baskets": "Skimmer baskets",
+        "cell_cleaning": "Cell cleaning",
+        "filter_media_check": "Filter media check"
+      }
+    },
+    "reading_kind": {
+      "options": {
+        "ph": "pH",
+        "free_chlorine": "Free chlorine",
+        "combined_chlorine": "Combined chlorine",
+        "total_alkalinity": "Total alkalinity",
+        "calcium_hardness": "Calcium hardness",
+        "cyanuric_acid": "Cyanuric acid",
+        "salt": "Salt"
+      }
+    },
+    "season_state": {
+      "options": {
+        "swimming": "Swimming",
+        "winter_active": "Active wintering",
+        "winter_passive": "Passive wintering",
+        "opening": "Opening"
+      }
+    },
+    "checklist": {
+      "options": {
+        "closing": "Closing",
+        "opening": "Opening",
+        "treatment": "Treatment"
+      }
+    },
     "severity": {
       "options": {
         "info": "Information",
@@ -672,6 +874,10 @@
         "ph_adjusted": "pH adjusted by hand",
         "water_added": "Water added",
         "cell_cleaned": "Cell cleaned",
+        "winter_product_added": "Winter product added",
+        "water_tested": "Water tested",
+        "skimmer_baskets_emptied": "Skimmer baskets emptied",
+        "filter_media_checked": "Filter media checked",
         "other": "Other"
       }
     },
@@ -756,7 +962,9 @@
           "manual_cycle": "Manual cycle",
           "manual_override": "Switched by hand",
           "mode": "Operation mode",
-          "unavailable": "Pump unavailable"
+          "unavailable": "Pump unavailable",
+          "winter_passive": "Passive wintering",
+          "treatment": "Water treatment"
         }
       },
       "chlorine_production_elapsed_today": {
@@ -773,7 +981,8 @@
         "state": {
           "salt": "Salt",
           "tablets": "Tablets",
-          "off": "Off"
+          "off": "Off",
+          "winter_product": "Winter product"
         }
       },
       "days_since_last_backwash": {
@@ -788,7 +997,12 @@
           "none": "None",
           "backwash": "Backwash",
           "filter_cleaning": "Clean the filter",
-          "ph_calibration": "Calibrate the pH probe"
+          "ph_calibration": "Calibrate the pH probe",
+          "winter_product": "Top up the winter product",
+          "water_test": "Test the water",
+          "skimmer_baskets": "Empty the baskets",
+          "cell_cleaning": "Clean the cell",
+          "filter_media_check": "Check the filter media"
         }
       },
       "overall_status": {
@@ -797,6 +1011,15 @@
           "ok": "OK",
           "attention": "Needs attention",
           "action_required": "Action required"
+        }
+      },
+      "water_treatment": {
+        "name": "Water treatment",
+        "state": {
+          "none": "None",
+          "shock": "Shock",
+          "clarifier": "Clarifier",
+          "flocculant": "Flocculant"
         }
       },
       "ph_trend": {
@@ -812,6 +1035,21 @@
       },
       "free_chlorine": {
         "name": "Free chlorine"
+      },
+      "ph_manual": {
+        "name": "Manual pH"
+      },
+      "combined_chlorine": {
+        "name": "Combined chlorine"
+      },
+      "total_alkalinity": {
+        "name": "Total alkalinity"
+      },
+      "calcium_hardness": {
+        "name": "Calcium hardness"
+      },
+      "cyanuric_acid": {
+        "name": "Cyanuric acid"
       },
       "pump_energy_today": {
         "name": "Pump energy today"
@@ -862,6 +1100,9 @@
       },
       "chlorinator_in_season": {
         "name": "Chlorinator in season"
+      },
+      "swimming_not_advised": {
+        "name": "Swimming not advised"
       }
     },
     "switch": {
@@ -884,6 +1125,15 @@
           "smart": "Smart",
           "solar": "Solar",
           "smart_solar": "Smart + solar"
+        }
+      },
+      "season_state": {
+        "name": "Season state",
+        "state": {
+          "swimming": "Swimming",
+          "winter_active": "Active wintering",
+          "winter_passive": "Passive wintering",
+          "opening": "Opening"
         }
       }
     },
@@ -920,6 +1170,30 @@
       "mark_ph_calibrated": {
         "name": "pH probe calibrated"
       },
+      "mark_winter_product_added": {
+        "name": "Winter product added"
+      },
+      "mark_water_tested": {
+        "name": "Water tested"
+      },
+      "mark_skimmer_baskets_emptied": {
+        "name": "Skimmer baskets emptied"
+      },
+      "start_shock": {
+        "name": "Start a shock"
+      },
+      "start_clarifier": {
+        "name": "Start a clarifier"
+      },
+      "start_flocculant": {
+        "name": "Start a flocculant"
+      },
+      "advance_treatment": {
+        "name": "Next treatment phase (vacuuming done)"
+      },
+      "end_treatment": {
+        "name": "End the treatment"
+      },
       "recalculate_target": {
         "name": "Recalculate target"
       }
@@ -928,7 +1202,7 @@
   "services": {
     "start_cycle": {
       "name": "Start cycle",
-      "description": "Runs the pump for a while, above the operation mode. Lock and safety still win.",
+      "description": "Runs the pump for a while, above the operation mode. Lock and safety still win. Refused while a water treatment runs.",
       "fields": {
         "duration": {
           "name": "Duration",
@@ -938,7 +1212,7 @@
     },
     "stop_cycle": {
       "name": "Stop cycle",
-      "description": "Stops a manual cycle and holds the pump off for the override time.",
+      "description": "Stops a manual cycle and holds the pump off for the override time. Refused while a water treatment runs.",
       "fields": {}
     },
     "record_manual_action": {
@@ -956,6 +1230,20 @@
         "notes": {
           "name": "Notes",
           "description": "Anything worth remembering."
+        }
+      }
+    },
+    "complete_task": {
+      "name": "Complete task",
+      "description": "Marks a recurring task as done, today or on a past date, and counts its next one from then.",
+      "fields": {
+        "task": {
+          "name": "Task",
+          "description": "Which one was done."
+        },
+        "date": {
+          "name": "Date",
+          "description": "The day it was done. Today if left out."
         }
       }
     },
@@ -979,6 +1267,20 @@
         }
       }
     },
+    "record_reading": {
+      "name": "Record reading",
+      "description": "A chemistry reading taken by hand. Measuring the pH or the free chlorine also counts as the water test.",
+      "fields": {
+        "kind": {
+          "name": "Reading",
+          "description": "What was measured."
+        },
+        "value": {
+          "name": "Value",
+          "description": "pH has no unit, salt is in g/L and the rest in mg/L."
+        }
+      }
+    },
     "recalculate_schedule": {
       "name": "Recalculate target",
       "description": "Works out today's target again now. Unlike the hourly update, it may also lower it.",
@@ -994,6 +1296,69 @@
         }
       }
     },
+    "set_season_state": {
+      "name": "Set season state",
+      "description": "Confirms the pool's season state. Wintering turns the chlorinator off and swimming turns it on; passive wintering keeps the pump off.",
+      "fields": {
+        "state": {
+          "name": "State",
+          "description": "The season state to set."
+        }
+      }
+    },
+    "dismiss_season_proposal": {
+      "name": "Dismiss season proposal",
+      "description": "Stops reminding about the season change the calendar proposed, until it proposes another.",
+      "fields": {}
+    },
+    "complete_step": {
+      "name": "Complete step",
+      "description": "Ticks a step of an open checklist, by its id (for example closing.backwash), and marks the matching recurring task as done.",
+      "fields": {
+        "step": {
+          "name": "Step",
+          "description": "The step id: the list, a dot and the step."
+        }
+      }
+    },
+    "dismiss_checklist": {
+      "name": "Dismiss checklist",
+      "description": "Closes a checklist without finishing it.",
+      "fields": {
+        "checklist": {
+          "name": "Checklist",
+          "description": "Which list to close."
+        }
+      }
+    },
+    "start_treatment": {
+      "name": "Start water treatment",
+      "description": "Starts a shock, a clarifier or a flocculant. The pump follows it above pH, manual cycles and the mode; safety and freeze protection still win.",
+      "fields": {
+        "type": {
+          "name": "Treatment",
+          "description": "Shock for green water, clarifier or flocculant for cloudy water."
+        },
+        "severity": {
+          "name": "How green",
+          "description": "For a shock: how much the free chlorine is raised (10, 15 or 20 mg/L)."
+        },
+        "hours": {
+          "name": "Hours",
+          "description": "Hours of filtering, or of settling for a flocculant. The default if left out: 24 h shock, 48 h clarifier, 12 h settling."
+        }
+      }
+    },
+    "advance_treatment": {
+      "name": "Next treatment phase",
+      "description": "Moves the treatment to its next phase now. For a flocculant that is vacuuming, it means the vacuuming is done.",
+      "fields": {}
+    },
+    "end_treatment": {
+      "name": "End water treatment",
+      "description": "Ends the treatment now. The filter is left due a backwash, unless one was recorded during the treatment.",
+      "fields": {}
+    },
     "reset_daily_counters": {
       "name": "Reset today's counters",
       "description": "Starts today's filtration count from zero.",
@@ -1001,8 +1366,35 @@
     }
   },
   "exceptions": {
+    "invalid_reading": {
+      "message": "{value} is not a possible {kind} reading."
+    },
     "no_pool_targeted": {
       "message": "That target matches no HomePool pool."
+    },
+    "date_in_future": {
+      "message": "That date has not happened yet."
+    },
+    "task_not_in_pool": {
+      "message": "{pool} has no {task} task."
+    },
+    "step_not_open": {
+      "message": "{pool} has no open step {step}."
+    },
+    "cycle_in_winter_passive": {
+      "message": "The pump does not start in passive wintering. Change the season state first."
+    },
+    "treatment_not_allowed": {
+      "message": "{pool} cannot start a treatment now: it is in passive wintering, or another treatment is running."
+    },
+    "pump_in_owner_hands": {
+      "message": "{pool} is vacuuming: the pump is yours to run at its own switch. Press \"vacuuming done\" first to hand it back to HomePool."
+    },
+    "pump_in_treatment": {
+      "message": "{pool} is running a water treatment, which decides the pump until it ends. Press \"End the treatment\" first to hand the pump back."
+    },
+    "no_treatment": {
+      "message": "{pool} has no treatment running."
     }
   }
 }

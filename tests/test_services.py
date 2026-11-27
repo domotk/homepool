@@ -143,3 +143,125 @@ async def test_the_card_can_find_every_entity(hass: HomeAssistant) -> None:
     assert attrs["pool_entities"]["operation_mode"] == "select.pool_operation_mode"
     assert attrs["entities"]["ph_sensor"] == "sensor.ph"
     assert attrs["shape"] == "rectangular"
+
+
+# ── who may call the services ──
+
+
+async def _user(hass: HomeAssistant, group: str | None):
+    """A user of a group; never the first, which Home Assistant makes the owner."""
+    if not any(not u.system_generated for u in await hass.auth.async_get_users()):
+        await hass.auth.async_create_user("Owner")
+    groups = [group] if group else []
+    user = await hass.auth.async_create_user("Someone", group_ids=groups)
+    assert not user.is_owner
+    return user
+
+
+async def test_a_read_only_user_cannot_drive_the_pool(hass: HomeAssistant) -> None:
+    """A user whose policy only reads entities is refused, as an entity service
+    would refuse them; nothing changes."""
+    import pytest
+    from homeassistant.core import Context
+    from homeassistant.exceptions import Unauthorized
+
+    SwitchRouter(hass)
+    entry = await setup_pool(hass)
+    coordinator = entry.runtime_data
+    own = coordinator.own_entities()
+    user = await _user(hass, "system-read-only")
+    context = Context(user_id=user.id)
+
+    # The control: the pool's own select refuses them.
+    with pytest.raises(Unauthorized):
+        await hass.services.async_call(
+            "select", "select_option",
+            {"entity_id": own["season_state"], "option": "winter_passive"},
+            blocking=True, context=context,
+        )
+    with pytest.raises(Unauthorized):
+        await hass.services.async_call(
+            "homepool", "set_season_state",
+            {"entity_id": own["season_state"], "state": "winter_passive"},
+            blocking=True, context=context,
+        )
+    assert coordinator.season_state != "winter_passive"
+    with pytest.raises(Unauthorized):
+        await hass.services.async_call(
+            "homepool", "start_cycle", {"entity_id": own["season_state"]},
+            blocking=True, context=context,
+        )
+    assert coordinator.cycle_until is None
+    # Targeted by device, too.
+    device_id = er.async_get(hass).async_get(own["season_state"]).device_id
+    with pytest.raises(Unauthorized):
+        await hass.services.async_call(
+            "homepool", "start_cycle", {"device_id": device_id},
+            blocking=True, context=context,
+        )
+    assert coordinator.cycle_until is None
+
+
+async def test_admins_users_and_automations_may_call_the_services(hass: HomeAssistant) -> None:
+    from homeassistant.core import Context
+
+    SwitchRouter(hass)
+    entry = await setup_pool(hass)
+    coordinator = entry.runtime_data
+    target = {"entity_id": coordinator.own_entities()["season_state"]}
+    for context in (
+        Context(user_id=(await _user(hass, "system-admin")).id),
+        Context(user_id=(await _user(hass, "system-users")).id),
+        Context(),  # an automation: no user
+        None,
+    ):
+        coordinator.cycle_until = None
+        await hass.services.async_call(
+            "homepool", "start_cycle", target, blocking=True, context=context
+        )
+        assert coordinator.cycle_until is not None
+
+
+async def test_an_unknown_user_is_refused(hass: HomeAssistant) -> None:
+    import pytest
+    from homeassistant.core import Context
+    from homeassistant.exceptions import UnknownUser
+
+    SwitchRouter(hass)
+    entry = await setup_pool(hass)
+    with pytest.raises(UnknownUser):
+        await hass.services.async_call(
+            "homepool", "start_cycle",
+            {"entity_id": entry.runtime_data.own_entities()["season_state"]},
+            blocking=True, context=Context(user_id="no-such-user"),
+        )
+
+
+async def test_a_manual_action_needs_a_finite_value_and_short_notes(hass: HomeAssistant) -> None:
+    import pytest
+    import voluptuous as vol
+
+    SwitchRouter(hass)
+    entry = await setup_pool(hass)
+    target = {"entity_id": entry.runtime_data.own_entities()["season_state"]}
+    for bad in ({"value": float("nan")}, {"value": "inf"}, {"notes": "x" * 501}):
+        with pytest.raises(vol.Invalid):
+            await hass.services.async_call(
+                "homepool", "record_manual_action",
+                {**target, "action_type": "backwash", **bad}, blocking=True,
+            )
+    await hass.services.async_call(
+        "homepool", "record_manual_action",
+        {**target, "action_type": "backwash", "value": 2, "notes": "x" * 500}, blocking=True,
+    )
+    assert entry.runtime_data.actions[-1]["notes"] == "x" * 500
+
+
+async def test_bulky_attributes_are_not_recorded(hass: HomeAssistant) -> None:
+    SwitchRouter(hass)
+    entry = await setup_pool(hass)
+    own = entry.runtime_data.own_entities()
+    tasks = hass.data["sensor"].get_entity(own["next_manual_task"])
+    assert {"tasks", "checklists", "recent_actions", "winter_product"} <= tasks._unrecorded_attributes
+    treatment = hass.data["sensor"].get_entity(own["water_treatment"])
+    assert "phase_until" in treatment._unrecorded_attributes

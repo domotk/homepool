@@ -100,10 +100,42 @@
           "ph_calibration_interval_days": "Calibrar la sonda de pH cada",
           "free_chlorine_target": "Cloro libre objetivo",
           "free_chlorine_range_min": "Cloro libre mínimo",
-          "free_chlorine_range_max": "Cloro libre máximo"
+          "free_chlorine_range_max": "Cloro libre máximo",
+          "swimming_months": "Meses de baño",
+          "winter_product_type": "Producto de invierno",
+          "winter_product_dose_per_m3": "Producto de invierno, dosis por m³",
+          "winter_product_interval_days": "Reponer el producto de invierno cada",
+          "combined_chlorine_range_max": "Cloro combinado máxima",
+          "total_alkalinity_range_min": "Alcalinidad total mínima",
+          "total_alkalinity_range_max": "Alcalinidad total máxima",
+          "calcium_hardness_range_min": "Dureza cálcica mínima",
+          "calcium_hardness_range_max": "Dureza cálcica máxima",
+          "cyanuric_acid_range_min": "Ácido cianúrico mínima",
+          "cyanuric_acid_range_max": "Ácido cianúrico máxima",
+          "ph_stale_days": "Lectura de ph, válida durante (días)",
+          "free_chlorine_stale_days": "Lectura de cloro libre, válida durante (días)",
+          "combined_chlorine_stale_days": "Lectura de cloro combinado, válida durante (días)",
+          "total_alkalinity_stale_days": "Lectura de alcalinidad total, válida durante (días)",
+          "calcium_hardness_stale_days": "Lectura de dureza cálcica, válida durante (días)",
+          "cyanuric_acid_stale_days": "Lectura de ácido cianúrico, válida durante (días)",
+          "salt_stale_days": "Lectura de sal, válida durante (días)",
+          "shock_product": "Producto de choque",
+          "shock_concentration": "Concentración del producto de choque",
+          "clarifier_dose_per_10m3": "Clarificante, dosis por 10 m³",
+          "clarifier_dose_unit": "Clarificante, unidad",
+          "flocculant_dose_per_10m3": "Floculante, dosis por 10 m³",
+          "flocculant_dose_unit": "Floculante, unidad"
         },
         "data_description": {
-          "has_ph_dosing": "Si el pH está alto, la bomba se pone en marcha un rato para que la dosificadora pueda trabajar."
+          "swimming_months": "HomePool propone invernar cuando terminan y la puesta en marcha dos semanas antes de que empiecen.",
+          "winter_product_type": "Lo que se pone en el agua durante el invernaje. HomePool calcula la dosis y te recuerda reponerlo.",
+          "winter_product_dose_per_m3": "Unidades por m³ (litros por m³ si es líquido), según la etiqueta. Un flotador por cada 50 m³ son 0,02.",
+          "winter_product_interval_days": "Días entre reposiciones.",
+          "has_ph_dosing": "Si el pH está alto, la bomba se pone en marcha un rato para que la dosificadora pueda trabajar.",
+          "shock_product": "Con qué haces el choque al agua verde. HomePool calcula la dosis con el volumen de la piscina.",
+          "shock_concentration": "Por ciento de cloro si es granulado, g/L si es líquido, según la etiqueta. Vacío: hipoclorito cálcico al 65 %, hipoclorito sódico a 150 g/L, dicloro al 56 %.",
+          "clarifier_dose_per_10m3": "Según la etiqueta. Vacío, la dosis dice que sigas el envase.",
+          "flocculant_dose_per_10m3": "Según la etiqueta. Vacío, la dosis dice que sigas el envase."
         }
       },
       "chlorinator_model": {
@@ -121,14 +153,15 @@
           "chlorinator_self_regulating": "Se autorregula (sonda ORP o de cloro)",
           "chlorinator_controllable": "Su producción se puede ajustar desde Home Assistant",
           "chlorinator_active_months": "Meses en que se usa",
-          "chlorinator_auto_toggle": "Activarlo y desactivarlo según el calendario",
+          "chlorinator_auto_toggle": "Proponer el cambio de temporada según el calendario",
           "chlorinator_min_water_temp": "Agua más fría con la que puede funcionar",
           "salt_target": "Sal objetivo",
           "salt_range_min": "Sal mínima",
           "salt_range_max": "Sal máxima"
         },
         "data_description": {
-          "chlorinator_auto_toggle": "Si no, HomePool solo avisa cuando empieza y termina la temporada."
+          "chlorinator_active_months": "Los meses de baño parten de estos si no das otros, y los avisos de temporada del clorador los siguen. Si la célula trabaja lo decide el estado de temporada: en baño trabaja sea cual sea el mes, en invernaje no.",
+          "chlorinator_auto_toggle": "Cuando terminan los meses de baño o están a punto de empezar, HomePool propone cambiar el estado de temporada y tú lo confirmas. Si no, lo cambias tú. En los dos casos, terminar la lista de apertura con la piscina en apertura propone pasar a baño."
         }
       },
       "connections": {
@@ -234,16 +267,50 @@
           "notification_quiet_hours_end": "Silencio hasta",
           "critical_ignore_quiet_hours": "Las alertas críticas ignoran el silencio"
         }
+      },
+      "tasks": {
+        "title": "Tareas periódicas",
+        "description": "Cada cuánto toca cada trabajo y cuándo lo hiciste por última vez. Solo salen las tareas que tu piscina necesita. En invierno los trabajos del filtro cuentan horas de bomba en lugar de días.",
+        "data": {
+          "backwash_days": "Contralavado: cada (días)",
+          "backwash_pump_hours": "Contralavado en invierno: cada (horas de bomba)",
+          "backwash_last_done": "Contralavado: última vez",
+          "filter_cleaning_days": "Limpieza del filtro: cada (días)",
+          "filter_cleaning_pump_hours": "Limpieza del filtro en invierno: cada (horas de bomba)",
+          "filter_cleaning_last_done": "Limpieza del filtro: última vez",
+          "ph_calibration_days": "Calibración de la sonda de pH: cada (días)",
+          "ph_calibration_last_done": "Calibración de la sonda de pH: última vez",
+          "winter_product_days": "Producto de invierno: cada (días)",
+          "winter_product_last_done": "Producto de invierno: última vez",
+          "water_test_days": "Medición del agua: cada (días)",
+          "water_test_enabled": "Medición del agua: avisarme",
+          "water_test_last_done": "Medición del agua: última vez",
+          "skimmer_baskets_days": "Cestos del skimmer: cada (días)",
+          "skimmer_baskets_enabled": "Cestos del skimmer: avisarme",
+          "skimmer_baskets_last_done": "Cestos del skimmer: última vez",
+          "cell_cleaning_days": "Limpieza de la célula: cada (días)",
+          "cell_cleaning_last_done": "Limpieza de la célula: última vez",
+          "filter_media_check_days": "Revisión de la arena o el vidrio: cada (días)",
+          "filter_media_check_enabled": "Revisión de la arena o el vidrio: avisarme",
+          "filter_media_check_last_done": "Revisión de la arena o el vidrio: última vez",
+          "has_ph_probe_outside": "Mido el pH con una sonda o un kit propios"
+        },
+        "data_description": {
+          "has_ph_probe_outside": "Activa el recordatorio de calibración del pH cuando HomePool no tiene sensor de pH. Guarda y abre esta página otra vez para fijar su intervalo."
+        }
       }
     },
     "error": {
+      "range_order": "El valor mínimo no puede ser mayor que el máximo.",
       "depth_order": "La profundidad máxima no puede ser menor que la mínima.",
       "cover_entity_required": "Una cubierta automática necesita su entidad.",
       "pressure_order": "La presión máxima debe ser mayor que la mínima.",
       "ph_order": "El objetivo debe estar dentro del rango aceptable.",
       "no_months": "Elige al menos un mes.",
+      "concentration_range": "Esa concentración no puede ser: hasta el 100 % si es granulado, hasta 300 g/L si es líquido.",
       "same_switch": "El interruptor del clorador debe ser distinto del de la bomba. Si la célula va conectada con la bomba, déjalo vacío.",
       "bad_slots": "Escribe las franjas como HH:MM-HH:MM, separadas por comas.",
+      "date_in_future": "Esa fecha todavía no ha llegado.",
       "service_required": "Elige un servicio de notificación o desactiva las notificaciones."
     },
     "abort": {
@@ -351,10 +418,42 @@
           "ph_calibration_interval_days": "Calibrar la sonda de pH cada",
           "free_chlorine_target": "Cloro libre objetivo",
           "free_chlorine_range_min": "Cloro libre mínimo",
-          "free_chlorine_range_max": "Cloro libre máximo"
+          "free_chlorine_range_max": "Cloro libre máximo",
+          "swimming_months": "Meses de baño",
+          "winter_product_type": "Producto de invierno",
+          "winter_product_dose_per_m3": "Producto de invierno, dosis por m³",
+          "winter_product_interval_days": "Reponer el producto de invierno cada",
+          "combined_chlorine_range_max": "Cloro combinado máxima",
+          "total_alkalinity_range_min": "Alcalinidad total mínima",
+          "total_alkalinity_range_max": "Alcalinidad total máxima",
+          "calcium_hardness_range_min": "Dureza cálcica mínima",
+          "calcium_hardness_range_max": "Dureza cálcica máxima",
+          "cyanuric_acid_range_min": "Ácido cianúrico mínima",
+          "cyanuric_acid_range_max": "Ácido cianúrico máxima",
+          "ph_stale_days": "Lectura de ph, válida durante (días)",
+          "free_chlorine_stale_days": "Lectura de cloro libre, válida durante (días)",
+          "combined_chlorine_stale_days": "Lectura de cloro combinado, válida durante (días)",
+          "total_alkalinity_stale_days": "Lectura de alcalinidad total, válida durante (días)",
+          "calcium_hardness_stale_days": "Lectura de dureza cálcica, válida durante (días)",
+          "cyanuric_acid_stale_days": "Lectura de ácido cianúrico, válida durante (días)",
+          "salt_stale_days": "Lectura de sal, válida durante (días)",
+          "shock_product": "Producto de choque",
+          "shock_concentration": "Concentración del producto de choque",
+          "clarifier_dose_per_10m3": "Clarificante, dosis por 10 m³",
+          "clarifier_dose_unit": "Clarificante, unidad",
+          "flocculant_dose_per_10m3": "Floculante, dosis por 10 m³",
+          "flocculant_dose_unit": "Floculante, unidad"
         },
         "data_description": {
-          "has_ph_dosing": "Si el pH está alto, la bomba se pone en marcha un rato para que la dosificadora pueda trabajar."
+          "swimming_months": "HomePool propone invernar cuando terminan y la puesta en marcha dos semanas antes de que empiecen.",
+          "winter_product_type": "Lo que se pone en el agua durante el invernaje. HomePool calcula la dosis y te recuerda reponerlo.",
+          "winter_product_dose_per_m3": "Unidades por m³ (litros por m³ si es líquido), según la etiqueta. Un flotador por cada 50 m³ son 0,02.",
+          "winter_product_interval_days": "Días entre reposiciones.",
+          "has_ph_dosing": "Si el pH está alto, la bomba se pone en marcha un rato para que la dosificadora pueda trabajar.",
+          "shock_product": "Con qué haces el choque al agua verde. HomePool calcula la dosis con el volumen de la piscina.",
+          "shock_concentration": "Por ciento de cloro si es granulado, g/L si es líquido, según la etiqueta. Vacío: hipoclorito cálcico al 65 %, hipoclorito sódico a 150 g/L, dicloro al 56 %.",
+          "clarifier_dose_per_10m3": "Según la etiqueta. Vacío, la dosis dice que sigas el envase.",
+          "flocculant_dose_per_10m3": "Según la etiqueta. Vacío, la dosis dice que sigas el envase."
         }
       },
       "chlorinator_model": {
@@ -372,14 +471,15 @@
           "chlorinator_self_regulating": "Se autorregula (sonda ORP o de cloro)",
           "chlorinator_controllable": "Su producción se puede ajustar desde Home Assistant",
           "chlorinator_active_months": "Meses en que se usa",
-          "chlorinator_auto_toggle": "Activarlo y desactivarlo según el calendario",
+          "chlorinator_auto_toggle": "Proponer el cambio de temporada según el calendario",
           "chlorinator_min_water_temp": "Agua más fría con la que puede funcionar",
           "salt_target": "Sal objetivo",
           "salt_range_min": "Sal mínima",
           "salt_range_max": "Sal máxima"
         },
         "data_description": {
-          "chlorinator_auto_toggle": "Si no, HomePool solo avisa cuando empieza y termina la temporada."
+          "chlorinator_active_months": "Los meses de baño parten de estos si no das otros, y los avisos de temporada del clorador los siguen. Si la célula trabaja lo decide el estado de temporada: en baño trabaja sea cual sea el mes, en invernaje no.",
+          "chlorinator_auto_toggle": "Cuando terminan los meses de baño o están a punto de empezar, HomePool propone cambiar el estado de temporada y tú lo confirmas. Si no, lo cambias tú. En los dos casos, terminar la lista de apertura con la piscina en apertura propone pasar a baño."
         }
       },
       "connections": {
@@ -486,6 +586,37 @@
           "critical_ignore_quiet_hours": "Las alertas críticas ignoran el silencio"
         }
       },
+      "tasks": {
+        "title": "Tareas periódicas",
+        "description": "Cada cuánto toca cada trabajo y cuándo lo hiciste por última vez. Solo salen las tareas que tu piscina necesita. En invierno los trabajos del filtro cuentan horas de bomba en lugar de días.",
+        "data": {
+          "backwash_days": "Contralavado: cada (días)",
+          "backwash_pump_hours": "Contralavado en invierno: cada (horas de bomba)",
+          "backwash_last_done": "Contralavado: última vez",
+          "filter_cleaning_days": "Limpieza del filtro: cada (días)",
+          "filter_cleaning_pump_hours": "Limpieza del filtro en invierno: cada (horas de bomba)",
+          "filter_cleaning_last_done": "Limpieza del filtro: última vez",
+          "ph_calibration_days": "Calibración de la sonda de pH: cada (días)",
+          "ph_calibration_last_done": "Calibración de la sonda de pH: última vez",
+          "winter_product_days": "Producto de invierno: cada (días)",
+          "winter_product_last_done": "Producto de invierno: última vez",
+          "water_test_days": "Medición del agua: cada (días)",
+          "water_test_enabled": "Medición del agua: avisarme",
+          "water_test_last_done": "Medición del agua: última vez",
+          "skimmer_baskets_days": "Cestos del skimmer: cada (días)",
+          "skimmer_baskets_enabled": "Cestos del skimmer: avisarme",
+          "skimmer_baskets_last_done": "Cestos del skimmer: última vez",
+          "cell_cleaning_days": "Limpieza de la célula: cada (días)",
+          "cell_cleaning_last_done": "Limpieza de la célula: última vez",
+          "filter_media_check_days": "Revisión de la arena o el vidrio: cada (días)",
+          "filter_media_check_enabled": "Revisión de la arena o el vidrio: avisarme",
+          "filter_media_check_last_done": "Revisión de la arena o el vidrio: última vez",
+          "has_ph_probe_outside": "Mido el pH con una sonda o un kit propios"
+        },
+        "data_description": {
+          "has_ph_probe_outside": "Activa el recordatorio de calibración del pH cuando HomePool no tiene sensor de pH. Guarda y abre esta página otra vez para fijar su intervalo."
+        }
+      },
       "init": {
         "title": "Cambiar la piscina",
         "description": "Elige qué cambiar.",
@@ -498,18 +629,22 @@
           "chlorinator_model": "Clorador salino",
           "connections": "Entidades",
           "control": "Control",
-          "notifications": "Notificaciones"
+          "notifications": "Notificaciones",
+          "tasks": "Tareas periódicas"
         }
       }
     },
     "error": {
+      "range_order": "El valor mínimo no puede ser mayor que el máximo.",
       "depth_order": "La profundidad máxima no puede ser menor que la mínima.",
       "cover_entity_required": "Una cubierta automática necesita su entidad.",
       "pressure_order": "La presión máxima debe ser mayor que la mínima.",
       "ph_order": "El objetivo debe estar dentro del rango aceptable.",
       "no_months": "Elige al menos un mes.",
+      "concentration_range": "Esa concentración no puede ser: hasta el 100 % si es granulado, hasta 300 g/L si es líquido.",
       "same_switch": "El interruptor del clorador debe ser distinto del de la bomba. Si la célula va conectada con la bomba, déjalo vacío.",
       "bad_slots": "Escribe las franjas como HH:MM-HH:MM, separadas por comas.",
+      "date_in_future": "Esa fecha todavía no ha llegado.",
       "service_required": "Elige un servicio de notificación o desactiva las notificaciones."
     }
   },
@@ -624,6 +759,35 @@
         "other": "Otro"
       }
     },
+    "winter_product_type": {
+      "options": {
+        "none": "Ninguno",
+        "floater": "Flotador",
+        "liquid": "Líquido",
+        "tablets": "Pastillas"
+      }
+    },
+    "shock_product": {
+      "options": {
+        "calcium_hypochlorite": "Hipoclorito cálcico (granulado)",
+        "sodium_hypochlorite": "Hipoclorito sódico (líquido)",
+        "dichlor": "Dicloro (granulado, sube el ácido cianúrico)"
+      }
+    },
+    "treatment_type": {
+      "options": {
+        "shock": "Choque (agua verde)",
+        "clarifier": "Clarificante (agua turbia)",
+        "flocculant": "Floculante (agua turbia)"
+      }
+    },
+    "shock_severity": {
+      "options": {
+        "light": "Verde claro",
+        "green": "Verde",
+        "dark": "Verde oscuro o negro"
+      }
+    },
     "month": {
       "options": {
         "1": "Enero",
@@ -655,6 +819,44 @@
         "hydraulic": "Hidráulico"
       }
     },
+    "task": {
+      "options": {
+        "backwash": "Contralavado",
+        "filter_cleaning": "Limpieza del filtro",
+        "ph_calibration": "Calibración de la sonda de pH",
+        "winter_product": "Producto de invierno",
+        "water_test": "Medición del agua",
+        "skimmer_baskets": "Cestos del skimmer",
+        "cell_cleaning": "Limpieza de la célula",
+        "filter_media_check": "Revisión de la arena o el vidrio"
+      }
+    },
+    "reading_kind": {
+      "options": {
+        "ph": "pH",
+        "free_chlorine": "Cloro libre",
+        "combined_chlorine": "Cloro combinado",
+        "total_alkalinity": "Alcalinidad total",
+        "calcium_hardness": "Dureza cálcica",
+        "cyanuric_acid": "Ácido cianúrico",
+        "salt": "Sal"
+      }
+    },
+    "season_state": {
+      "options": {
+        "swimming": "Baño",
+        "winter_active": "Invernaje activo",
+        "winter_passive": "Invernaje pasivo",
+        "opening": "Puesta en marcha"
+      }
+    },
+    "checklist": {
+      "options": {
+        "closing": "Cierre",
+        "opening": "Apertura",
+        "treatment": "Tratamiento"
+      }
+    },
     "severity": {
       "options": {
         "info": "Información",
@@ -672,6 +874,10 @@
         "ph_adjusted": "pH ajustado a mano",
         "water_added": "Agua añadida",
         "cell_cleaned": "Célula limpiada",
+        "winter_product_added": "Producto de invierno repuesto",
+        "water_tested": "Agua medida",
+        "skimmer_baskets_emptied": "Cestos del skimmer vaciados",
+        "filter_media_checked": "Arena o vidrio revisado",
         "other": "Otra"
       }
     },
@@ -756,7 +962,9 @@
           "manual_cycle": "Ciclo manual",
           "manual_override": "Accionada a mano",
           "mode": "Modo de funcionamiento",
-          "unavailable": "Bomba no disponible"
+          "unavailable": "Bomba no disponible",
+          "winter_passive": "Invernaje pasivo",
+          "treatment": "Tratamiento del agua"
         }
       },
       "chlorine_production_elapsed_today": {
@@ -773,7 +981,8 @@
         "state": {
           "salt": "Salina",
           "tablets": "Pastillas",
-          "off": "Apagada"
+          "off": "Apagada",
+          "winter_product": "Producto de invierno"
         }
       },
       "days_since_last_backwash": {
@@ -788,7 +997,12 @@
           "none": "Ninguna",
           "backwash": "Contralavado",
           "filter_cleaning": "Limpiar el filtro",
-          "ph_calibration": "Calibrar la sonda de pH"
+          "ph_calibration": "Calibrar la sonda de pH",
+          "winter_product": "Reponer el producto de invierno",
+          "water_test": "Medir el agua",
+          "skimmer_baskets": "Vaciar los cestos",
+          "cell_cleaning": "Limpiar la célula",
+          "filter_media_check": "Revisar la arena o el vidrio"
         }
       },
       "overall_status": {
@@ -797,6 +1011,15 @@
           "ok": "Correcto",
           "attention": "Requiere atención",
           "action_required": "Acción necesaria"
+        }
+      },
+      "water_treatment": {
+        "name": "Tratamiento del agua",
+        "state": {
+          "none": "Ninguno",
+          "shock": "Choque",
+          "clarifier": "Clarificante",
+          "flocculant": "Floculante"
         }
       },
       "ph_trend": {
@@ -812,6 +1035,21 @@
       },
       "free_chlorine": {
         "name": "Cloro libre"
+      },
+      "ph_manual": {
+        "name": "pH manual"
+      },
+      "combined_chlorine": {
+        "name": "Cloro combinado"
+      },
+      "total_alkalinity": {
+        "name": "Alcalinidad total"
+      },
+      "calcium_hardness": {
+        "name": "Dureza cálcica"
+      },
+      "cyanuric_acid": {
+        "name": "Ácido cianúrico"
       },
       "pump_energy_today": {
         "name": "Energía de la bomba hoy"
@@ -862,6 +1100,9 @@
       },
       "chlorinator_in_season": {
         "name": "Clorador en temporada"
+      },
+      "swimming_not_advised": {
+        "name": "Baño no recomendado"
       }
     },
     "switch": {
@@ -884,6 +1125,15 @@
           "smart": "Inteligente",
           "solar": "Solar",
           "smart_solar": "Inteligente + solar"
+        }
+      },
+      "season_state": {
+        "name": "Estado de temporada",
+        "state": {
+          "swimming": "Baño",
+          "winter_active": "Invernaje activo",
+          "winter_passive": "Invernaje pasivo",
+          "opening": "Puesta en marcha"
         }
       }
     },
@@ -920,6 +1170,30 @@
       "mark_ph_calibrated": {
         "name": "Sonda de pH calibrada"
       },
+      "mark_winter_product_added": {
+        "name": "Producto de invierno repuesto"
+      },
+      "mark_water_tested": {
+        "name": "Agua medida"
+      },
+      "mark_skimmer_baskets_emptied": {
+        "name": "Cestos del skimmer vaciados"
+      },
+      "start_shock": {
+        "name": "Empezar un choque"
+      },
+      "start_clarifier": {
+        "name": "Empezar un clarificante"
+      },
+      "start_flocculant": {
+        "name": "Empezar un floculante"
+      },
+      "advance_treatment": {
+        "name": "Siguiente fase del tratamiento (aspirado terminado)"
+      },
+      "end_treatment": {
+        "name": "Terminar el tratamiento"
+      },
       "recalculate_target": {
         "name": "Recalcular objetivo"
       }
@@ -928,7 +1202,7 @@
   "services": {
     "start_cycle": {
       "name": "Iniciar ciclo",
-      "description": "Pone la bomba en marcha un rato, por encima del modo. El bloqueo y la seguridad siguen mandando.",
+      "description": "Pone la bomba en marcha un rato, por encima del modo. El bloqueo y la seguridad siguen mandando. No se admite con un tratamiento del agua en marcha.",
       "fields": {
         "duration": {
           "name": "Duración",
@@ -938,7 +1212,7 @@
     },
     "stop_cycle": {
       "name": "Detener ciclo",
-      "description": "Detiene un ciclo manual y mantiene la bomba apagada durante el tiempo de respeto.",
+      "description": "Detiene un ciclo manual y mantiene la bomba apagada durante el tiempo de respeto. No se admite con un tratamiento del agua en marcha.",
       "fields": {}
     },
     "record_manual_action": {
@@ -956,6 +1230,20 @@
         "notes": {
           "name": "Notas",
           "description": "Lo que valga la pena recordar."
+        }
+      }
+    },
+    "complete_task": {
+      "name": "Completar tarea",
+      "description": "Marca una tarea periódica como hecha, hoy o en una fecha pasada, y cuenta la siguiente desde entonces.",
+      "fields": {
+        "task": {
+          "name": "Tarea",
+          "description": "Cuál se ha hecho."
+        },
+        "date": {
+          "name": "Fecha",
+          "description": "El día en que se hizo. Hoy si se omite."
         }
       }
     },
@@ -979,6 +1267,20 @@
         }
       }
     },
+    "record_reading": {
+      "name": "Registrar lectura",
+      "description": "Una lectura química tomada a mano. Medir el pH o el cloro libre cuenta también como la medición del agua.",
+      "fields": {
+        "kind": {
+          "name": "Lectura",
+          "description": "Qué se ha medido."
+        },
+        "value": {
+          "name": "Valor",
+          "description": "El pH no tiene unidad, la sal va en g/L y el resto en mg/L."
+        }
+      }
+    },
     "recalculate_schedule": {
       "name": "Recalcular objetivo",
       "description": "Vuelve a calcular el objetivo de hoy ahora. A diferencia de la actualización horaria, también puede bajarlo.",
@@ -994,6 +1296,69 @@
         }
       }
     },
+    "set_season_state": {
+      "name": "Cambiar estado de temporada",
+      "description": "Confirma el estado de temporada de la piscina. Invernar apaga el clorador y el baño lo enciende; el invernaje pasivo mantiene la bomba parada.",
+      "fields": {
+        "state": {
+          "name": "Estado",
+          "description": "El estado de temporada que poner."
+        }
+      }
+    },
+    "dismiss_season_proposal": {
+      "name": "Descartar propuesta de temporada",
+      "description": "Deja de recordar el cambio de temporada propuesto por el calendario, hasta que proponga otro.",
+      "fields": {}
+    },
+    "complete_step": {
+      "name": "Completar paso",
+      "description": "Marca un paso de una lista abierta, por su id (por ejemplo closing.backwash), y marca como hecha la tarea periódica que le corresponda.",
+      "fields": {
+        "step": {
+          "name": "Paso",
+          "description": "El id del paso: la lista, un punto y el paso."
+        }
+      }
+    },
+    "dismiss_checklist": {
+      "name": "Descartar lista",
+      "description": "Cierra una lista sin terminarla.",
+      "fields": {
+        "checklist": {
+          "name": "Lista",
+          "description": "Qué lista cerrar."
+        }
+      }
+    },
+    "start_treatment": {
+      "name": "Empezar tratamiento del agua",
+      "description": "Empieza un choque, un clarificante o un floculante. La bomba lo sigue por encima del pH, del ciclo manual y del modo; la seguridad y la antiheladas siguen mandando.",
+      "fields": {
+        "type": {
+          "name": "Tratamiento",
+          "description": "Choque para el agua verde, clarificante o floculante para el agua turbia."
+        },
+        "severity": {
+          "name": "Cuánto de verde",
+          "description": "Para un choque: cuánto se sube el cloro libre (10, 15 o 20 mg/L)."
+        },
+        "hours": {
+          "name": "Horas",
+          "description": "Horas de filtrado, o de reposo en el floculante. Si se omite, las de siempre: choque 24 h, clarificante 48 h, reposo 12 h."
+        }
+      }
+    },
+    "advance_treatment": {
+      "name": "Siguiente fase del tratamiento",
+      "description": "Pasa el tratamiento a su fase siguiente ahora. En un floculante que está aspirando, quiere decir que el aspirado ha terminado.",
+      "fields": {}
+    },
+    "end_treatment": {
+      "name": "Terminar tratamiento del agua",
+      "description": "Termina el tratamiento ahora. El filtro queda pendiente de contralavado, salvo que se haya hecho uno durante el tratamiento.",
+      "fields": {}
+    },
     "reset_daily_counters": {
       "name": "Reiniciar contadores de hoy",
       "description": "Vuelve a poner a cero la filtración de hoy.",
@@ -1001,8 +1366,35 @@
     }
   },
   "exceptions": {
+    "invalid_reading": {
+      "message": "{value} no es una lectura posible de {kind}."
+    },
     "no_pool_targeted": {
       "message": "Ese destino no corresponde a ninguna piscina de HomePool."
+    },
+    "date_in_future": {
+      "message": "Esa fecha todavía no ha llegado."
+    },
+    "task_not_in_pool": {
+      "message": "{pool} no tiene la tarea {task}."
+    },
+    "step_not_open": {
+      "message": "{pool} no tiene abierto el paso {step}."
+    },
+    "cycle_in_winter_passive": {
+      "message": "La bomba no arranca en el invernaje pasivo. Cambia antes el estado de temporada."
+    },
+    "treatment_not_allowed": {
+      "message": "{pool} no puede empezar un tratamiento ahora: está en invernaje pasivo o ya hay otro en marcha."
+    },
+    "pump_in_owner_hands": {
+      "message": "{pool} está aspirando: la bomba la manejas tú con su propio interruptor. Pulsa antes «aspirado terminado» para devolvérsela a HomePool."
+    },
+    "pump_in_treatment": {
+      "message": "{pool} está con un tratamiento del agua, que decide la bomba hasta que termina. Pulsa antes «Terminar el tratamiento» para recuperarla."
+    },
+    "no_treatment": {
+      "message": "{pool} no tiene ningún tratamiento en marcha."
     }
   }
 }

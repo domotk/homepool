@@ -9,17 +9,25 @@ Authority over the pump, highest first:
 1. **Hands off** — an external entity says nobody touches the pump. HomePool
    neither switches it on nor off, it only keeps counting.
 2. **Maintenance lock** — forces it off.
-3. **Safety shutoff** — flood, overheat, filter pressure, a pump drawing far
+3. **Passive wintering** — the pool is closed with its pipes drained and
+   plugged. Forces it off, like the lock: a pump started by hand is stopped
+   again, because running it dry can damage the motor. Only hands-off, above,
+   lets someone run it.
+4. **Safety shutoff** — flood, overheat, filter pressure, a pump drawing far
    more than it should. Forces it off.
-4. **Freeze protection** — water near freezing. Forces it *on*: moving water
+5. **Freeze protection** — water near freezing. Forces it *on*: moving water
    does not freeze in the pipes, still water does.
-5. **pH correction** — the dosing pump only works with water flowing, so a pH
+6. **Water treatment** — a shock, a clarifier or a flocculant the owner
+   started. On while it filters or mixes, off while the flocculant settles,
+   and left as it is while the owner vacuums. A person asked for it, so it
+   runs in ``off`` mode too.
+7. **pH correction** — the dosing pump only works with water flowing, so a pH
    that needs correcting forces the pump on for a while, capped per day so a
    faulty probe cannot run it all night.
-6. **Manual cycle** — a cycle started from HomePool (button or service).
-7. **Manual override** — someone switched the pump by hand, outside HomePool.
+8. **Manual cycle** — a cycle started from HomePool (button or service).
+9. **Manual override** — someone switched the pump by hand, outside HomePool.
    Respected for a while instead of being undone on the next tick.
-8. **The operation mode.**
+10. **The operation mode.**
 
 The last two are also subject to minimum on and off times: the motor and the
 relay both last longer when they are not cycled every few minutes.
@@ -44,9 +52,14 @@ class ControlInputs:
 
     hands_off: bool = False
     maintenance_lock: bool = False
+    winter_passive: bool = False
     safety_shutoff: bool = False
     safety_reason: str | None = None
     freeze_risk: bool = False
+    # What a running treatment wants of the pump, None meaning "leave it",
+    # and the phase's reason key. An empty key means no treatment.
+    treatment: bool | None = None
+    treatment_key: str = ""
 
     ph_correction: bool = False
 
@@ -71,7 +84,7 @@ class ControlInputs:
 
 
 # Reasons for which HomePool switches the pump on regardless of the mode.
-FORCING_SOURCES = ("freeze_protection", "ph_correction", "manual_cycle")
+FORCING_SOURCES = ("freeze_protection", "ph_correction", "manual_cycle", "treatment")
 
 
 @dataclass
@@ -87,6 +100,16 @@ class ControlDecision:
     args: dict[str, str] = field(default_factory=dict)
 
 
+def _released(inp: ControlInputs, source: str) -> ControlDecision:
+    """Stop a pump HomePool itself started for a reason that has passed."""
+    return ControlDecision(
+        False,
+        source,
+        f"No longer needed for {inp.started_by.replace('_', ' ')}",
+        f"released_{inp.started_by}",
+    )
+
+
 def arbitrate(inp: ControlInputs) -> ControlDecision:
     """Apply the authority ladder and return the one decision that wins."""
     if not inp.pump_available:
@@ -95,6 +118,8 @@ def arbitrate(inp: ControlInputs) -> ControlDecision:
         return ControlDecision(None, "hands_off", "Hands off: the pump is being run by hand", "hands_off")
     if inp.maintenance_lock:
         return ControlDecision(False, "maintenance_lock", "Maintenance lock is on", "maintenance_lock")
+    if inp.winter_passive:
+        return ControlDecision(False, "winter_passive", "Passive wintering: the pump stays off", "winter_passive")
     if inp.safety_shutoff:
         return ControlDecision(
             False,
@@ -105,6 +130,15 @@ def arbitrate(inp: ControlInputs) -> ControlDecision:
         )
     if inp.freeze_risk:
         return ControlDecision(True, "freeze_protection", "Freeze protection: water near 0 °C", "freeze_protection")
+    if inp.treatment_key:
+        # Decided on the key, not the pump: while vacuuming the pump is
+        # None, and the rung still holds the pump for the owner.
+        if inp.treatment is None and inp.pump_is_on and inp.started_by in FORCING_SOURCES:
+            # Except a pump HomePool itself started (a frost that has passed):
+            # HomePool started it, so HomePool stops it.
+            return _released(inp, "treatment")
+        phase = inp.treatment_key.removeprefix("treatment_")
+        return ControlDecision(inp.treatment, "treatment", f"Water treatment: {phase}", inp.treatment_key)
     if inp.ph_correction:
         return ControlDecision(True, "ph_correction", "pH correction needs water flowing", "ph_correction")
     if inp.manual_cycle:
@@ -137,12 +171,7 @@ def arbitrate(inp: ControlInputs) -> ControlDecision:
     decision = inp.mode_decision
     if decision is None or decision.action == PumpAction.NO_CHANGE:
         if inp.pump_is_on and inp.started_by in FORCING_SOURCES:
-            return ControlDecision(
-                False,
-                "mode",
-                f"No longer needed for {inp.started_by.replace('_', ' ')}",
-                f"released_{inp.started_by}",
-            )
+            return _released(inp, "mode")
         if decision is None:
             return ControlDecision(None, "mode", "No mode", "no_mode")
         return ControlDecision(None, "mode", decision.reason, decision.key)
@@ -179,7 +208,9 @@ class ChlorinatorInputs:
     enabled: bool
     in_season: bool
     target_reached: bool
-    blocked: bool  # lock or safety
+    # The lock, a safety condition, passive wintering, or a treatment phase
+    # with no water through the cell.
+    blocked: bool
     water_temperature_c: float | None
     min_water_temperature_c: float
     flow_delay_s: float = 120
@@ -192,7 +223,7 @@ def chlorinator_wanted(inp: ChlorinatorInputs) -> tuple[bool, str]:
     if inp.pump_on_seconds is None or inp.pump_on_seconds < inp.flow_delay_s:
         return False, "Waiting for the flow to settle after the pump started"
     if inp.blocked:
-        return False, "Blocked by the maintenance lock or a safety condition"
+        return False, "Blocked: maintenance lock, safety, passive wintering or a treatment"
     if not inp.enabled:
         return False, "The chlorinator is disabled"
     if not inp.in_season:

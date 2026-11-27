@@ -33,6 +33,8 @@ from .const import (
     PhTrend,
 )
 from .coordinator import PoolCoordinator
+from .pool.readings import NEW_SENSOR_KINDS
+from .pool.treatment import TreatmentType
 from .entity import PoolEntity
 
 
@@ -85,6 +87,46 @@ def _control_attrs(c: PoolCoordinator) -> dict[str, Any]:
         ),
         "manual_cycle_until": c.cycle_until.isoformat() if c.cycle_until else None,
         "safety_conditions": c.safety_reasons,
+    }
+
+
+def _manual_value(c: PoolCoordinator, kind: str) -> float | None:
+    """The last reading by hand; when it is too old, the attributes say so."""
+    return c.manual_status(kind).value
+
+
+def _manual_attrs(c: PoolCoordinator, kind: str) -> dict[str, Any]:
+    status = c.manual_status(kind)
+    return {
+        "recorded_at": status.at.isoformat() if status.at else None,
+        "stale": status.stale,
+    }
+
+
+def _shown_reading(
+    c: PoolCoordinator, kind: str, in_use: tuple[float | None, str | None]
+) -> tuple[float | None, str | None, bool]:
+    """What a 0.1 reading sensor shows: the reading in use (a probe, or a
+    fresh one by hand), else the last one by hand even when it is stale.
+
+    Only the calculations and the alerts ignore a stale reading; the sensor
+    keeps the number and says it is old, like the kinds new in 0.2.
+    """
+    value, source = in_use
+    if value is not None:
+        return value, source, False
+    status = c.manual_status(kind)
+    if status.value is None:
+        return None, None, False
+    return status.value, "manual_record", status.stale
+
+
+def _reading_attrs(c: PoolCoordinator, kind: str, in_use) -> dict[str, Any]:
+    _, source, stale = _shown_reading(c, kind, in_use)
+    return {
+        "source": source,
+        "recorded_at": (c.manual_readings.get(kind) or {}).get("at"),
+        "stale": stale,
     }
 
 
@@ -142,8 +184,9 @@ SENSORS: tuple[PoolSensorDescription, ...] = (
         key="pump_control",
         device_class=SensorDeviceClass.ENUM,
         options=[
-            "hands_off", "maintenance_lock", "safety", "freeze_protection",
-            "ph_correction", "manual_cycle", "manual_override", "mode", "unavailable",
+            "hands_off", "maintenance_lock", "winter_passive", "safety", "freeze_protection",
+            "treatment", "ph_correction", "manual_cycle", "manual_override", "mode",
+            "unavailable",
         ],
         value_fn=lambda c: c.decision_source,
         attrs_fn=_control_attrs,
@@ -192,9 +235,24 @@ SENSORS: tuple[PoolSensorDescription, ...] = (
     PoolSensorDescription(
         key="next_manual_task",
         device_class=SensorDeviceClass.ENUM,
-        options=["none", "backwash", "filter_cleaning", "ph_calibration"],
+        options=[
+            "none",
+            "backwash",
+            "filter_cleaning",
+            "ph_calibration",
+            "winter_product",
+            "water_test",
+            "skimmer_baskets",
+            "cell_cleaning",
+            "filter_media_check",
+        ],
         value_fn=lambda c: c.next_manual_task,
-        attrs_fn=lambda c: {"tasks": c.task_status(), "recent_actions": c.actions[-10:]},
+        attrs_fn=lambda c: {
+            "tasks": c.task_status(),
+            "checklists": c.checklist_view(),
+            "recent_actions": c.actions[-10:],
+            **({"winter_product": c.winter_product} if c.winter_product else {}),
+        },
     ),
     PoolSensorDescription(
         key="overall_status",
@@ -202,6 +260,13 @@ SENSORS: tuple[PoolSensorDescription, ...] = (
         options=[s.value for s in OverallStatus],
         value_fn=lambda c: c.overall_status,
         attrs_fn=lambda c: {"alerts": c.alerts},
+    ),
+    PoolSensorDescription(
+        key="water_treatment",
+        device_class=SensorDeviceClass.ENUM,
+        options=["none", *(t.value for t in TreatmentType)],
+        value_fn=lambda c: c.treatment["type"] if c.treatment else "none",
+        attrs_fn=lambda c: c.treatment_view(),
     ),
     PoolSensorDescription(
         key="ph_trend",
@@ -216,22 +281,35 @@ SENSORS: tuple[PoolSensorDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         suggested_display_precision=1,
         exists_fn=lambda c: c.is_salt,
-        value_fn=lambda c: c.salinity[0],
-        attrs_fn=lambda c: {
-            "source": c.salinity[1],
-            "recorded_at": (c.manual_readings.get("salt") or {}).get("at"),
-        },
+        value_fn=lambda c: _shown_reading(c, "salt", c.salinity)[0],
+        attrs_fn=lambda c: _reading_attrs(c, "salt", c.salinity),
     ),
     PoolSensorDescription(
         key="free_chlorine",
         native_unit_of_measurement="ppm",
         state_class=SensorStateClass.MEASUREMENT,
         suggested_display_precision=1,
-        value_fn=lambda c: c.free_chlorine[0],
-        attrs_fn=lambda c: {
-            "source": c.free_chlorine[1],
-            "recorded_at": (c.manual_readings.get("free_chlorine") or {}).get("at"),
-        },
+        value_fn=lambda c: _shown_reading(c, "free_chlorine", c.free_chlorine)[0],
+        attrs_fn=lambda c: _reading_attrs(c, "free_chlorine", c.free_chlorine),
+    ),
+    PoolSensorDescription(
+        key="ph_manual",
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=1,
+        exists_fn=lambda c: not c.has(CONF_PH_SENSOR),
+        value_fn=lambda c: _manual_value(c, "ph"),
+        attrs_fn=lambda c: _manual_attrs(c, "ph"),
+    ),
+    *(
+        PoolSensorDescription(
+            key=_kind,
+            native_unit_of_measurement="mg/L",
+            state_class=SensorStateClass.MEASUREMENT,
+            suggested_display_precision=1,
+            value_fn=lambda c, _kind=_kind: _manual_value(c, _kind),
+            attrs_fn=lambda c, _kind=_kind: _manual_attrs(c, _kind),
+        )
+        for _kind in NEW_SENSOR_KINDS
     ),
     PoolSensorDescription(
         key="pump_energy_today",
@@ -258,7 +336,12 @@ async def async_setup_entry(
     hass: HomeAssistant, entry, async_add_entities: AddEntitiesCallback
 ) -> None:
     coordinator: PoolCoordinator = entry.runtime_data
-    classes = {"daily_filtration_target": TargetSensor, "pump_control": ControlSensor}
+    classes = {
+        "daily_filtration_target": TargetSensor,
+        "pump_control": ControlSensor,
+        "next_manual_task": TasksSensor,
+        "water_treatment": TreatmentSensor,
+    }
     async_add_entities(
         classes.get(d.key, PoolSensor)(coordinator, d) for d in SENSORS if d.exists_fn(coordinator)
     )
@@ -300,3 +383,17 @@ class ControlSensor(PoolSensor):
     """
 
     _unrecorded_attributes = frozenset({"surplus_w", "reason", "chlorinator"})
+
+
+class TasksSensor(PoolSensor):
+    """The tasks and the step lists: whole tables, for the card. A task's pump
+    hours move every few minutes while the pump runs; recording them would
+    write the lot each time."""
+
+    _unrecorded_attributes = frozenset({"tasks", "checklists", "recent_actions", "winter_product"})
+
+
+class TreatmentSensor(PoolSensor):
+    """The phase's end moves on every minute while its clock is paused."""
+
+    _unrecorded_attributes = frozenset({"phase_until"})

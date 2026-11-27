@@ -103,30 +103,40 @@ Several things can want the pump on or off at once. One decides, in this order:
 
 1. **Hands off** — an entity of yours (an `input_boolean`, say) that means
    "nobody touches the pump". HomePool never switches it while that is on, and
-   keeps counting.
+   keeps counting. It is the only thing above passive wintering.
 2. **Maintenance lock** — forces it off.
-3. **Safety shutoff** — flood in the equipment room, room too hot, filter
+3. **Passive wintering** — the pool is closed with its pipes drained: the pump
+   stays off. A pump switched on by hand is switched off again at the next
+   evaluation, within seconds, because running it dry can damage the motor.
+   To run it, leave passive wintering or turn on hands-off. A forecast frost
+   then only reminds you to check the plugs.
+4. **Safety shutoff** — flood in the equipment room, room too hot, filter
    pressure too high, or a pump drawing far more or far less than it should.
    Forces it off.
-4. **Freeze protection** — water near 0 °C (or air below zero if there is no
+5. **Freeze protection** — water near 0 °C (or air below zero if there is no
    water probe). Forces it **on**, in every mode including `off`: moving
    water does not freeze in the pipes. Switch it off in the options if HomePool
    must never touch the pump. If something above it keeps the pump off (the
    maintenance lock, say), the freeze alert says so instead of claiming the
    pump is running.
-5. **pH correction** — a dosing pump only works with water flowing, so a pH
+6. **Water treatment** — a shock, clarifier or flocculant you started: the
+   pump runs, rests or is left to you according to its phase (see
+   [Water treatment](#water-treatment)). You asked for it, so it runs in `off`
+   mode too.
+7. **pH correction** — a dosing pump only works with water flowing, so a pH
    that needs correcting runs the pump for a while, capped per day so a faulty
    probe cannot run it all night. Not in `off` mode, and not on a reading that
    cannot be right (outside 5–9, or exactly the same for 24 hours, as from a
    probe left in its cup); a window asked for with `homepool.force_ph_correction_window`
-   still runs.
-6. **Manual cycle** — started from HomePool's button, switch or service.
-7. **Switched from outside** — a person, an automation, a script or the
+   still runs. It only follows the probe: a pH you recorded by hand never
+   drives the pump.
+8. **Manual cycle** — started from HomePool's button, switch or service.
+9. **Switched from outside** — a person, an automation, a script or the
    device's own button switched the relay. That is respected for two hours
    (configurable) instead of being undone a minute later, and the reason says
    which it was, naming the automation or script. A relay that confirms late
    may report an automation's change as made outside HomePool.
-8. **The mode.**
+10. **The mode.**
 
 `sensor.<pool>_pump_control` says which of these is in charge right now. Its
 `reason` attribute says why, in Home Assistant's language, and `reason_key`
@@ -150,11 +160,205 @@ Three set-ups, three behaviours:
   produce exactly what the water needs.
 - **The cell regulates itself** (ORP or chlorine probe). HomePool only watches.
 
-The season is a list of months (June–September by default in the northern
-hemisphere). At its start and end you get an event with what to check, and the
-chlorinator follows the calendar unless you tell it not to. With *Chlorinator
-in use* off, the cell adds no minutes to the target and low salt is not an
-alert; out of season, neither does it.
+The chlorinator's months (June–September by default in the northern
+hemisphere) seed the swimming months, and at their start and end you get an
+event with what to check. They no longer switch the cell: **the season state
+decides** (below). In `swimming`, and in `opening` once *Chlorinator in use* is
+on, the cell works with water flowing, adds its minutes to the target and its
+salt and cell alerts count, whatever the month; in either wintering it does
+not. The water-temperature minimum and the day's chlorine target still stop
+it. With *Chlorinator in use* off, the cell adds no minutes to the target and
+low salt is not an alert.
+
+## The year: season state
+
+HomePool knows which part of the year the pool is in. `select.<pool>_season_state`
+holds it:
+
+| State | Pump | Freeze protection | pH correction | Chlorinator |
+| --- | --- | --- | --- | --- |
+| `swimming` | the mode decides | yes | yes | in use |
+| `winter_active` | the mode decides (a short day, as cold water needs little) | yes | yes | not in use |
+| `winter_passive` | **always off** | no (the pipes are empty) | no | not in use |
+| `opening` | the mode decides | yes | yes | not in use until its checklist step reconnects it |
+
+**HomePool proposes a change and you confirm it; it never changes the season on
+its own.** A warm October with people swimming does not become winter because
+the date says so.
+
+- The calendar is the option `swimming_months` (asked in the water step; June
+  to September by default, December to March with a southern latitude; a salt
+  pool starts from its chlorinator season).
+- The day swimming season ends, HomePool proposes wintering. Fourteen days
+  before it starts, it proposes opening. From `opening` it proposes swimming
+  once the season has started, and wintering once it is over. An opening begun
+  early in spring is left alone until the season starts. Each proposal fires
+  `homepool_season_proposal`, sends a reminder and opens a checklist. The
+  proposal shows as the `proposal` attribute of the select.
+- **An unanswered proposal keeps reminding every week**, an opening proposal
+  through the whole season. `homepool.dismiss_season_proposal` stops it until
+  the calendar proposes something different, and closes the checklist it
+  opened. A proposal the calendar no longer makes (an autumn's wintering that
+  is still unanswered in spring) goes, with its checklist. Choosing the state
+  the pool is already in leaves a proposal alone.
+- You confirm by choosing the state in the select or with
+  `homepool.set_season_state`. For wintering you choose active or passive.
+  Confirming passive with a closing step still to do (a shock or backwash needs
+  the pump) is allowed, but warns you: from then on the pump will not start.
+- The option `chlorinator_auto_toggle` now means "propose by the calendar".
+  Off, the calendar proposes nothing and the state changes only by hand (the
+  `swimming` proposal made when the opening list is done in `opening` still
+  reminds).
+- *Chlorinator in use* follows the state: on in `swimming` (or when you
+  reconnect the cell in the opening list), off in either wintering. You can
+  still flip it by hand, and the last change wins, but in wintering the cell
+  stays off whatever it says: the season state decides. Confirming the state
+  the pool is already in does not change it.
+- Changing state fires `homepool_season_state_changed` (old and new). The 0.1
+  chlorinator season events still fire.
+
+**Updating from 0.1.x** needs nothing from you. The first state is worked out:
+`swimming` if the calendar is in season (and, with a salt chlorinator, the
+cell is in use), otherwise `winter_active`. It is never `winter_passive`,
+because that would stop a pump someone has running. Once, you get a reminder
+saying which state HomePool picked, so you can change it.
+
+### Wintering with a product
+
+In the water step, `winter_product_type` is `none`, `floater`, `liquid` or
+`tablets`. HomePool works out the dose (volume times `winter_product_dose_per_m3`,
+rounded up for floaters and tablets) and shows the calculation with a "check the
+container label" note. The task `winter_product` is due when you enter wintering
+and then every `winter_product_interval_days` (56). Record it with
+`button.<pool>_winter_product_added`. In wintering with a product,
+`chlorination_mode` is `winter_product`. Most floaters contain trichlor, which
+raises cyanuric acid, so the opening list has you measure it before going back
+to salt.
+
+## Tasks and checklists
+
+Maintenance tasks come from one table, each with a default interval you can
+change, and each only where it makes sense:
+
+| Task | Default | Counts in |
+| --- | --- | --- |
+| `backwash` / `filter_cleaning` | 14 days; 112 pump hours in active wintering and opening | all but passive wintering |
+| `ph_calibration` | 180 days (existing installs keep theirs) | all but passive; needs a probe in HomePool or the option `has_ph_probe_outside` |
+| `winter_product` | 56 days | wintering, with a product |
+| `water_test` | 7 days; 14 in active wintering (can be switched off) | all but passive; not with both a pH and a free chlorine probe |
+| `skimmer_baskets` | 7 days, **off until you turn it on** in *Recurring tasks* | swimming |
+| `cell_cleaning` | 90 days | swimming, salt chlorinator |
+| `filter_media_check` | 1825 days (can be switched off) | all but passive; sand or glass filter |
+
+The 90-day and 1825-day figures come from general guides, not one source; edit
+them. Intervals, whether a task is active and an optional "last done" date are
+in the options step *Recurring tasks*. Mark a task done with `homepool.complete_task`
+(`task`, optional `date`), `homepool.record_manual_action`, or the buttons for
+the frequent ones.
+
+**A task never logged counts from when it first appeared.** The three tasks
+0.1.4 already had (backwash, filter cleaning and pH calibration) count from
+`tasks_since`, when HomePool started keeping tasks, as they did. Tasks new in
+0.2, and any task that appears later (say, pH calibration once you add a probe),
+start counting when they first show up, so neither an update nor a new probe
+makes them overdue.
+
+Closing, opening and each treatment have a **checklist** of steps, shown in the
+`checklists` attribute of `sensor.<pool>_next_manual_task`, one per source.
+`homepool.complete_step` (`step`, like `closing.backwash`) ticks a step and
+`homepool.dismiss_checklist` closes a list. Ticking a step that is also a task
+(backwash, pH calibration, winter product) marks the task done; with a
+cartridge filter, a backwash step marks the filter cleaning. A finished list
+leaves the attribute but is kept until the next change of season, so ticking
+every closing step before confirming wintering does not bring back a blank
+one. Finishing the opening list in `opening` proposes `swimming`; finished
+while still wintering, `swimming` is proposed as soon as you choose `opening`.
+The closing list goes when the pool leaves winter. A "shock" step of a closing or opening list
+does not start the treatment by itself; ending a shock treatment while the list
+is open ticks it.
+
+## Readings
+
+`homepool.record_reading` (`kind`, `value`) records a reading by hand: `ph`,
+`free_chlorine`, `combined_chlorine`, `total_alkalinity`, `calcium_hardness`,
+`cyanuric_acid` or `salt`. Impossible values (pH outside 0–14, negatives) are
+rejected. `record_salt_level` and `record_free_chlorine` still work.
+
+- Alkalinity, hardness, cyanuric acid and combined chlorine each get a sensor,
+  `unknown` until the first reading, with `recorded_at` and `stale`. A manual pH
+  feeds `sensor.<pool>_manual_ph` when there is no probe in HomePool; **it
+  never drives the pump**. If there is a probe, the probe rules.
+- Ranges (water step): alkalinity 80–120 mg/L, hardness 200–400, cyanuric acid
+  30–50 with a salt chlorinator and 30–80 without, combined chlorine up to 0.6,
+  plus the pH, free chlorine and salt ranges. Out of range raises
+  `<kind>_out_of_range` (warning), only on a fresh reading. In passive
+  wintering the pH and free chlorine **probes** raise no range alert, nor
+  `attention`: with the pipes drained they read air.
+- A reading goes **stale** after a time per kind (pH and chlorine 7 days, salt
+  and alkalinity 30, hardness and cyanuric acid 90, combined chlorine 14;
+  editable). A stale reading stops being used for the target and for range
+  alerts, and one `reading_stale` info alert lists them. **A stale reading never
+  sets the status to `attention`.** It is absent while passively wintering, and
+  salt is never stale while the cell is not in use. What reminds you to measure
+  is the `water_test` task.
+
+## Water treatment
+
+A treatment is a temporary state you start with `homepool.start_treatment`
+(`type`, `severity`, `hours`) or the buttons *Start a shock*, *Start a clarifier*
+and *Start a flocculant*. You can start one in `swimming`, `opening` and
+`winter_active`, not in `winter_passive`, and never two at once. It survives
+restarts and midnight, and does not change the season state.
+
+| Treatment | Phases and pump | Default |
+| --- | --- | --- |
+| `shock` (green water) | `filtering`: pump on | 24 h |
+| `clarifier` (cloudy water) | `filtering`: pump on | 48 h |
+| `flocculant` | `mixing`: on, then `settling`: **off**, then `vacuuming`: yours | 2 h, 12 h, then until you press *Next treatment phase* |
+
+- The `filtering` and `mixing` phases count **pump-running time**, so if a lock
+  or a safety shutoff above the treatment stops the pump, the phase waits and a
+  shock does not finish without its hours of filtering. `settling` counts
+  clock time only while the pump is off (if freeze protection runs it, the
+  alert says the settling was interrupted), and **downtime of Home Assistant does not
+  count towards settling**.
+- **During a treatment HomePool's own pump switch and cycle are refused**, in
+  every phase: the treatment decides the pump until it ends.
+- **The relay's own switch is undone too**, except while vacuuming: the
+  treatment is above a change made outside HomePool. To work on the equipment
+  during a treatment, turn on the **maintenance lock**, which is above it.
+- **Flocculant vacuuming:** the pump is left alone and you run it with the
+  relay's own switch, so HomePool does not take it for an outside change.
+  3 hours into it HomePool raises the `treatment_vacuuming` alert (warning,
+  so the status shows `attention`, with notifications on or off) and notifies
+  it again once a day; vacuuming never ends by itself, and until it does the
+  pool is not filtered. Press *Next treatment phase* ("vacuuming done") to finish. A day
+  spent settling or vacuuming is not a missed target.
+- A pump that was already on when the treatment started is let go when it ends.
+- During a shock in `swimming` (or in `opening` with the cell in use) the cell
+  runs whenever water flows, past the day's chlorine target, as long as the water
+  is above its minimum temperature; in `winter_active` it stays off. If HomePool
+  controls its production, it runs at 100 % and goes back to normal after.
+  Settling and vacuuming leave it off.
+- A backwash ticked from the treatment's list counts: the filter is then not
+  left due one when the treatment ends.
+- `homepool.advance_treatment` moves to the next phase; `homepool.end_treatment`
+  ends it at any time.
+
+**Doses.** For shock, choose `shock_product` (`calcium_hypochlorite` 65 %,
+`sodium_hypochlorite` 150 g/L, `dichlor` 56 %; concentration editable). The
+chlorine to add is volume times the rise for the `severity`: `light` 10 mg/L,
+`green` 15 (default), `dark` 20 (general guides). A 45 m³ pool at 65 % granular
+needs about 1,040 g. Dichlor warns that it raises cyanuric acid. Clarifier and
+flocculant take a dose per 10 m³ from the label; without one the dose says
+"follow the container". Without a pool volume, every dose says so. The `dose` attribute of `sensor.<pool>_water_treatment`
+shows the amount, unit, product, concentration and volume used, with "check
+the container label". **Check it before you pour:** it is only as right as
+the figures you gave.
+
+`binary_sensor.<pool>_swimming_not_advised` is on during any treatment, after a
+shock until a free chlorine reading in range, and whenever the measured free
+chlorine is above the range; its `reason` says which.
 
 ## Entities
 
@@ -167,22 +371,27 @@ entities exist depends on what you connected.
 | `sensor.<pool>_filtration_today` · `_filtration_left_today` | Minutes run today, and what is left |
 | `sensor.<pool>_pump_control` | Who is deciding the pump right now, and why |
 | `sensor.<pool>_status` | `ok`, `attention` or `action_required`, with the active alerts |
-| `sensor.<pool>_next_manual_task` | Backwash, filter cleaning or probe calibration, whichever is due first |
+| `sensor.<pool>_next_manual_task` | The task due first, with every task and the open checklists in its attributes |
+| `sensor.<pool>_water_treatment` | `none`, `shock`, `clarifier` or `flocculant`, with phase, dose and severity |
+| `sensor.<pool>_total_alkalinity` · `_calcium_hardness` · `_cyanuric_acid` · `_combined_chlorine` · `_manual_ph` | Your last reading of each, with when it was taken |
 | `sensor.<pool>_recommended_chlorinator_production` | The production % that matches today's demand |
 | `sensor.<pool>_chlorine_production_today` · `_left_today` | Cell running time, with a separate cell switch |
-| `sensor.<pool>_salinity` · `_free_chlorine` | From a sensor, or from the last reading you recorded |
+| `sensor.<pool>_salinity` · `_free_chlorine` | From a sensor, or from the last reading you recorded; an old reading still shows, with `stale` on, but no longer counts |
 | `sensor.<pool>_ph_trend` | Rising, stable or falling over the last three hours |
 | `sensor.<pool>_pump_energy_today` · `_pump_cost_today` | With an energy sensor, and a price |
 | `binary_sensor.<pool>_daily_target_reached` · `_pump_running` | |
 | `binary_sensor.<pool>_safety_shutoff` · `_freeze_protection` · `_pump_power_anomaly` | |
 | `binary_sensor.<pool>_ph_out_of_range` · `_ph_correction` · `_filter_needs_cleaning` · `_manual_task_due` | |
+| `binary_sensor.<pool>_swimming_not_advised` | A treatment, a shock not yet cleared, or too much chlorine |
 | `select.<pool>_operation_mode` | The five modes; the solar ones only with a surplus sensor |
+| `select.<pool>_season_state` | Swimming, active or passive wintering, opening; the proposal in its attributes |
 | `switch.<pool>_pump` | The pump through HomePool: a manual cycle that still respects lock and safety |
 | `switch.<pool>_maintenance_lock` | |
 | `switch.<pool>_chlorinator_in_use` | Whether HomePool counts and runs the chlorinator at all. It does not switch the cell by itself |
 | `number.<pool>_filtration_multiplier` | 0.5–2: your calibration knob for the whole target |
 | `number.<pool>_solar_surplus_threshold` · `_ph_target` · `_chlorinator_production` | |
-| `button.<pool>_start_cycle` · `_stop_cycle` · `_backwash_done` · `_filter_cleaned` · `_salt_added` · `_ph_probe_calibrated` · `_recalculate_target` | |
+| `button.<pool>_start_cycle` · `_stop_cycle` · `_backwash_done` · `_filter_cleaned` · `_salt_added` · `_ph_probe_calibrated` · `_winter_product_added` · `_water_tested` · `_skimmer_baskets_emptied` · `_recalculate_target` | |
+| `button.<pool>_start_a_shock` · `_start_a_clarifier` · `_start_a_flocculant` · `_next_treatment_phase_vacuuming_done` · `_end_the_treatment` | Water treatment |
 
 Entity ids follow Home Assistant's language when the pool is added: in
 Spanish the target is `sensor.<pool>_objetivo_de_filtracion_diario`, not
@@ -199,24 +408,34 @@ target sensor's attributes for the card.
 | --- | --- |
 | `homepool.start_cycle` | Runs the pump for `duration` minutes (one turnover if left out) |
 | `homepool.stop_cycle` | Stops a manual cycle and holds the pump off for the override time |
-| `homepool.record_manual_action` | Logs backwash, salt added, probe calibrated, … and resets its reminder. A task never logged counts from when HomePool was installed (or updated to 0.1.4), so press its button the next time you do it |
+| `homepool.record_manual_action` | Logs backwash, salt added, probe calibrated, winter product added, … and resets its reminder. A task never logged counts from when it first appeared (installed, or new in the update that added it), so press its button the next time you do it |
+| `homepool.complete_task` | Marks any periodic task done, on today or a date you give |
 | `homepool.record_salt_level` · `homepool.record_free_chlorine` | A reading taken by hand, used until a newer one |
+| `homepool.record_reading` | Any reading by hand (`kind`: pH, free or combined chlorine, alkalinity, hardness, cyanuric acid, salt). Out of range it raises an alert; past its stale age it is no longer used |
 | `homepool.recalculate_schedule` | Today's target again, now — the only way it can go down during the day |
 | `homepool.force_ph_correction_window` | Runs the pump so the pH doser can work |
 | `homepool.reset_daily_counters` | Starts today's count from zero |
+| `homepool.set_season_state` · `homepool.dismiss_season_proposal` | Confirm a season state, or stop a proposal's reminders |
+| `homepool.complete_step` · `homepool.dismiss_checklist` | Tick a checklist step (`closing.backwash`), or close a list |
+| `homepool.start_treatment` · `homepool.advance_treatment` · `homepool.end_treatment` | Water treatment, see above |
 
 All of them take the usual target picker: a pool's device, any of its
-entities, an area.
+entities, an area. Called by a person, they need control of the pool's
+entities, as the entities' own services do: a read-only user is refused.
+Automations and scripts are not checked.
 
 ## Events
 
 `homepool_alert` (with `type`, `severity`, `message`), `homepool_safety_shutoff`,
 `homepool_target_recalculated`, `homepool_manual_action_due`,
-`homepool_chlorinator_season_start` and `homepool_chlorinator_season_end`. They
+`homepool_chlorinator_season_start`, `homepool_chlorinator_season_end`,
+`homepool_season_proposal`, `homepool_season_state_changed`,
+`homepool_treatment_started`, `homepool_treatment_phase` and
+`homepool_treatment_ended`. They
 fire whether or not built-in notifications are on, so automations keep working
 either way. The built-in notifications, if you switch them on, go to one
 `notify` service with a severity floor and quiet hours. Reminders (a task
-falling due, the season changing) ask you to do something, so they are sent
+falling due, a season proposal) ask you to do something, so they are sent
 whatever the floor; one that falls in the quiet hours is sent when they end.
 
 ## Installation

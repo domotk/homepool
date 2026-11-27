@@ -65,7 +65,8 @@ class MaintenanceLockSwitch(PoolEntity, SwitchEntity):
 
 
 class ChlorinatorEnabledSwitch(PoolEntity, SwitchEntity):
-    """Master switch for the salt chlorinator. Follows the calendar if asked to."""
+    """Master switch for the salt chlorinator. Follows the season state, and can
+    still be changed by hand: the last change wins."""
 
     _attr_icon = "mdi:shaker-outline"
 

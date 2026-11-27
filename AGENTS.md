@@ -37,7 +37,8 @@ locally without Docker, so read its output on the pull request.
 | Path | What it holds |
 |---|---|
 | `custom_components/homepool/coordinator.py` | The runtime: one `PoolCoordinator` per pool, evaluated every 60 s |
-| `custom_components/homepool/pool/` | Pure logic, no Home Assistant imports: target and chlorine calculators, authority ladder (`scheduler.py`), safety, geometry, layouts, hardware catalogue |
+| `custom_components/homepool/runtime/` | The rest of `PoolCoordinator`, one mixin per file: `config`, `readings`, `figures`, `tasks`, `season`, `treatment`, `target`, `control`, `alerts`, `actions`, `card`; shared helpers in `common.py` |
+| `custom_components/homepool/pool/` | Pure logic, no Home Assistant imports: target and chlorine calculators, authority ladder (`scheduler.py`), safety, geometry, layouts, hardware catalogue, and since 0.2 the task table (`tasks.py`), season state and proposals (`season.py`), checklists (`checklists.py`), readings and their ranges (`readings.py`), treatment phases (`treatment.py`) and doses (`dosing.py`) |
 | `custom_components/homepool/modes/` | Operation modes, pure: each answers only *should the pump run now to cover the target?* |
 | `custom_components/homepool/{sensor,binary_sensor,switch,select,number,button}.py` | Entities: thin views over the coordinator |
 | `custom_components/homepool/config_flow.py` | Setup wizard and options menu |
@@ -54,8 +55,12 @@ locally without Docker, so read its output on the pull request.
 
 - **The authority ladder is the safety model.** `pool/scheduler.py::arbitrate`
   decides in a fixed order: pump unavailable, hands-off, maintenance lock,
-  safety shutoff, freeze protection, pH correction, manual cycle, a change
-  made outside HomePool, then the mode. A new feature that moves the pump
+  passive wintering, safety shutoff, freeze protection, water treatment, pH
+  correction, manual cycle, a change made outside HomePool, then the mode.
+  Passive wintering keeps the pump off (the pipes are empty) and undoes a pump
+  switched on by hand; only hands-off is above it. A treatment's rung is
+  decided on the phase key, because its pump may be `None` (vacuuming, the
+  owner's). `treatment` is in `FORCING_SOURCES`. A new feature that moves the pump
   finds its rung there; it never switches the pump from anywhere else.
 - **In `off` mode HomePool never starts the pump on its own**, except for
   freeze protection; only what a person asks for (a manual cycle, a forced pH
@@ -64,6 +69,10 @@ locally without Docker, so read its output on the pull request.
 - **During a day the target only goes up** (`_async_maybe_recalculate`);
   `homepool.recalculate_schedule` is the only way down. A day ends at local
   midnight, and time is never carried over.
+- **HomePool proposes a season change and the owner confirms it.** Nothing
+  changes `season_state` on its own; `season_proposal` only asks.
+- **Only the probe drives the pump.** A pH recorded by hand never starts a
+  correction window.
 - **Every pump decision carries a stable `key`**, and its text lives in
   `texts.REASONS` in *both* languages. `reason_key` is recorded in history;
   `reason` is not. Never rename a key: history and automations use them.

@@ -9,9 +9,13 @@ from homeassistant.components.button import ButtonEntity, ButtonEntityDescriptio
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import CONF_PH_SENSOR, ManualAction
+from .const import ManualAction
 from .coordinator import PoolCoordinator
 from .entity import PoolEntity
+
+
+def _has_task(key: str) -> Callable[[PoolCoordinator], bool]:
+    return lambda c: c.has_task(key)
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -51,8 +55,51 @@ BUTTONS: tuple[PoolButtonDescription, ...] = (
     PoolButtonDescription(
         key="mark_ph_calibrated",
         icon="mdi:test-tube",
-        exists_fn=lambda c: c.has(CONF_PH_SENSOR),
+        exists_fn=_has_task("ph_calibration"),
         press_fn=lambda c: c.async_record_action(ManualAction.PH_CALIBRATED),
+    ),
+    PoolButtonDescription(
+        key="mark_winter_product_added",
+        icon="mdi:snowflake",
+        exists_fn=_has_task("winter_product"),
+        press_fn=lambda c: c.async_record_action(ManualAction.WINTER_PRODUCT_ADDED),
+    ),
+    PoolButtonDescription(
+        key="mark_water_tested",
+        icon="mdi:water-check",
+        exists_fn=_has_task("water_test"),
+        press_fn=lambda c: c.async_record_action(ManualAction.WATER_TESTED),
+    ),
+    PoolButtonDescription(
+        key="mark_skimmer_baskets_emptied",
+        icon="mdi:basket-unfill",
+        exists_fn=_has_task("skimmer_baskets"),
+        press_fn=lambda c: c.async_record_action(ManualAction.SKIMMER_BASKETS_EMPTIED),
+    ),
+    PoolButtonDescription(
+        key="start_shock",
+        icon="mdi:flash",
+        press_fn=lambda c: c.async_start_treatment("shock"),
+    ),
+    PoolButtonDescription(
+        key="start_clarifier",
+        icon="mdi:water-opacity",
+        press_fn=lambda c: c.async_start_treatment("clarifier"),
+    ),
+    PoolButtonDescription(
+        key="start_flocculant",
+        icon="mdi:arrow-collapse-down",
+        press_fn=lambda c: c.async_start_treatment("flocculant"),
+    ),
+    PoolButtonDescription(
+        key="advance_treatment",
+        icon="mdi:skip-next",
+        press_fn=lambda c: c.async_advance_treatment(),
+    ),
+    PoolButtonDescription(
+        key="end_treatment",
+        icon="mdi:stop-circle-outline",
+        press_fn=lambda c: c.async_end_treatment(),
     ),
     PoolButtonDescription(
         key="recalculate_target",

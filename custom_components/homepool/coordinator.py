@@ -29,210 +29,71 @@ import logging
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import (
-    ATTR_UNIT_OF_MEASUREMENT,
-    STATE_ON,
-    STATE_UNAVAILABLE,
-    STATE_UNKNOWN,
-    UnitOfPower,
-)
+from homeassistant.const import STATE_ON
 from homeassistant.core import Context, Event, EventStateChangedData, HomeAssistant, callback
-from homeassistant.helpers.event import async_call_later, async_track_state_change_event
+from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.util import dt as dt_util
 
 from .const import (
-    CHLORINATOR_FLOW_DELAY_S,
-    COMMAND_MAX_ATTEMPTS,
-    COMMAND_RETRY_S,
-    CONF_AIR_TEMPERATURE_SENSOR,
-    CONF_BACKWASH_INTERVAL_DAYS,
-    CONF_CHLORINATION_TYPE,
-    CONF_CHLORINATOR_ACTIVE_MONTHS,
     CONF_CHLORINATOR_AUTO_TOGGLE,
-    CONF_CHLORINATOR_CONTROLLABLE,
-    CONF_CHLORINATOR_MIN_WATER_TEMP,
-    CONF_CHLORINATOR_NOMINAL_PRODUCTION,
-    CONF_CHLORINATOR_PRODUCTION_DEFAULT,
-    CONF_CHLORINATOR_PRODUCTION_ENTITY,
-    CONF_CHLORINATOR_SELF_REGULATING,
     CONF_CHLORINATOR_SWITCH,
     CONF_COVER_ENTITY,
     CONF_ENABLE_BUILTIN_NOTIFICATIONS,
-    CONF_ENERGY_PRICE,
-    CONF_ENERGY_PRICE_ENTITY,
-    CONF_EQUIPMENT_ROOM_HUMIDITY_SENSOR,
-    CONF_EQUIPMENT_ROOM_MAX_TEMP,
     CONF_EQUIPMENT_ROOM_TEMPERATURE_SENSOR,
-    CONF_FILTER_PRESSURE_CRITICAL,
-    CONF_FILTER_PRESSURE_NORMAL_MAX,
     CONF_FILTER_PRESSURE_SENSOR,
-    CONF_FILTER_TYPE,
     CONF_FLOOD_SENSOR,
-    CONF_FREE_CHLORINE_SENSOR,
-    CONF_FREEZE_PROTECTION,
-    CONF_FREEZE_THRESHOLD,
     CONF_HANDS_OFF_ENTITY,
-    CONF_HAS_COVER,
-    CONF_HAS_PH_DOSING,
-    CONF_IS_COVERED_BY_ROOF,
-    CONF_LATITUDE,
-    CONF_LONGITUDE,
     CONF_MANUAL_OVERRIDE_MINUTES,
     CONF_NOTIFICATION_QUIET_HOURS_END,
     CONF_NOTIFICATION_QUIET_HOURS_START,
     CONF_NOTIFICATION_SERVICE,
     CONF_NOTIFICATION_SEVERITY_MIN,
     CONF_CRITICAL_IGNORE_QUIET_HOURS,
-    CONF_ORP_SENSOR,
-    CONF_PH_CALIBRATION_INTERVAL_DAYS,
-    CONF_PH_CORRECTION_MAX_DAILY,
-    CONF_PH_CORRECTION_MINUTES,
     CONF_PH_DOSING_ENTITY,
-    CONF_PH_RANGE_MAX,
-    CONF_PH_RANGE_MIN,
     CONF_PH_SENSOR,
-    CONF_PH_TARGET,
-    CONF_POOL_NAME,
-    CONF_PUMP_ENERGY_SENSOR,
-    CONF_PUMP_NOMINAL_FLOW_RATE,
-    CONF_PUMP_NOMINAL_POWER,
     CONF_PUMP_POWER_SENSOR,
     CONF_PUMP_SWITCH,
-    CONF_RAIN_SENSOR,
-    CONF_SALINITY_SENSOR,
-    CONF_SALT_RANGE_MIN,
-    CONF_SALT_TARGET,
     CONF_SOLAR_EXCESS_SENSOR,
-    CONF_SOLAR_EXCESS_SIGN,
-    CONF_SOLAR_IMPORT_TOLERANCE,
-    CONF_TIMER_SLOTS,
-    CONF_UV_SENSOR,
-    CONF_VOLUME,
     CONF_WATER_TEMPERATURE_SENSOR,
-    CONF_WEATHER_ENTITY,
-    DEFAULT_BACKWASH_INTERVAL_DAYS,
-    DEFAULT_CHLORINATOR_MIN_WATER_TEMP,
-    DEFAULT_CHLORINATOR_PRODUCTION_PCT,
-    DEFAULT_EQUIPMENT_ROOM_MAX_TEMP,
-    DEFAULT_FILTER_PRESSURE_CRITICAL,
-    DEFAULT_FILTER_PRESSURE_NORMAL_MAX,
-    DEFAULT_FREEZE_THRESHOLD,
     DEFAULT_MANUAL_OVERRIDE_MINUTES,
-    DEFAULT_OPERATION_MODE,
-    DEFAULT_PH_CALIBRATION_INTERVAL_DAYS,
-    DEFAULT_PH_CORRECTION_MAX_DAILY,
-    DEFAULT_PH_CORRECTION_MINUTES,
-    DEFAULT_PH_RANGE_MAX,
-    DEFAULT_PH_RANGE_MIN,
-    DEFAULT_PH_TARGET,
-    DEFAULT_SALT_RANGE_MIN,
-    DEFAULT_SALT_TARGET,
-    DEFAULT_SOLAR_IMPORT_TOLERANCE_W,
-    DEFAULT_USER_MULTIPLIER,
     DOMAIN,
-    END_OF_DAY_MARGIN_MIN,
     EVALUATION_INTERVAL_S,
-    EVENT_ALERT,
-    EVENT_CHLORINATOR_SEASON_END,
-    EVENT_CHLORINATOR_SEASON_START,
-    EVENT_MANUAL_ACTION_DUE,
-    EVENT_SAFETY_SHUTOFF,
-    EVENT_TARGET_RECALCULATED,
     HISTORY_DAYS,
-    MIN_OFF_MINUTES,
-    MIN_ON_MINUTES,
-    RECALC_INTERVAL_MIN,
     SOLAR_START_DELAY_MIN,
     SOLAR_STOP_DELAY_MIN,
     STORAGE_VERSION,
-    ChlorinationMode,
-    ExcessSign,
-    FilterType,
-    ManualAction,
-    OperationMode,
-    OverallStatus,
-    PhTrend,
     Severity,
 )
-from .modes import MODE_REGISTRY, PoolContext, PumpAction, in_slot
+from .modes import MODE_REGISTRY
 from .notify_dispatcher import NotifyDispatcher
-from .pool.chlorine_calculator import (
-    ChlorineInputs,
-    calculate_chlorine_target,
-    is_chlorinator_in_season,
-)
-from .pool.filtration_calculator import FiltrationInputs, calculate_filtration_target
-from .pool.geometry import calculate_cycle_duration_minutes
-from .pool.safety import evaluate_safety
-from .pool.scheduler import (
-    ChlorinatorInputs,
-    ControlInputs,
-    SolarDebouncer,
-    arbitrate,
-    chlorinator_wanted,
-    solar_noon_utc,
-    surplus_watts,
-)
-from .texts import reason_text, text
+from .pool.chlorine_calculator import is_chlorinator_in_season
+from .pool.season import initial_state
+from .pool.scheduler import SolarDebouncer
+from .pool.treatment import Phase, counts_pump_time
+from .pool.tasks import TASKS
+from .runtime.actions import ActionsMixin
+from .runtime.alerts import AlertsMixin
+from .runtime.card import CardMixin
+from .runtime.common import ACTIONS_KEPT, BAD_STATES, _iso, _parse_dt
+from .runtime.config import ConfigMixin
+from .runtime.control import ControlMixin
+from .runtime.figures import FiguresMixin, parse_timer_slots
+from .runtime.readings import ReadingsMixin
+from .runtime.season import SeasonMixin
+from .runtime.target import TargetMixin, _todays_forecast
+from .runtime.tasks import TasksMixin
+from .runtime.treatment import TreatmentMixin
+from .texts import text
+
+# Imported from here by config_flow.py and the tests.
+__all__ = ["PoolCoordinator", "parse_timer_slots", "_todays_forecast"]
 
 _LOGGER = logging.getLogger(__name__)
 
-BAD_STATES = (STATE_UNAVAILABLE, STATE_UNKNOWN, None, "")
-# A power reading has to stay out of range this long to count as an anomaly.
-ANOMALY_MINUTES = 5
-ACTIONS_KEPT = 50
 # How long after a command a matching state change still counts as its result.
 OWN_CHANGE_WINDOW_S = 120
-
-
-def parse_timer_slots(text_value: str | None) -> list[tuple[int, int]]:
-    """``"08:00-12:00, 18:30-20:00"`` → minutes of the day. Bad parts are skipped."""
-    slots: list[tuple[int, int]] = []
-    for part in (text_value or "").replace(";", ",").split(","):
-        start, sep, end = part.strip().partition("-")
-        if not sep:
-            continue
-        try:
-            sh, sm = (int(x) for x in start.strip().split(":"))
-            eh, em = (int(x) for x in end.strip().split(":"))
-        except ValueError:
-            continue
-        if not (0 <= sh <= 24 and 0 <= eh <= 24 and 0 <= sm < 60 and 0 <= em < 60):
-            continue
-        slots.append(((sh * 60 + sm) % 1440, (eh * 60 + em) % 1440))
-    return slots
-
-
-def _whole_minutes(seconds: float) -> int:
-    """Seconds to the nearest minute. Truncating left the count a minute behind."""
-    return int(seconds / 60 + 0.5)
-
-
-def _iso(value: datetime | None) -> str | None:
-    return value.isoformat() if value else None
-
-
-def _parse_dt(value: str | None) -> datetime | None:
-    return dt_util.parse_datetime(value) if value else None
-
-
-def _todays_forecast(days: list[dict[str, Any]], today: date) -> dict[str, Any]:
-    """The daily forecast entry for ``today``.
-
-    Providers date a day differently: Open-Meteo at 00:00 UTC, so in Spain the
-    first entry is still yesterday until 01:00. The date as the provider wrote
-    it is the day it means, whatever the offset; the first entry is the
-    fallback when no entry names today.
-    """
-    for day in days:
-        stamp = day.get("datetime")
-        written = stamp.isoformat() if isinstance(stamp, datetime) else str(stamp or "")
-        if written[:10] == today.isoformat():
-            return day
-    return days[0]
-
 
 # The events automations and scripts fire as they start, named here rather
 # than imported so HomePool does not load either integration.
@@ -241,21 +102,22 @@ EVENT_SCRIPT_STARTED = "script_started"
 
 # Automation and script runs remembered to attribute pump changes.
 RUNNER_CONTEXTS_KEPT = 300
-REMINDERS_KEPT = 20
-# Rungs above freeze protection: with one of them deciding, the pump is not
-# kept running however cold the water is.
-FREEZE_BLOCKERS = ("unavailable", "hands_off", "maintenance_lock", "safety")
-# A pH probe outside this range, or reading exactly the same for this long,
-# is not trusted to run the pump.
-PH_PLAUSIBLE_MIN = 5.0
-PH_PLAUSIBLE_MAX = 9.0
-PH_FROZEN_HOURS = 24
-
-# How far the pool's own air sensor may read above the forecast high.
-MEASURED_AIR_MARGIN_C = 3.0
 
 
-class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
+class PoolCoordinator(
+    ConfigMixin,
+    ReadingsMixin,
+    FiguresMixin,
+    TasksMixin,
+    SeasonMixin,
+    TreatmentMixin,
+    TargetMixin,
+    ControlMixin,
+    AlertsMixin,
+    ActionsMixin,
+    CardMixin,
+    DataUpdateCoordinator[dict[str, Any]],
+):
     """Runs one pool."""
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
@@ -281,6 +143,9 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._anomaly_since: datetime | None = None
         self._pressure_high_since: datetime | None = None
         self._forecast: dict[str, Any] = {}
+        # Every day the provider gave, so that today's entry is picked on each
+        # calculation, not only when it was fetched.
+        self._forecast_days: list[dict[str, Any]] = []
         self._forecast_at: datetime | None = None
         self._last_tick: datetime | None = None
         self._pump_was_on = False
@@ -298,6 +163,19 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.settings: dict[str, Any] = {}
         self.tasks: dict[str, str] = {}
         self.tasks_since: datetime | None = None
+        # Seconds the pump has run for each task since it was last done, and
+        # the per-task changes made by the owner.
+        self.task_pump_s: dict[str, float] = {}
+        # When a task row first showed up without a date: rows added after 0.1.4
+        # count from then, so an upgrade does not make them overdue at once.
+        self.task_first_seen: dict[str, str] = {}
+        # When the pool last went into wintering from another state: the winter
+        # product falls due that day, whatever was done in an earlier winter.
+        self.winter_entered: datetime | None = None
+        # From when a winter product top-up counts for that winter: the
+        # closing list's or the winter proposal's start, when earlier than
+        # ``winter_entered``, so a top-up done while closing is not due again.
+        self.winter_top_up_from: datetime | None = None
         self.manual_readings: dict[str, dict[str, Any]] = {}
         self.actions: list[dict[str, Any]] = []
         self.history: list[dict[str, Any]] = []
@@ -313,9 +191,33 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.alerts: dict[str, dict[str, Any]] = {}
         # Which wording each raised alert used, when it has more than one.
         self._alert_text_keys: dict[str, str] = {}
+        # The kinds reading_stale was last raised or updated for.
+        self._stale_kinds: list[str] = []
         self.due_notified: dict[str, str] = {}
         # Reminders held back by the quiet hours, sent when they end.
         self.pending_reminders: list[dict[str, str]] = []
+        # A season change the calendar proposes and the owner has not
+        # confirmed: {"to", "since", "reminded", "dismissed_for"}.
+        self.season_proposal: dict[str, Any] | None = None
+        # Open step lists by id (closing, opening, treatment):
+        # {"created": iso, "steps": [{"id", "done": iso | None}]}.
+        self.checklists: dict[str, dict[str, Any]] = {}
+        # The water treatment running, if any: {"type", "severity", "phase",
+        # "phase_started", "counted_s", "hours", "requested_hours", "started",
+        # "dose", "frost_interrupted"} and "previous_production" when a shock
+        # pushed the cell to 100 %.
+        self.treatment: dict[str, Any] | None = None
+        # Whether today a treatment kept the pump off on purpose (settling or
+        # vacuuming): such a day misses no target.
+        self.treatment_rest_today = False
+        # Whether ``closing_needs_pump`` was already notified: it stays raised
+        # all through passive wintering, but reaches the phone once (ruling 26).
+        self.closing_needs_pump_notified = False
+        # A finished treatment leaves the filter due a backwash, until one is done.
+        self.backwash_after_treatment = False
+        # When the last shock ended, until a free chlorine inside the range is
+        # measured: the water is not for swimming until then.
+        self.after_shock_since: datetime | None = None
         # The probe's last distinct pH reading and when it was first seen.
         self._ph_seen: tuple[float, datetime] | None = None
         self._closed_days: list[dict[str, Any]] = []
@@ -334,93 +236,6 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.pressure_high = False
         self.surplus_w: float | None = None
         self.ph_trend: str | None = None
-
-    # ──────────────────────────────────────────
-    # Configuration
-    # ──────────────────────────────────────────
-
-    @property
-    def conf(self) -> dict[str, Any]:
-        return {**self.entry.data, **self.entry.options}
-
-    def opt(self, key: str, default: Any = None) -> Any:
-        value = self.conf.get(key)
-        return default if value in (None, "") else value
-
-    @property
-    def pool_name(self) -> str:
-        return self.conf.get(CONF_POOL_NAME) or self.entry.title
-
-    @property
-    def is_salt(self) -> bool:
-        return self.conf.get(CONF_CHLORINATION_TYPE) == "salt"
-
-    @property
-    def self_regulating(self) -> bool:
-        return bool(self.conf.get(CONF_CHLORINATOR_SELF_REGULATING))
-
-    def has(self, key: str) -> bool:
-        return bool(self.conf.get(key))
-
-    @property
-    def volume(self) -> float:
-        return float(self.opt(CONF_VOLUME, 0) or 0)
-
-    @property
-    def flow_rate(self) -> float:
-        return float(self.opt(CONF_PUMP_NOMINAL_FLOW_RATE, 0) or 0)
-
-    @property
-    def cycle_duration(self) -> int | None:
-        if self.volume <= 0 or self.flow_rate <= 0:
-            return None
-        return calculate_cycle_duration_minutes(self.volume, self.flow_rate)
-
-    @property
-    def active_months(self) -> list[int]:
-        months = self.conf.get(CONF_CHLORINATOR_ACTIVE_MONTHS) or []
-        return sorted(int(m) for m in months)
-
-    # Settings changed from entities: stored, not in the config entry, so that
-    # moving a slider does not reload the whole integration.
-    def setting(self, key: str, default: Any = None) -> Any:
-        return self.settings.get(key, default)
-
-    @property
-    def mode(self) -> str:
-        return self.settings.get("mode", DEFAULT_OPERATION_MODE)
-
-    @property
-    def user_multiplier(self) -> float:
-        return float(self.settings.get("user_multiplier", DEFAULT_USER_MULTIPLIER))
-
-    @property
-    def maintenance_lock(self) -> bool:
-        return bool(self.settings.get("maintenance_lock", False))
-
-    @property
-    def chlorinator_enabled(self) -> bool:
-        return bool(self.settings.get("chlorinator_enabled", True))
-
-    @property
-    def solar_threshold(self) -> float:
-        default = float(self.opt(CONF_PUMP_NOMINAL_POWER, 0) or 0) or 800.0
-        return float(self.settings.get("solar_threshold", default))
-
-    @property
-    def ph_target(self) -> float:
-        return float(
-            self.settings.get("ph_target", self.opt(CONF_PH_TARGET, DEFAULT_PH_TARGET))
-        )
-
-    @property
-    def chlorinator_production(self) -> float:
-        return float(
-            self.settings.get(
-                "chlorinator_production",
-                self.opt(CONF_CHLORINATOR_PRODUCTION_DEFAULT, DEFAULT_CHLORINATOR_PRODUCTION_PCT),
-            )
-        )
 
     # ──────────────────────────────────────────
     # Lifecycle
@@ -442,6 +257,14 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # When HomePool started keeping tasks: a task never marked as done
         # counts from here. Set on first load, and on the first load of 0.1.4.
         self.tasks_since = _parse_dt(data.get("tasks_since")) or dt_util.utcnow()
+        self.task_pump_s = {k: float(v) for k, v in (data.get("task_pump_s") or {}).items()}
+        self.task_first_seen = data.get("task_first_seen") or {}
+        if "task_first_seen" not in data:
+            # The first load of 0.2 (or a new install).
+            self._seed_legacy_first_seen()
+        self.winter_entered = _parse_dt(data.get("winter_entered"))
+        self.winter_top_up_from = _parse_dt(data.get("winter_top_up_from"))
+        self._seed_task_dates()
         self.manual_readings = data.get("manual_readings") or {}
         self.actions = data.get("actions") or []
         self.history = data.get("history") or []
@@ -454,6 +277,13 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.started_by = data.get("started_by")
         self.due_notified = data.get("due_notified") or {}
         self.pending_reminders = data.get("pending_reminders") or []
+        self.season_proposal = data.get("season_proposal")
+        self.checklists = data.get("checklists") or {}
+        self.treatment = data.get("treatment")
+        self.backwash_after_treatment = bool(data.get("backwash_after_treatment", False))
+        self.treatment_rest_today = bool(data.get("treatment_rest_today", False))
+        self.closing_needs_pump_notified = bool(data.get("closing_needs_pump_notified", False))
+        self.after_shock_since = _parse_dt(data.get("after_shock_since"))
         if self.in_season_last is None and self.is_salt:
             # Known from the first day, so the first season change after
             # installing is not missed (it used to be set at the first midnight).
@@ -470,6 +300,29 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if self.day > today:
             self.day = today
         self._configure_notifier()
+
+        if "season_state" not in self.settings:
+            # 0.1 had no season state: deduce it, and say so once. A new
+            # install has nothing to be told about.
+            first = initial_state(
+                today.month in self.swimming_months, self.is_salt, self.chlorinator_enabled
+            )
+            self.settings["season_state"] = first.value
+            if data:
+                # Queued, not sent: at load the notify service may not exist
+                # yet. The first evaluation with Home Assistant running sends it.
+                language = self.hass.config.language
+                self.pending_reminders.append(
+                    {
+                        "title": text(language, "title") + f" · {self.pool_name}",
+                        "message": text(
+                            language,
+                            "season_state_introduced",
+                            pool=self.pool_name,
+                            state=text(language, f"season_{first.value}"),
+                        ),
+                    }
+                )
 
     def _configure_notifier(self) -> None:
         if not self.conf.get(CONF_ENABLE_BUILTIN_NOTIFICATIONS):
@@ -569,6 +422,10 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "settings": self.settings,
             "tasks": self.tasks,
             "tasks_since": _iso(self.tasks_since),
+            "task_pump_s": {k: round(v, 1) for k, v in self.task_pump_s.items()},
+            "task_first_seen": self.task_first_seen,
+            "winter_entered": _iso(self.winter_entered),
+            "winter_top_up_from": _iso(self.winter_top_up_from),
             "manual_readings": self.manual_readings,
             "actions": self.actions[-ACTIONS_KEPT:],
             "history": self.history[-HISTORY_DAYS:],
@@ -581,341 +438,17 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "started_by": self.started_by,
             "due_notified": self.due_notified,
             "pending_reminders": self.pending_reminders,
+            "season_proposal": self.season_proposal,
+            "checklists": self.checklists,
+            "treatment": self.treatment,
+            "backwash_after_treatment": self.backwash_after_treatment,
+            "treatment_rest_today": self.treatment_rest_today,
+            "closing_needs_pump_notified": self.closing_needs_pump_notified,
+            "after_shock_since": _iso(self.after_shock_since),
         }
 
     def _save(self) -> None:
         self._store.async_delay_save(self._to_store, 10)
-
-    # ──────────────────────────────────────────
-    # Reading entities
-    # ──────────────────────────────────────────
-
-    def _state(self, key: str):
-        entity_id = self.conf.get(key)
-        if not entity_id:
-            return None
-        state = self.hass.states.get(entity_id)
-        if state is None or state.state in BAD_STATES:
-            return None
-        return state
-
-    def _is_on(self, key: str) -> bool | None:
-        state = self._state(key)
-        if state is None:
-            return None
-        return state.state in (STATE_ON, "open", "heat", "true")
-
-    def _number(self, key: str) -> float | None:
-        state = self._state(key)
-        if state is None:
-            return None
-        try:
-            return float(state.state)
-        except ValueError:
-            return None
-
-    def _watts(self, key: str) -> float | None:
-        """A power reading in W, whatever unit the sensor uses."""
-        value = self._number(key)
-        if value is None:
-            return None
-        unit = self._state(key).attributes.get(ATTR_UNIT_OF_MEASUREMENT)
-        if unit == UnitOfPower.KILO_WATT:
-            return value * 1000
-        return value
-
-    @property
-    def pump_power(self) -> float | None:
-        """Measured draw, or the nameplate figure while running if unmeasured."""
-        measured = self._watts(CONF_PUMP_POWER_SENSOR)
-        if measured is not None:
-            return measured
-        nominal = self.opt(CONF_PUMP_NOMINAL_POWER)
-        return float(nominal) if nominal and self._pump_was_on else None
-
-    @property
-    def water_temperature(self) -> float | None:
-        return self._number(CONF_WATER_TEMPERATURE_SENSOR)
-
-    @property
-    def air_temperature(self) -> float | None:
-        value = self._number(CONF_AIR_TEMPERATURE_SENSOR)
-        if value is not None:
-            return value
-        weather = self._state(CONF_WEATHER_ENTITY)
-        if weather is not None:
-            temp = weather.attributes.get("temperature")
-            if isinstance(temp, (int, float)):
-                return float(temp)
-        return None
-
-    @property
-    def ph(self) -> float | None:
-        return self._number(CONF_PH_SENSOR)
-
-    @property
-    def salinity(self) -> tuple[float | None, str | None]:
-        value = self._number(CONF_SALINITY_SENSOR)
-        if value is not None:
-            return value, "salinity_sensor"
-        record = self.manual_readings.get("salt")
-        if record:
-            return float(record["value"]), "manual_record"
-        return None, None
-
-    @property
-    def free_chlorine(self) -> tuple[float | None, str | None]:
-        value = self._number(CONF_FREE_CHLORINE_SENSOR)
-        if value is not None:
-            return value, "free_chlorine_sensor"
-        record = self.manual_readings.get("free_chlorine")
-        if record:
-            return float(record["value"]), "manual_record"
-        return None, None
-
-    @property
-    def orp(self) -> float | None:
-        return self._number(CONF_ORP_SENSOR)
-
-    @property
-    def filter_pressure(self) -> float | None:
-        return self._number(CONF_FILTER_PRESSURE_SENSOR)
-
-    @property
-    def pump_is_on(self) -> bool:
-        return self._pump_was_on
-
-    @property
-    def pump_available(self) -> bool:
-        return self._is_on(CONF_PUMP_SWITCH) is not None
-
-    @property
-    def chlorinator_is_on(self) -> bool:
-        return self._chlor_was_on
-
-    # ──────────────────────────────────────────
-    # Derived figures, in minutes
-    # ──────────────────────────────────────────
-
-    @property
-    def elapsed_minutes(self) -> int:
-        return _whole_minutes(self.elapsed_s)
-
-    @property
-    def chlorine_minutes(self) -> int:
-        return _whole_minutes(self.chlorine_s)
-
-    @property
-    def ph_correction_minutes(self) -> int:
-        return _whole_minutes(self.ph_correction_s)
-
-    @property
-    def target_minutes(self) -> int:
-        return int(self.target.get("target_minutes") or 0)
-
-    @property
-    def filtration_component(self) -> int | None:
-        return self.target.get("target_filtration_minutes")
-
-    @property
-    def chlorine_component(self) -> int | None:
-        return self.target.get("target_chlorine_minutes")
-
-    @property
-    def remaining_minutes(self) -> int:
-        return max(0, self.target_minutes - self.elapsed_minutes)
-
-    @property
-    def target_reached(self) -> bool:
-        return self.target_minutes > 0 and self.elapsed_minutes >= self.target_minutes
-
-    @property
-    def chlorine_target_reached(self) -> bool:
-        target = self.chlorine_component
-        if not target:
-            return False
-        return self.chlorine_minutes >= target
-
-    @property
-    def chlorine_remaining(self) -> int | None:
-        target = self.chlorine_component
-        if target is None:
-            return None
-        return max(0, target - self.chlorine_minutes)
-
-    @property
-    def recommended_production(self) -> float | None:
-        return self.target.get("recommended_chlorinator_pct")
-
-    @property
-    def in_season(self) -> bool:
-        return is_chlorinator_in_season(dt_util.now().date(), self.active_months)
-
-    @property
-    def chlorination_mode(self) -> str:
-        if not self.is_salt:
-            return ChlorinationMode.TABLETS
-        if self.in_season and self.chlorinator_enabled:
-            return ChlorinationMode.SALT
-        return ChlorinationMode.OFF
-
-    def days_since(self, task: str) -> int | None:
-        when = _parse_dt(self.tasks.get(task))
-        if when is None:
-            return None
-        return (dt_util.now().date() - dt_util.as_local(when).date()).days
-
-    @property
-    def uses_backwash(self) -> bool:
-        return self.conf.get(CONF_FILTER_TYPE, FilterType.SAND) in (
-            FilterType.SAND,
-            FilterType.GLASS,
-            FilterType.DIATOMACEOUS_EARTH,
-        )
-
-    def task_status(self) -> list[dict[str, Any]]:
-        """Every recurring task with when it was done and when it falls due."""
-        tasks: list[dict[str, Any]] = []
-        interval = int(self.opt(CONF_BACKWASH_INTERVAL_DAYS, DEFAULT_BACKWASH_INTERVAL_DAYS))
-        filter_task = "backwash" if self.uses_backwash else "filter_cleaning"
-        tasks.append(self._task(filter_task, interval, force=self.pressure_high))
-        if self.has(CONF_PH_SENSOR):
-            ph_interval = int(
-                self.opt(CONF_PH_CALIBRATION_INTERVAL_DAYS, DEFAULT_PH_CALIBRATION_INTERVAL_DAYS)
-            )
-            tasks.append(self._task("ph_calibration", ph_interval))
-        return tasks
-
-    def _task(self, task: str, interval: int, force: bool = False) -> dict[str, Any]:
-        stored_key = {"filter_cleaning": ManualAction.FILTER_CLEANED,
-                      "backwash": ManualAction.BACKWASH,
-                      "ph_calibration": ManualAction.PH_CALIBRATED}[task]
-        done = _parse_dt(self.tasks.get(stored_key))
-        counted_from = None
-        if done is None and self.tasks_since is not None:
-            # Never marked as done: count from when HomePool started keeping
-            # tasks, so a task without a date still falls due one day.
-            counted_from = self.tasks_since
-        if done is None and counted_from is not None:
-            due_date = dt_util.as_local(counted_from).date() + timedelta(days=interval)
-            due = due_date.isoformat()
-            overdue = force or dt_util.now().date() >= due_date
-        elif done is None:
-            due = None
-            overdue = force
-        else:
-            due_date = dt_util.as_local(done).date() + timedelta(days=interval)
-            due = due_date.isoformat()
-            overdue = force or dt_util.now().date() >= due_date
-        return {
-            "task": task,
-            "last_done": _iso(done),
-            "interval_days": interval,
-            "counted_from": _iso(counted_from),
-            "due": due,
-            "overdue": overdue,
-        }
-
-    @property
-    def backwash_needed(self) -> bool:
-        for task in self.task_status():
-            if task["task"] in ("backwash", "filter_cleaning"):
-                return task["overdue"]
-        return False
-
-    @property
-    def manual_action_pending(self) -> bool:
-        return any(t["overdue"] for t in self.task_status())
-
-    @property
-    def next_manual_task(self) -> str:
-        tasks = self.task_status()
-        overdue = [t for t in tasks if t["overdue"]]
-        if overdue:
-            return overdue[0]["task"]
-        dated = sorted((t for t in tasks if t["due"]), key=lambda t: t["due"])
-        return dated[0]["task"] if dated else "none"
-
-    @property
-    def ph_out_of_range(self) -> bool:
-        ph = self.ph
-        if ph is None:
-            return False
-        low = float(self.opt(CONF_PH_RANGE_MIN, DEFAULT_PH_RANGE_MIN))
-        high = float(self.opt(CONF_PH_RANGE_MAX, DEFAULT_PH_RANGE_MAX))
-        return not low <= ph <= high
-
-    @property
-    def critical_water_temperature(self) -> bool:
-        temp = self.water_temperature
-        if temp is None:
-            return False
-        return temp < float(self.opt(CONF_FREEZE_THRESHOLD, DEFAULT_FREEZE_THRESHOLD)) or temp > 33
-
-    @property
-    def equipment_room_overheat(self) -> bool:
-        temp = self._number(CONF_EQUIPMENT_ROOM_TEMPERATURE_SENSOR)
-        if temp is None:
-            return False
-        return temp > float(self.opt(CONF_EQUIPMENT_ROOM_MAX_TEMP, DEFAULT_EQUIPMENT_ROOM_MAX_TEMP))
-
-    @property
-    def flood(self) -> bool:
-        return self._is_on(CONF_FLOOD_SENSOR) is True
-
-    @property
-    def overall_status(self) -> str:
-        if (
-            self.safety_active
-            or "pump_not_responding" in self.alerts
-            or "chlorinator_not_responding" in self.alerts
-        ):
-            return OverallStatus.ACTION_REQUIRED
-        if (
-            self.alerts
-            or self.manual_action_pending
-            or self.ph_out_of_range
-            or self.pump_anomaly
-        ):
-            return OverallStatus.ATTENTION
-        return OverallStatus.OK
-
-    @property
-    def pump_energy_today(self) -> float | None:
-        reading = self._number(CONF_PUMP_ENERGY_SENSOR)
-        if reading is None:
-            return None
-        if self.energy_baseline is None or reading < self.energy_baseline:
-            # First reading of the day, or the meter was reset: start from here.
-            self.energy_baseline = reading
-            self._save()
-        return round(reading - self.energy_baseline, 3)
-
-    @property
-    def energy_price(self) -> float | None:
-        entity_price = self._number(CONF_ENERGY_PRICE_ENTITY)
-        if entity_price is not None:
-            return entity_price
-        price = self.opt(CONF_ENERGY_PRICE)
-        return float(price) if price not in (None, "") else None
-
-    @property
-    def pump_cost_today(self) -> float | None:
-        energy = self.pump_energy_today
-        price = self.energy_price
-        if energy is None or price is None:
-            return None
-        return round(energy * price, 3)
-
-    @property
-    def timer_slots(self) -> list[tuple[int, int]]:
-        return parse_timer_slots(self.conf.get(CONF_TIMER_SLOTS))
-
-    def available_modes(self) -> list[str]:
-        modes = [OperationMode.OFF, OperationMode.TIMER, OperationMode.SMART]
-        if self.has(CONF_SOLAR_EXCESS_SENSOR):
-            modes += [OperationMode.SOLAR, OperationMode.SMART_SOLAR]
-        return [str(m) for m in modes]
 
     # ──────────────────────────────────────────
     # The loop
@@ -961,7 +494,15 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             )
             if pending and valid_new and pending["state"] == new_on:
                 self._pending.pop(CONF_PUMP_SWITCH, None)
-            if valid_new and valid_old and not ours and old.state != new.state:
+            if (
+                valid_new
+                and valid_old
+                and not ours
+                and old.state != new.state
+                # Vacuuming leaves the pump to the owner: their switching is
+                # the treatment going as planned, not a change to respect.
+                and self.treatment_phase != Phase.VACUUMING
+            ):
                 minutes = float(
                     self.opt(CONF_MANUAL_OVERRIDE_MINUTES, DEFAULT_MANUAL_OVERRIDE_MINUTES)
                 )
@@ -1020,10 +561,23 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             return
         if pump_on and self.pump_available:
             self.elapsed_s += seconds
+            for defn in TASKS:
+                if defn.pump_hours is not None:
+                    self.task_pump_s[defn.key] = self.task_pump_s.get(defn.key, 0.0) + seconds
         if chlor_on and self.has(CONF_CHLORINATOR_SWITCH):
             self.chlorine_s += seconds
         if pump_on and self.decision_source == "ph_correction":
             self.ph_correction_s += seconds
+        phase = self.treatment_phase
+        if phase in (Phase.SETTLING, Phase.VACUUMING):
+            # Charged per side of midnight, so the flag lands on the right day.
+            self.treatment_rest_today = True
+        if phase is not None and (
+            (counts_pump_time(phase) and pump_on and self.pump_available)
+            or (phase == Phase.SETTLING and not pump_on)
+        ):
+            # Filtering and mixing count pump time; settling counts rest.
+            self.treatment["counted_s"] = float(self.treatment.get("counted_s", 0)) + seconds
 
     def _account(self, now: datetime) -> None:
         """Add running time since the last call, splitting it at midnight.
@@ -1064,7 +618,8 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "energy_kwh": self.pump_energy_today,
         }
         self.history = [*self.history, closed][-HISTORY_DAYS:]
-        self._closed_days.append(closed)
+        self._closed_days.append({**closed, "treatment_rest": self.treatment_rest_today})
+        self.treatment_rest_today = False
         self.day = today
         self.elapsed_s = 0.0
         self.chlorine_s = 0.0
@@ -1081,9 +636,13 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         while self._closed_days:
             closed = self._closed_days.pop(0)
             mode = MODE_REGISTRY.get(self.mode)
+            # Passive wintering keeps the pump off on purpose, and so does a
+            # treatment settling or waiting to be vacuumed: no target is missed.
             if (
                 mode is not None
                 and mode.guarantees_target
+                and not self.winter_passive
+                and not closed.get("treatment_rest")
                 and closed["target"]
                 and closed["elapsed"] < closed["target"] * 0.9
             ):
@@ -1094,1017 +653,4 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     once=True,
                 )
             await self._async_season(self.day)
-
-    async def _async_season(self, today: date) -> None:
-        """Fire season events and follow the calendar if asked to."""
-        if not self.is_salt:
-            return
-        in_season = is_chlorinator_in_season(today, self.active_months)
-        if self.in_season_last is None:
-            self.in_season_last = in_season
-            return
-        if in_season == self.in_season_last:
-            return
-        self.in_season_last = in_season
-        event = EVENT_CHLORINATOR_SEASON_START if in_season else EVENT_CHLORINATOR_SEASON_END
-        key = "season_start" if in_season else "season_end"
-        message = text(self.hass.config.language, key, pool=self.pool_name)
-        self.hass.bus.async_fire(
-            event, {"entry_id": self.entry.entry_id, "pool": self.pool_name, "message": message}
-        )
-        if self.conf.get(CONF_CHLORINATOR_AUTO_TOGGLE, True):
-            self.settings["chlorinator_enabled"] = in_season
-        await self._async_remind(text(self.hass.config.language, "title"), message)
-
-    def _sample_inputs(self, now: datetime) -> None:
-        air = self.air_temperature
-        if air is not None:
-            current = self.air_max.get("today")
-            if current is None or air > current:
-                self.air_max["today"] = air
-        ph = self.ph
-        if ph is not None and (
-            not self._ph_samples or now - self._ph_samples[-1][0] >= timedelta(minutes=10)
-        ):
-            self._ph_samples.append((now, ph))
-        self.ph_trend = self._compute_ph_trend()
-
-    def _compute_ph_trend(self) -> str | None:
-        """Slope of the last three hours of readings, in pH per hour."""
-        if not self.has(CONF_PH_SENSOR):
-            return None
-        if len(self._ph_samples) < 4:
-            return PhTrend.STABLE
-        latest = self._ph_samples[-1][0]
-        window = [(t, v) for t, v in self._ph_samples if latest - t <= timedelta(hours=3)]
-        if len(window) < 4:
-            return PhTrend.STABLE
-        t0 = window[0][0]
-        xs = [(t - t0).total_seconds() / 3600 for t, _ in window]
-        ys = [v for _, v in window]
-        mean_x = sum(xs) / len(xs)
-        mean_y = sum(ys) / len(ys)
-        den = sum((x - mean_x) ** 2 for x in xs)
-        if den == 0:
-            return PhTrend.STABLE
-        slope = sum((x - mean_x) * (y - mean_y) for x, y in zip(xs, ys)) / den
-        if slope > 0.03:
-            return PhTrend.RISING
-        if slope < -0.03:
-            return PhTrend.FALLING
-        return PhTrend.STABLE
-
-    # ── target ──
-
-    async def _async_forecast(self, now: datetime) -> None:
-        """Today's high and rain from the weather entity, at most once an hour."""
-        weather = self.conf.get(CONF_WEATHER_ENTITY)
-        if not weather or (
-            self._forecast_at is not None and now - self._forecast_at < timedelta(hours=1)
-        ):
-            return
-        self._forecast_at = now
-        try:
-            response = await self.hass.services.async_call(
-                "weather",
-                "get_forecasts",
-                {"entity_id": weather, "type": "daily"},
-                blocking=True,
-                return_response=True,
-            )
-        except Exception:  # noqa: BLE001 - weather is a nice-to-have, never a blocker
-            _LOGGER.debug("%s: no daily forecast from %s", self.pool_name, weather)
-            self._forecast = {}
-            return
-        days = ((response or {}).get(weather) or {}).get("forecast") or []
-        if not days:
-            self._forecast = {}
-            return
-        first = _todays_forecast(days, dt_util.as_local(now).date())
-        self._forecast = {
-            "high": first.get("temperature"),
-            "rain_mm": first.get("precipitation"),
-            "uv": first.get("uv_index"),
-        }
-
-    def _temperature_inputs(self) -> tuple[float | None, float | None, str]:
-        """Water temperature, or the air figure to estimate it from."""
-        water = self.water_temperature
-        if water is not None:
-            return water, None, "water_temperature_sensor"
-        # What the pool's own sensor measured beats a forecast for a grid
-        # cell kilometres away. Today's maximum so far, or yesterday's if that
-        # was warmer: early in the morning today's is still the night's low,
-        # and the target only rises as the day warms up.
-        # A sensor in the sun, or on a heat pump's outdoor unit, reads well
-        # above the shade temperature, and the maximum is the figure most
-        # thrown by it; so with a forecast at hand the measurement may top
-        # the forecast high by MEASURED_AIR_MARGIN_C at most.
-        high = self._forecast.get("high")
-        high = float(high) if isinstance(high, (int, float)) else None
-        observed = [v for v in (self.air_max.get("today"), self.air_max.get("yesterday")) if v is not None]
-        if observed:
-            air = max(observed)
-            if high is not None and air > high + MEASURED_AIR_MARGIN_C:
-                return None, round(high + MEASURED_AIR_MARGIN_C, 1), "air_temperature_max_capped"
-            return None, air, "air_temperature_max"
-        if high is not None:
-            return None, high, "forecast_high"
-        return None, None, "none"
-
-    def _uv(self) -> tuple[float | None, str | None]:
-        value = self._number(CONF_UV_SENSOR)
-        if value is not None:
-            return value, "uv_sensor"
-        weather = self._state(CONF_WEATHER_ENTITY)
-        if weather is not None and isinstance(weather.attributes.get("uv_index"), (int, float)):
-            return float(weather.attributes["uv_index"]), "weather_entity"
-        uv = self._forecast.get("uv")
-        if isinstance(uv, (int, float)):
-            return float(uv), "forecast"
-        return None, None
-
-    async def _async_maybe_recalculate(self, now: datetime, force: bool = False) -> None:
-        if (
-            not force
-            and self.target
-            and self.target_at is not None
-            and now - self.target_at < timedelta(minutes=RECALC_INTERVAL_MIN)
-        ):
-            return
-        await self._async_forecast(now)
-        result = self.calculate_target(dt_util.as_local(now).date())
-        old = self.target_minutes
-        if self.target and not force and result["target_minutes"] < old:
-            # During a day the target only ever goes up. A target that drops in
-            # the afternoon because a cloud cooled the air is what made the old
-            # automations stop half way; the day's demand does not shrink.
-            # calculated_minutes keeps what today's conditions ask for now,
-            # so the held figure and its components can be told apart.
-            result = {
-                **result,
-                "target_minutes": old,
-                "calculated_minutes": result["target_minutes"],
-                "held_at_previous": True,
-            }
-        self.target = result
-        self.target_at = now
-        if result["target_minutes"] != old:
-            self.hass.bus.async_fire(
-                EVENT_TARGET_RECALCULATED,
-                {
-                    "entry_id": self.entry.entry_id,
-                    "pool": self.pool_name,
-                    "old": old,
-                    "new": result["target_minutes"],
-                    "factors": result.get("factors", {}),
-                },
-            )
-
-    def calculate_target(self, today: date) -> dict[str, Any]:
-        """Run both calculators with whatever data is available right now."""
-        water, air, temp_source = self._temperature_inputs()
-        uv, uv_source = self._uv()
-        rain_past = self._number(CONF_RAIN_SENSOR)
-        rain_next = self._forecast.get("rain_mm")
-        cover_on = None
-        if self.conf.get(CONF_HAS_COVER) == "automatic":
-            cover_state = self._state(CONF_COVER_ENTITY)
-            if cover_state is not None:
-                cover_on = cover_state.state == "closed"
-        latitude = float(self.opt(CONF_LATITUDE, self.hass.config.latitude) or 0)
-
-        if self.volume <= 0 or self.flow_rate <= 0:
-            return {
-                "target_minutes": 0,
-                "target_filtration_minutes": 0,
-                "target_chlorine_minutes": None,
-                "warnings": ["Pool volume or pump flow rate missing"],
-            }
-
-        filt = calculate_filtration_target(
-            FiltrationInputs(
-                pool_volume_m3=self.volume,
-                nominal_flow_rate_m3h=self.flow_rate,
-                latitude=latitude,
-                has_cover=self.conf.get(CONF_HAS_COVER) or "none",
-                is_covered_by_roof=bool(self.conf.get(CONF_IS_COVERED_BY_ROOF)),
-                cover_currently_on=cover_on,
-                user_multiplier=self.user_multiplier,
-                current_date=today,
-                water_temperature_c=water,
-                air_temperature_c=air,
-                uv_index=uv,
-                rain_last_24h_mm=rain_past,
-                rain_next_24h_mm=float(rain_next) if isinstance(rain_next, (int, float)) else None,
-            )
-        )
-        sources = dict(filt.sources)
-        sources["temperature"] = temp_source
-        if uv_source:
-            sources["uv"] = uv_source
-        if rain_past is not None:
-            sources["rain"] = "rain_sensor"
-        warnings = list(filt.warnings)
-
-        chlorine_minutes = None
-        recommended = None
-        chlorine_info: dict[str, Any] = {}
-        if self.is_salt and self.opt(CONF_CHLORINATOR_NOMINAL_PRODUCTION):
-            salt, salt_source = self.salinity
-            chlorine_kwargs: dict[str, Any] = {
-                "pool_volume_m3": self.volume,
-                "chlorinator_nominal_production_g_h": float(
-                    self.opt(CONF_CHLORINATOR_NOMINAL_PRODUCTION)
-                ),
-                "chlorinator_production_pct": self.chlorinator_production,
-                "chlorinator_self_regulating": self.self_regulating,
-                # With "Chlorinator in use" off the cell produces nothing, so
-                # it is treated as out of season and adds no minutes.
-                "chlorinator_active_months": (
-                    self.active_months if self.chlorinator_enabled else []
-                ),
-                "water_temperature_c": water,
-                "air_temperature_c": air,
-                "salt_level_g_l": salt,
-                "salt_target_g_l": float(self.opt(CONF_SALT_TARGET, DEFAULT_SALT_TARGET)),
-                "current_date": today,
-                "latitude": latitude,
-            }
-            first = calculate_chlorine_target(ChlorineInputs(**chlorine_kwargs))
-            chlorine_minutes = first.target_chlorine_minutes
-            # The recommended production depends on the final target, so it is
-            # worked out again once the final target is known.
-            total = max(filt.target_minutes, chlorine_minutes or 0)
-            second = calculate_chlorine_target(
-                ChlorineInputs(**chlorine_kwargs, total_target_minutes=total)
-            )
-            recommended = second.recommended_production_pct
-            warnings.extend(first.warnings)
-            if salt_source:
-                sources["salinity"] = salt_source
-            chlorine_info = {
-                "chlorine_demand_g": first.chlorine_demand_g_per_day,
-                "effective_production_g_h": first.effective_production_g_h,
-                "salinity_factor": first.salinity_factor,
-                "cold_water_factor": first.cold_water_factor,
-                # The calendar's answer, as before; whether the cell counted
-                # shows in target_chlorine_minutes.
-                "chlorinator_in_season": self.in_season,
-            }
-
-        target = max(filt.target_minutes, chlorine_minutes or 0)
-        return {
-            "target_minutes": target,
-            "target_filtration_minutes": filt.target_minutes,
-            "target_chlorine_minutes": chlorine_minutes,
-            "dominant_component": (
-                "chlorine" if (chlorine_minutes or 0) > filt.target_minutes else "filtration"
-            ),
-            "base_minutes": filt.base_minutes,
-            "factors": {
-                "seasonal": filt.seasonal_factor,
-                "temperature": filt.temperature_factor,
-                "uv": filt.uv_factor,
-                "rain": filt.rain_factor,
-                "cover": filt.cover_factor,
-                "user_multiplier": filt.user_multiplier,
-            },
-            "clamped": filt.was_clamped,
-            "min_minutes": filt.min_minutes,
-            "max_minutes": filt.max_minutes,
-            "recommended_chlorinator_pct": recommended,
-            "inputs": {
-                "water_temperature": water,
-                "air_temperature": air,
-                "uv_index": uv,
-                "rain_last_24h_mm": rain_past,
-                "rain_next_24h_mm": rain_next,
-            },
-            **chlorine_info,
-            "sources": sources,
-            "warnings": warnings,
-        }
-
-    # ── control ──
-
-    def _solar_noon_minute(self) -> int:
-        longitude = float(self.opt(CONF_LONGITUDE, self.hass.config.longitude) or 0)
-        noon = dt_util.as_local(solar_noon_utc(dt_util.now().date(), longitude))
-        return noon.hour * 60 + noon.minute
-
-    def _minutes_until_day_end(self, now: datetime) -> int:
-        local = dt_util.as_local(now)
-        tomorrow = dt_util.start_of_local_day(local.date() + timedelta(days=1))
-        return max(0, int((tomorrow - now).total_seconds() // 60))
-
-    def _evaluate_safety(self, now: datetime) -> None:
-        power = self._watts(CONF_PUMP_POWER_SENSOR)
-        nominal = self.opt(CONF_PUMP_NOMINAL_POWER)
-        anomaly = False
-        if power is not None and nominal:
-            nominal = float(nominal)
-            if self._pump_was_on and self.pump_on_since and (
-                now - self.pump_on_since >= timedelta(minutes=2)
-            ):
-                anomaly = power > nominal * 1.5 or power < nominal * 0.3
-            elif not self._pump_was_on:
-                anomaly = power > max(50.0, nominal * 0.2)
-        if anomaly:
-            self._anomaly_since = self._anomaly_since or now
-        else:
-            self._anomaly_since = None
-        self.pump_anomaly = self._anomaly_since is not None and (
-            now - self._anomaly_since >= timedelta(minutes=ANOMALY_MINUTES)
-        )
-
-        pressure = self.filter_pressure
-        normal_max = float(self.opt(CONF_FILTER_PRESSURE_NORMAL_MAX, DEFAULT_FILTER_PRESSURE_NORMAL_MAX))
-        if pressure is not None and self._pump_was_on and pressure > normal_max:
-            self._pressure_high_since = self._pressure_high_since or now
-        elif pressure is not None and self._pump_was_on:
-            self._pressure_high_since = None
-        self.pressure_high = self._pressure_high_since is not None and (
-            now - self._pressure_high_since >= timedelta(minutes=10)
-        )
-
-        evaluation = evaluate_safety(
-            flood_detected=self._is_on(CONF_FLOOD_SENSOR),
-            equipment_room_temp_c=self._number(CONF_EQUIPMENT_ROOM_TEMPERATURE_SENSOR),
-            equipment_room_temp_threshold_c=float(
-                self.opt(CONF_EQUIPMENT_ROOM_MAX_TEMP, DEFAULT_EQUIPMENT_ROOM_MAX_TEMP)
-            ),
-            filter_pressure_bar=pressure,
-            filter_pressure_critical_bar=float(
-                self.opt(CONF_FILTER_PRESSURE_CRITICAL, DEFAULT_FILTER_PRESSURE_CRITICAL)
-            ),
-        )
-        reasons = [c.id for c in evaluation.active_conditions]
-        if self.pump_anomaly and self._pump_was_on:
-            reasons.append("pump_power_anomaly")
-        self.safety_reasons = reasons
-        self.safety_active = bool(reasons)
-
-        freeze = False
-        if self.conf.get(CONF_FREEZE_PROTECTION, True):
-            threshold = float(self.opt(CONF_FREEZE_THRESHOLD, DEFAULT_FREEZE_THRESHOLD))
-            water = self.water_temperature
-            air = self._number(CONF_AIR_TEMPERATURE_SENSOR)
-            if water is not None:
-                freeze = water < threshold
-            elif air is not None:
-                freeze = air < 0
-        self.freeze_active = freeze
-
-    def _evaluate_ph(self, now: datetime) -> bool:
-        """Should the pump run so the pH doser can work? Keeps the window open.
-
-        A window opens for the configured time when the doser needs flow and
-        the pump is not already running for another reason; it is extended
-        while the need lasts, up to the daily cap, so the pump is not stopped
-        and restarted every half hour.
-
-        In ``off`` mode HomePool does not start the pump for the pH: only a
-        window asked for through the service does. A probe reading that cannot
-        be right (outside 5-9, or unchanged for a day: a probe in its cup or
-        out of the water) does not start it either.
-        """
-        if self.ph_correction_forced:
-            if self.ph_window_until and now < self.ph_window_until:
-                # A window forced from the service runs its course regardless.
-                return True
-            self.ph_correction_forced = False
-            self.ph_window_until = None
-        if self.mode == "off":
-            self.ph_correction_active = False
-            self.ph_window_until = None
-            return False
-        needed = False
-        if self._is_on(CONF_PH_DOSING_ENTITY):
-            needed = True
-        elif self.conf.get(CONF_HAS_PH_DOSING) and self._ph_plausible(now):
-            high = float(self.opt(CONF_PH_RANGE_MAX, DEFAULT_PH_RANGE_MAX))
-            # Hysteresis: start above the range, stop once back at the target.
-            needed = self.ph > high or (self.ph_correction_active and self.ph > self.ph_target)
-        self.ph_correction_active = needed
-        cap = float(self.opt(CONF_PH_CORRECTION_MAX_DAILY, DEFAULT_PH_CORRECTION_MAX_DAILY))
-        if not needed or self.ph_correction_minutes >= cap:
-            self.ph_window_until = None
-            return False
-        if self._pump_was_on and self.started_by != "ph_correction":
-            # Water is already flowing for another reason; nothing to force.
-            return False
-        if self.ph_window_until is None or now >= self.ph_window_until:
-            minutes = float(self.opt(CONF_PH_CORRECTION_MINUTES, DEFAULT_PH_CORRECTION_MINUTES))
-            self.ph_window_until = now + timedelta(minutes=minutes)
-        return True
-
-    def _ph_plausible(self, now: datetime) -> bool:
-        """Is the probe's reading believable enough to run the pump for?"""
-        ph = self.ph
-        if ph is None:
-            self._ph_seen = None
-            return False
-        if self._ph_seen is None or self._ph_seen[0] != ph:
-            # Not kept across restarts: after one, the probe gets a fresh day.
-            self._ph_seen = (ph, now)
-        if not PH_PLAUSIBLE_MIN <= ph <= PH_PLAUSIBLE_MAX:
-            return False
-        return now - self._ph_seen[1] < timedelta(hours=PH_FROZEN_HOURS)
-
-    async def _async_control(self, now: datetime) -> None:
-        self._evaluate_safety(now)
-        ph_force = self._evaluate_ph(now)
-
-        if self.override:
-            until = _parse_dt(self.override.get("until"))
-            if until is None or now >= until:
-                self.override = None
-        if self.cycle_until and now >= self.cycle_until:
-            self.cycle_until = None
-
-        pump_power = self._watts(CONF_PUMP_POWER_SENSOR)
-        if pump_power is None and self._pump_was_on and self.opt(CONF_PUMP_NOMINAL_POWER):
-            pump_power = float(self.opt(CONF_PUMP_NOMINAL_POWER))
-        self.surplus_w = surplus_watts(
-            self._watts(CONF_SOLAR_EXCESS_SENSOR),
-            self.conf.get(CONF_SOLAR_EXCESS_SIGN) or ExcessSign.EXPORT_POSITIVE,
-            self._pump_was_on,
-            pump_power,
-        )
-        solar_available = self._solar.update(
-            now,
-            self.surplus_w,
-            self.solar_threshold,
-            float(self.opt(CONF_SOLAR_IMPORT_TOLERANCE, DEFAULT_SOLAR_IMPORT_TOLERANCE_W)),
-        )
-
-        local = dt_util.as_local(now)
-        mode_cls = MODE_REGISTRY.get(self.mode) or MODE_REGISTRY["off"]
-        mode_decision = mode_cls().evaluate(
-            PoolContext(
-                target_minutes=self.target_minutes,
-                elapsed_minutes=self.elapsed_minutes,
-                pump_is_on=self._pump_was_on,
-                minute_of_day=local.hour * 60 + local.minute,
-                minutes_until_day_end=self._minutes_until_day_end(now),
-                solar_noon_minute=self._solar_noon_minute(),
-                solar_available=solar_available,
-                timer_slots=self.timer_slots,
-                end_of_day_margin=END_OF_DAY_MARGIN_MIN,
-            )
-        )
-        minutes_in_state = (
-            (now - self.pump_changed_at).total_seconds() / 60 if self.pump_changed_at else None
-        )
-        hands_off = self._is_on(CONF_HANDS_OFF_ENTITY) is True
-        decision = arbitrate(
-            ControlInputs(
-                pump_available=self.pump_available,
-                pump_is_on=self._pump_was_on,
-                minutes_in_state=minutes_in_state,
-                hands_off=hands_off,
-                maintenance_lock=self.maintenance_lock,
-                safety_shutoff=self.safety_active,
-                safety_reason=", ".join(self.safety_reasons) or None,
-                freeze_risk=self.freeze_active,
-                ph_correction=ph_force,
-                manual_cycle=self.cycle_until is not None,
-                manual_override=self.override.get("state") if self.override else None,
-                manual_override_by=(self.override or {}).get("by") or "user",
-                manual_override_name=(self.override or {}).get("name"),
-                mode_decision=mode_decision,
-                started_by=self.started_by,
-                min_on_minutes=MIN_ON_MINUTES,
-                min_off_minutes=MIN_OFF_MINUTES,
-            )
-        )
-        self.decision_source = decision.source
-        self.decision_key = decision.key
-        self.decision_reason = reason_text(
-            self.hass.config.language, decision.key, decision.args, decision.reason
-        )
-
-        # The cell first: it must already be off when the pump stops.
-        pump_will_be_on = self._pump_was_on if decision.pump is None else decision.pump
-        await self._async_control_chlorinator(now, pump_will_be_on)
-
-        if decision.pump is not None and decision.pump != self._pump_was_on:
-            if not decision.pump and self._is_on(CONF_CHLORINATOR_SWITCH) is True:
-                # Do not stop the pump while the cell is still on: it has just
-                # been told to stop, and its state change brings us back here.
-                # A cell that ignores every retry must not keep the pump
-                # running for ever, through a flood included: once its retries
-                # are spent the pump stops anyway, and an alert says why.
-                cell = self._pending.get(CONF_CHLORINATOR_SWITCH)
-                cell_gave_up = (
-                    cell is not None
-                    and cell["attempts"] >= COMMAND_MAX_ATTEMPTS
-                    and cell["sent"] is not None
-                    and now - cell["sent"] >= timedelta(seconds=COMMAND_RETRY_S)
-                )
-                if not cell_gave_up:
-                    await self._async_retry(now)
-                    return
-            if decision.pump:
-                self.started_by = decision.source
-            await self._async_command(CONF_PUMP_SWITCH, decision.pump)
-        elif decision.pump is None or decision.pump == self._pump_was_on:
-            pending = self._pending.get(CONF_PUMP_SWITCH)
-            if pending and (decision.pump is None or pending["state"] != decision.pump):
-                self._pending.pop(CONF_PUMP_SWITCH, None)
-        await self._async_retry(now)
-
-    async def _async_control_chlorinator(self, now: datetime, pump_will_be_on: bool) -> None:
-        if not self.conf.get(CONF_CHLORINATOR_SWITCH):
-            self.chlorinator_reason = ""
-            return
-        on_seconds = (
-            (now - self.pump_on_since).total_seconds()
-            if self._pump_was_on and self.pump_on_since
-            else None
-        )
-        wanted, reason = chlorinator_wanted(
-            ChlorinatorInputs(
-                has_switch=True,
-                pump_is_on=self._pump_was_on and pump_will_be_on,
-                pump_on_seconds=on_seconds,
-                enabled=self.chlorinator_enabled,
-                in_season=self.in_season,
-                target_reached=self.chlorine_target_reached,
-                blocked=self.maintenance_lock or self.safety_active,
-                water_temperature_c=self.water_temperature,
-                min_water_temperature_c=float(
-                    self.opt(CONF_CHLORINATOR_MIN_WATER_TEMP, DEFAULT_CHLORINATOR_MIN_WATER_TEMP)
-                ),
-                flow_delay_s=CHLORINATOR_FLOW_DELAY_S,
-            )
-        )
-        self.chlorinator_reason = reason
-        if self._is_on(CONF_CHLORINATOR_SWITCH) is None:
-            return
-        if wanted != self._chlor_was_on:
-            await self._async_command(CONF_CHLORINATOR_SWITCH, wanted)
-
-    async def _async_command(self, key: str, turn_on: bool) -> None:
-        entity_id = self.conf.get(key)
-        if not entity_id:
-            return
-        pending = self._pending.get(key)
-        if pending and pending["state"] == turn_on:
-            return  # already asked; the retry loop takes it from here
-        self._pending[key] = {
-            "state": turn_on,
-            "attempts": 0,
-            "sent": None,
-            "first_sent": dt_util.utcnow(),
-        }
-        await self._async_send(key)
-
-    async def _async_send(self, key: str) -> None:
-        pending = self._pending[key]
-        context = Context()
-        self._own_contexts.append(context.id)
-        pending["attempts"] += 1
-        pending["sent"] = dt_util.utcnow()
-        service = "turn_on" if pending["state"] else "turn_off"
-        _LOGGER.debug(
-            "%s: %s %s (attempt %d)", self.pool_name, service, self.conf[key], pending["attempts"]
-        )
-        self._unsubs.append(
-            async_call_later(self.hass, COMMAND_RETRY_S + 1, self._retry_due)
-        )
-        try:
-            await self.hass.services.async_call(
-                "homeassistant",
-                service,
-                {"entity_id": self.conf[key]},
-                blocking=False,
-                context=context,
-            )
-        except Exception as err:  # noqa: BLE001 - retried below, and alerted if it persists
-            _LOGGER.warning("%s: %s %s failed: %s", self.pool_name, service, self.conf[key], err)
-
-    @callback
-    def _retry_due(self, _now: datetime) -> None:
-        self.hass.async_create_task(self.async_request_refresh())
-
-    async def _async_retry(self, now: datetime) -> None:
-        """Send a command again if the switch has not followed it."""
-        for key, pending in list(self._pending.items()):
-            actual = self._is_on(key)
-            if actual is None:
-                continue  # unavailable: wait, do not keep firing
-            if actual == pending["state"]:
-                self._pending.pop(key, None)
-                await self._async_clear(
-                    "pump_not_responding" if key == CONF_PUMP_SWITCH else "chlorinator_not_responding"
-                )
-                continue
-            if pending["sent"] and now - pending["sent"] < timedelta(seconds=COMMAND_RETRY_S):
-                continue
-            if pending["attempts"] >= COMMAND_MAX_ATTEMPTS:
-                alert = (
-                    "pump_not_responding" if key == CONF_PUMP_SWITCH else "chlorinator_not_responding"
-                )
-                await self._async_raise(
-                    alert,
-                    Severity.CRITICAL,
-                    {
-                        "attempts": pending["attempts"],
-                        "state": "on" if pending["state"] else "off",
-                    },
-                )
-                continue
-            await self._async_send(key)
-
-    # ── alerts ──
-
-    async def _async_raise(
-        self,
-        alert: str,
-        severity: str,
-        values: dict[str, Any],
-        once: bool = False,
-        reminder: bool = False,
-        text_key: str | None = None,
-        notify: bool = True,
-    ) -> None:
-        """Raise an alert on its rising edge: event, and notification if enabled.
-
-        ``reminder`` marks an alert that asks the owner to do something: it is
-        notified whatever the severity floor, after the quiet hours if need be.
-        ``text_key`` picks another wording for the same alert; ``notify``
-        False raises it without a notification.
-        """
-        if alert in self.alerts and not once:
-            return
-        message = text(
-            self.hass.config.language, text_key or alert, pool=self.pool_name, **values
-        )
-        if not once:
-            self.alerts[alert] = {
-                "severity": severity,
-                "message": message,
-                "since": dt_util.utcnow().isoformat(),
-            }
-            self._alert_text_keys[alert] = text_key or alert
-        payload = {
-            "entry_id": self.entry.entry_id,
-            "pool": self.pool_name,
-            "type": alert,
-            "severity": severity,
-            "message": message,
-            "context": values,
-        }
-        self.hass.bus.async_fire(EVENT_ALERT, payload)
-        if alert == "safety_shutoff":
-            self.hass.bus.async_fire(
-                EVENT_SAFETY_SHUTOFF,
-                {
-                    "entry_id": self.entry.entry_id,
-                    "pool": self.pool_name,
-                    "reason": values.get("reason"),
-                    "conditions": self.safety_reasons,
-                },
-            )
-        title = text(self.hass.config.language, "title") + f" · {self.pool_name}"
-        if not notify:
-            return
-        if reminder:
-            await self._async_remind(title, message)
-        elif self.notifier:
-            await self.notifier.async_send(title, message, severity, dt_util.now())
-
-    async def _async_remind(self, title: str, message: str) -> None:
-        """Notify a reminder now, or keep it until the quiet hours end."""
-        if not self.notifier or not self.notifier.service:
-            return
-        now = dt_util.now()
-        if self.notifier.quiet(now):
-            entry = {"title": title, "message": message}
-            if entry not in self.pending_reminders:
-                self.pending_reminders.append(entry)
-            del self.pending_reminders[:-REMINDERS_KEPT]
-            return
-        await self.notifier.async_send(title, message, Severity.INFO, now, reminder=True)
-
-    async def _async_flush_reminders(self, now: datetime) -> None:
-        if not self.pending_reminders:
-            return
-        if not self.notifier or not self.notifier.service:
-            self.pending_reminders = []
-            return
-        local = dt_util.as_local(now)
-        if self.notifier.quiet(local):
-            return
-        pending, self.pending_reminders = self.pending_reminders, []
-        for reminder in pending:
-            await self.notifier.async_send(
-                reminder["title"], reminder["message"], Severity.INFO, local, reminder=True
-            )
-
-    async def _async_clear(self, alert: str) -> None:
-        self.alerts.pop(alert, None)
-        self._alert_text_keys.pop(alert, None)
-
-    async def _async_set(
-        self, alert: str, active: bool, severity: str, values: dict[str, Any] | None = None
-    ) -> None:
-        if active:
-            await self._async_raise(alert, severity, values or {})
-        else:
-            await self._async_clear(alert)
-
-    async def _async_freeze_alert(self) -> None:
-        """Freeze risk, worded by whether HomePool can actually run the pump.
-
-        A rung above freeze protection (lock, safety, hands-off, no pump)
-        keeps the pump as it is; the alert then says so instead of claiming
-        the pump is running, and is raised again if that changes mid-frost.
-        """
-        if not self.freeze_active:
-            await self._async_clear("freeze_protection")
-            return
-        blocked = self.decision_source in FREEZE_BLOCKERS
-        text_key = "freeze_protection_blocked" if blocked else "freeze_protection"
-        values = {"reason": self.decision_reason or ""} if blocked else {}
-        current = self.alerts.get("freeze_protection")
-        if current and self._alert_text_keys.get("freeze_protection") != text_key:
-            if not blocked:
-                # Running again: correct the text without another notification.
-                current["message"] = text(
-                    self.hass.config.language, text_key, pool=self.pool_name
-                )
-                self._alert_text_keys["freeze_protection"] = text_key
-                return
-            # Newly kept off in a frost: worth telling whoever is notified.
-            await self._async_clear("freeze_protection")
-        await self._async_raise(
-            "freeze_protection", Severity.WARNING, values, text_key=text_key
-        )
-
-    async def _async_alerts(self, now: datetime) -> None:
-        await self._async_set(
-            "safety_shutoff",
-            self.safety_active,
-            Severity.CRITICAL,
-            {"reason": ", ".join(self.safety_reasons)},
-        )
-        await self._async_freeze_alert()
-        ph = self.ph
-        await self._async_set(
-            "ph_out_of_range",
-            self.ph_out_of_range,
-            Severity.WARNING,
-            {
-                "value": ph or 0,
-                "low": float(self.opt(CONF_PH_RANGE_MIN, DEFAULT_PH_RANGE_MIN)),
-                "high": float(self.opt(CONF_PH_RANGE_MAX, DEFAULT_PH_RANGE_MAX)),
-            },
-        )
-        if self.is_salt:
-            in_season_on = self.in_season and self.chlorinator_enabled
-            salt, _ = self.salinity
-            low = float(self.opt(CONF_SALT_RANGE_MIN, DEFAULT_SALT_RANGE_MIN))
-            # Salt only matters while the cell is working: out of season an old
-            # manual reading must not keep the alert on all winter.
-            await self._async_set(
-                "salt_low",
-                in_season_on and salt is not None and salt < low,
-                Severity.WARNING,
-                {"value": salt or 0, "low": low},
-            )
-            water = self.water_temperature
-            cold = (
-                in_season_on
-                and water is not None
-                and water
-                < float(self.opt(CONF_CHLORINATOR_MIN_WATER_TEMP, DEFAULT_CHLORINATOR_MIN_WATER_TEMP))
-            )
-            await self._async_set("chlorinator_cold", cold, Severity.WARNING, {"value": water or 0})
-            not_producing = (
-                in_season_on
-                and self.target.get("effective_production_g_h") == 0
-                and not cold
-            )
-            await self._async_set("chlorinator_not_producing", bool(not_producing), Severity.WARNING)
-
-        today = dt_util.now().date().isoformat()
-        for task in self.task_status():
-            name = task["task"]
-            alert = f"{name}_due"
-            if task["overdue"]:
-                # Alerts are not kept across restarts: the reminder goes out
-                # once a day, not again after every reload.
-                first_today = self.due_notified.get(name) != today
-                await self._async_raise(
-                    alert, Severity.INFO, {}, reminder=True, notify=first_today
-                )
-                if first_today:
-                    self.due_notified[name] = today
-                    self.hass.bus.async_fire(
-                        EVENT_MANUAL_ACTION_DUE,
-                        {
-                            "entry_id": self.entry.entry_id,
-                            "pool": self.pool_name,
-                            "action_type": name,
-                            "last_done": task["last_done"],
-                        },
-                    )
-            else:
-                await self._async_clear(alert)
-
-    # ──────────────────────────────────────────
-    # Actions from entities and services
-    # ──────────────────────────────────────────
-
-    async def async_set_setting(self, key: str, value: Any) -> None:
-        self.settings[key] = value
-        if key in ("user_multiplier", "chlorinator_production", "chlorinator_enabled"):
-            await self._async_maybe_recalculate(dt_util.utcnow(), force=True)
-        if key == "chlorinator_production":
-            await self._async_push_production(value)
-        if key == "mode":
-            # A new mode starts from its own decision, not from a held-over one.
-            self.override = None
-        self._save()
-        await self.async_refresh()
-
-    async def _async_push_production(self, value: float) -> None:
-        entity_id = self.conf.get(CONF_CHLORINATOR_PRODUCTION_ENTITY)
-        if not entity_id or not self.conf.get(CONF_CHLORINATOR_CONTROLLABLE):
-            return
-        domain = entity_id.split(".")[0]
-        try:
-            if domain in ("number", "input_number"):
-                await self.hass.services.async_call(
-                    domain, "set_value", {"entity_id": entity_id, "value": value}, blocking=False
-                )
-            elif domain in ("select", "input_select"):
-                state = self.hass.states.get(entity_id)
-                options = (state.attributes.get("options") if state else None) or []
-                numeric = []
-                for option in options:
-                    try:
-                        numeric.append((abs(float(str(option).rstrip("% ")) - value), option))
-                    except ValueError:
-                        continue
-                if numeric:
-                    await self.hass.services.async_call(
-                        domain,
-                        "select_option",
-                        {"entity_id": entity_id, "option": min(numeric)[1]},
-                        blocking=False,
-                    )
-        except Exception:  # noqa: BLE001
-            _LOGGER.warning("%s: could not set production on %s", self.pool_name, entity_id)
-
-    async def async_start_cycle(self, minutes: float | None = None) -> None:
-        duration = minutes or self.cycle_duration or 60
-        self.cycle_until = dt_util.utcnow() + timedelta(minutes=float(duration))
-        self.override = None
-        self._save()
-        await self.async_refresh()
-
-    async def async_stop_cycle(self) -> None:
-        """Stop a manual cycle, and stop the pump now if nothing else needs it."""
-        self.cycle_until = None
-        until = dt_util.utcnow() + timedelta(
-            minutes=float(self.opt(CONF_MANUAL_OVERRIDE_MINUTES, DEFAULT_MANUAL_OVERRIDE_MINUTES))
-        )
-        self.override = {"state": False, "until": until.isoformat()}
-        self._save()
-        await self.async_refresh()
-
-    async def async_set_pump(self, turn_on: bool) -> None:
-        """The HomePool pump switch: a manual action that respects the ladder."""
-        if turn_on:
-            await self.async_start_cycle(self.remaining_minutes or self.cycle_duration)
-        else:
-            await self.async_stop_cycle()
-
-    async def async_record_action(
-        self, action: str, value: float | None = None, notes: str | None = None
-    ) -> None:
-        now = dt_util.utcnow()
-        self.actions = [
-            *self.actions,
-            {"type": action, "at": now.isoformat(), "value": value, "notes": notes},
-        ][-ACTIONS_KEPT:]
-        if action in (
-            ManualAction.BACKWASH,
-            ManualAction.FILTER_CLEANED,
-            ManualAction.SALT_ADDED,
-            ManualAction.PH_CALIBRATED,
-            ManualAction.CELL_CLEANED,
-        ):
-            self.tasks[action] = now.isoformat()
-            if action in (ManualAction.BACKWASH, ManualAction.FILTER_CLEANED):
-                self._pressure_high_since = None
-                self.pressure_high = False
-            self.due_notified.pop(
-                {
-                    ManualAction.BACKWASH: "backwash",
-                    ManualAction.FILTER_CLEANED: "filter_cleaning",
-                    ManualAction.PH_CALIBRATED: "ph_calibration",
-                }.get(action, action),
-                None,
-            )
-        self._save()
-        await self.async_refresh()
-
-    async def async_record_reading(self, kind: str, value: float) -> None:
-        now = dt_util.utcnow()
-        self.manual_readings[kind] = {"value": value, "at": now.isoformat()}
-        self.actions = [
-            *self.actions,
-            {"type": f"{kind}_reading", "at": now.isoformat(), "value": value, "notes": None},
-        ][-ACTIONS_KEPT:]
-        if kind == "salt":
-            await self._async_maybe_recalculate(now, force=True)
-        self._save()
-        await self.async_refresh()
-
-    async def async_recalculate(self) -> None:
-        self._forecast_at = None
-        await self._async_maybe_recalculate(dt_util.utcnow(), force=True)
-        self._save()
-        await self.async_refresh()
-
-    async def async_force_ph_window(self, minutes: float | None = None) -> None:
-        duration = minutes or float(
-            self.opt(CONF_PH_CORRECTION_MINUTES, DEFAULT_PH_CORRECTION_MINUTES)
-        )
-        self.ph_window_until = dt_util.utcnow() + timedelta(minutes=float(duration))
-        self.ph_correction_forced = True
-        self._save()
-        await self.async_refresh()
-
-    async def async_reset_daily(self) -> None:
-        self._account(dt_util.utcnow())
-        self.elapsed_s = 0.0
-        self.chlorine_s = 0.0
-        self.ph_correction_s = 0.0
-        self.energy_baseline = None
-        await self._async_maybe_recalculate(dt_util.utcnow(), force=True)
-        self._save()
-        await self.async_refresh()
-
-    # ──────────────────────────────────────────
-    # For entities and the card
-    # ──────────────────────────────────────────
-
-    def own_entities(self) -> dict[str, str]:
-        """HomePool's own entities for this pool, by key: the card's index."""
-        from homeassistant.helpers import entity_registry as er
-
-        prefix = f"{self.entry.entry_id}_"
-        return {
-            entry.unique_id[len(prefix):]: entry.entity_id
-            for entry in er.async_entries_for_config_entry(er.async_get(self.hass), self.entry.entry_id)
-            if entry.unique_id.startswith(prefix)
-        }
-
-    def card_attributes(self) -> dict[str, Any]:
-        """What the companion card needs beyond the entity states."""
-        conf = self.conf
-        return {
-            "pool_entities": self.own_entities(),
-            "shape": conf.get("shape"),
-            "dimensions": {
-                k: conf.get(k)
-                for k in (
-                    "side", "length", "width", "diameter",
-                    "length_1", "width_1", "length_2", "width_2",
-                    "depth_min", "depth_max",
-                )
-                if conf.get(k) is not None
-            },
-            "layout_variant": conf.get("layout_variant"),
-            "layout_orientation": conf.get("layout_orientation"),
-            "liner_color": conf.get("liner_color"),
-            "volume_m3": self.volume,
-            "skimmers": conf.get("skimmers_count"),
-            "returns": conf.get("returns_count"),
-            "has_autofill_skimmer": conf.get("has_autofill_skimmer"),
-            "lights": conf.get("light_entities") or [],
-            "entities": {
-                key: conf.get(key)
-                for key in (
-                    CONF_PUMP_SWITCH,
-                    CONF_CHLORINATOR_SWITCH,
-                    CONF_PH_SENSOR,
-                    CONF_WATER_TEMPERATURE_SENSOR,
-                    CONF_AIR_TEMPERATURE_SENSOR,
-                    CONF_ORP_SENSOR,
-                    CONF_SALINITY_SENSOR,
-                    CONF_FILTER_PRESSURE_SENSOR,
-                    CONF_PUMP_POWER_SENSOR,
-                    CONF_EQUIPMENT_ROOM_TEMPERATURE_SENSOR,
-                    CONF_EQUIPMENT_ROOM_HUMIDITY_SENSOR,
-                    CONF_COVER_ENTITY,
-                )
-                if conf.get(key)
-            },
-        }
+            await self._async_season_proposal(dt_util.now())

@@ -84,6 +84,7 @@ CONF_PH_RANGE_MIN = "ph_range_min"
 CONF_PH_RANGE_MAX = "ph_range_max"
 CONF_PH_CALIBRATION_INTERVAL_DAYS = "ph_calibration_interval_days"
 CONF_HAS_PH_DOSING = "has_ph_dosing"
+CONF_HAS_PH_PROBE_OUTSIDE = "has_ph_probe_outside"
 CONF_FREE_CHLORINE_TARGET = "free_chlorine_target"
 CONF_FREE_CHLORINE_RANGE_MIN = "free_chlorine_range_min"
 CONF_FREE_CHLORINE_RANGE_MAX = "free_chlorine_range_max"
@@ -99,6 +100,18 @@ CONF_CHLORINATOR_CONTROLLABLE = "chlorinator_controllable"
 CONF_CHLORINATOR_SELF_REGULATING = "chlorinator_self_regulating"
 CONF_CHLORINATOR_ACTIVE_MONTHS = "chlorinator_active_months"
 CONF_CHLORINATOR_AUTO_TOGGLE = "chlorinator_auto_toggle"
+# The months the pool is used, for every pool: what the season state follows.
+CONF_SWIMMING_MONTHS = "swimming_months"
+CONF_WINTER_PRODUCT_TYPE = "winter_product_type"
+CONF_WINTER_PRODUCT_DOSE_PER_M3 = "winter_product_dose_per_m3"
+CONF_WINTER_PRODUCT_INTERVAL_DAYS = "winter_product_interval_days"
+# Water treatments: the shock product and the label doses per 10 m³.
+CONF_SHOCK_PRODUCT = "shock_product"
+CONF_SHOCK_CONCENTRATION = "shock_concentration"
+CONF_CLARIFIER_DOSE_PER_10M3 = "clarifier_dose_per_10m3"
+CONF_CLARIFIER_DOSE_UNIT = "clarifier_dose_unit"
+CONF_FLOCCULANT_DOSE_PER_10M3 = "flocculant_dose_per_10m3"
+CONF_FLOCCULANT_DOSE_UNIT = "flocculant_dose_unit"
 CONF_CHLORINATOR_MIN_WATER_TEMP = "chlorinator_min_water_temp"
 
 # Lighting and auxiliary
@@ -285,6 +298,7 @@ class ChlorinationMode(StrEnum):
     SALT = "salt"
     TABLETS = "tablets"
     OFF = "off"
+    WINTER_PRODUCT = "winter_product"
 
 
 class ManualAction(StrEnum):
@@ -296,6 +310,10 @@ class ManualAction(StrEnum):
     PH_ADJUSTED = "ph_adjusted"
     WATER_ADDED = "water_added"
     CELL_CLEANED = "cell_cleaned"
+    WINTER_PRODUCT_ADDED = "winter_product_added"
+    WATER_TESTED = "water_tested"
+    SKIMMER_BASKETS_EMPTIED = "skimmer_baskets_emptied"
+    FILTER_MEDIA_CHECKED = "filter_media_checked"
     OTHER = "other"
 
 
@@ -343,7 +361,11 @@ DEFAULT_RETURNS_COUNT = 2
 DEFAULT_ROBOT_CYCLE_HOURS = 2.0
 DEFAULT_USER_MULTIPLIER = 1.0
 DEFAULT_BACKWASH_INTERVAL_DAYS = 14
-DEFAULT_PH_CALIBRATION_INTERVAL_DAYS = 60
+DEFAULT_WINTER_PRODUCT_DOSE_PER_M3 = 0.02  # one floater for 50 m³
+DEFAULT_WINTER_PRODUCT_INTERVAL_DAYS = 56
+DEFAULT_SHOCK_PRODUCT = "calcium_hypochlorite"
+DEFAULT_DOSE_UNIT = "mL"
+DEFAULT_PH_CALIBRATION_INTERVAL_DAYS = 180
 DEFAULT_MANUAL_OVERRIDE_MINUTES = 120
 DEFAULT_FREEZE_THRESHOLD = 2.0
 DEFAULT_EQUIPMENT_ROOM_MAX_TEMP = 50.0
@@ -399,6 +421,11 @@ EVENT_TARGET_RECALCULATED = f"{DOMAIN}_target_recalculated"
 EVENT_MANUAL_ACTION_DUE = f"{DOMAIN}_manual_action_due"
 EVENT_CHLORINATOR_SEASON_START = f"{DOMAIN}_chlorinator_season_start"
 EVENT_CHLORINATOR_SEASON_END = f"{DOMAIN}_chlorinator_season_end"
+EVENT_SEASON_PROPOSAL = f"{DOMAIN}_season_proposal"
+EVENT_SEASON_STATE_CHANGED = f"{DOMAIN}_season_state_changed"
+EVENT_TREATMENT_STARTED = f"{DOMAIN}_treatment_started"
+EVENT_TREATMENT_PHASE = f"{DOMAIN}_treatment_phase"
+EVENT_TREATMENT_ENDED = f"{DOMAIN}_treatment_ended"
 
 # ──────────────────────────────────────────────
 # Services
@@ -409,11 +436,29 @@ SERVICE_STOP_CYCLE = "stop_cycle"
 SERVICE_RECORD_MANUAL_ACTION = "record_manual_action"
 SERVICE_RECORD_SALT_LEVEL = "record_salt_level"
 SERVICE_RECORD_FREE_CHLORINE = "record_free_chlorine"
+SERVICE_RECORD_READING = "record_reading"
 SERVICE_RECALCULATE = "recalculate_schedule"
 SERVICE_FORCE_PH_WINDOW = "force_ph_correction_window"
 SERVICE_RESET_DAILY = "reset_daily_counters"
+SERVICE_COMPLETE_TASK = "complete_task"
+SERVICE_SET_SEASON_STATE = "set_season_state"
+SERVICE_DISMISS_SEASON_PROPOSAL = "dismiss_season_proposal"
+SERVICE_COMPLETE_STEP = "complete_step"
+SERVICE_DISMISS_CHECKLIST = "dismiss_checklist"
+SERVICE_START_TREATMENT = "start_treatment"
+SERVICE_ADVANCE_TREATMENT = "advance_treatment"
+SERVICE_END_TREATMENT = "end_treatment"
 
 ATTR_DURATION = "duration"
 ATTR_ACTION_TYPE = "action_type"
 ATTR_VALUE = "value"
+ATTR_KIND = "kind"
 ATTR_NOTES = "notes"
+ATTR_TASK = "task"
+ATTR_DATE = "date"
+ATTR_STATE = "state"
+ATTR_STEP = "step"
+ATTR_CHECKLIST = "checklist"
+ATTR_TYPE = "type"
+ATTR_SEVERITY = "severity"
+ATTR_HOURS = "hours"

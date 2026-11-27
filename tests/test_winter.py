@@ -14,6 +14,8 @@ from freezegun.api import FrozenDateTimeFactory
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.util import dt as dt_util
 
+from custom_components.homepool.texts import text
+
 from .helpers import PUMP, SwitchRouter, setup_pool
 from .test_control import local, madrid, set_mode, state, tick  # noqa: F401
 
@@ -179,11 +181,15 @@ async def test_the_season_change_reaches_the_phone_after_the_quiet_hours(
     hass.bus.async_listen("homepool_chlorinator_season_end", events.append)
     await setup_pool(hass, **NOTIFY)
     await tick(hass, freezer, 4 * 60)  # past midnight, inside the quiet hours
+    # The event is still fired, as before.
     assert len(events) == 1
-    assert events[0].data["message"] not in [c.data["message"] for c in calls]
+    proposal = text("en", "season_proposal_winter", pool="Pool")
+    assert proposal not in [c.data["message"] for c in calls]
     await tick(hass, freezer, 7 * 60)  # 08:00 passed
     messages = [c.data["message"] for c in calls]
-    assert events[0].data["message"] in messages
+    # With proposals on, the season proposal's reminder replaces the old one.
+    assert proposal in messages
+    assert events[0].data["message"] not in messages
 
 
 async def test_a_task_falling_due_is_notified_with_the_default_threshold(
@@ -217,3 +223,23 @@ async def test_a_reload_does_not_repeat_a_reminder(
     await tick(hass, freezer, 5)
     assert "backwash_due" in entry.runtime_data.alerts
     assert len([c for c in calls if "backwash" in c.data["message"]]) == sent
+
+
+async def test_a_reminder_composed_while_starting_waits_for_home_assistant(
+    hass: HomeAssistant, madrid, freezer: FrozenDateTimeFactory
+) -> None:
+    from homeassistant.core import CoreState
+
+    freezer.move_to(local(2026, 7, 15, 12, 0))
+    SwitchRouter(hass)
+    calls = await _notified(hass)
+    entry = await setup_pool(hass, **{**NOTIFY, "notification_quiet_hours_start": None,
+                                      "notification_quiet_hours_end": None})
+    coordinator = entry.runtime_data
+    hass.set_state(CoreState.starting)
+    await coordinator._async_remind("Pool", "do the thing")
+    assert not calls
+    assert coordinator.pending_reminders == [{"title": "Pool", "message": "do the thing"}]
+    hass.set_state(CoreState.running)
+    await tick(hass, freezer, 1)
+    assert [c.data["message"] for c in calls] == ["do the thing"]

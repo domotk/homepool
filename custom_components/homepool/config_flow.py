@@ -15,12 +15,20 @@ from typing import Any
 
 import voluptuous as vol
 
-from homeassistant.config_entries import ConfigEntry, ConfigFlow, ConfigFlowResult, OptionsFlow
+from homeassistant.config_entries import (
+    ConfigEntry,
+    ConfigEntryState,
+    ConfigFlow,
+    ConfigFlowResult,
+    OptionsFlow,
+)
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.data_entry_flow import section
 from homeassistant.helpers import selector as sel
+from homeassistant.util import dt as dt_util
 
 from .const import (
+    CONFIG_VERSION,
     CONF_AIR_TEMPERATURE_SENSOR,
     CONF_BACKWASH_INTERVAL_DAYS,
     CONF_CHLORINATION_TYPE,
@@ -34,6 +42,8 @@ from .const import (
     CONF_CHLORINATOR_PRODUCTION_ENTITY,
     CONF_CHLORINATOR_SELF_REGULATING,
     CONF_CHLORINATOR_SWITCH,
+    CONF_CLARIFIER_DOSE_PER_10M3,
+    CONF_CLARIFIER_DOSE_UNIT,
     CONF_CONSTRUCTION_TYPE,
     CONF_COVER_ENTITY,
     CONF_CRITICAL_IGNORE_QUIET_HOURS,
@@ -50,17 +60,20 @@ from .const import (
     CONF_FILTER_PRESSURE_NORMAL_MIN,
     CONF_FILTER_PRESSURE_SENSOR,
     CONF_FILTER_TYPE,
+    CONF_FLOCCULANT_DOSE_PER_10M3,
+    CONF_FLOCCULANT_DOSE_UNIT,
     CONF_FLOOD_SENSOR,
+    CONF_FREEZE_PROTECTION,
+    CONF_FREEZE_THRESHOLD,
     CONF_FREE_CHLORINE_RANGE_MAX,
     CONF_FREE_CHLORINE_RANGE_MIN,
     CONF_FREE_CHLORINE_SENSOR,
     CONF_FREE_CHLORINE_TARGET,
-    CONF_FREEZE_PROTECTION,
-    CONF_FREEZE_THRESHOLD,
     CONF_HANDS_OFF_ENTITY,
     CONF_HAS_AUTOFILL_SKIMMER,
     CONF_HAS_COVER,
     CONF_HAS_PH_DOSING,
+    CONF_HAS_PH_PROBE_OUTSIDE,
     CONF_HEATING_TYPE,
     CONF_IS_COVERED_BY_ROOF,
     CONF_LATITUDE,
@@ -102,30 +115,36 @@ from .const import (
     CONF_SALT_RANGE_MIN,
     CONF_SALT_TARGET,
     CONF_SHAPE,
+    CONF_SHOCK_CONCENTRATION,
+    CONF_SHOCK_PRODUCT,
     CONF_SKIMMERS_COUNT,
     CONF_SOLAR_EXCESS_SENSOR,
     CONF_SOLAR_EXCESS_SIGN,
     CONF_SOLAR_IMPORT_TOLERANCE,
+    CONF_SWIMMING_MONTHS,
     CONF_TIMER_SLOTS,
     CONF_UV_SENSOR,
     CONF_VOLUME,
     CONF_VOLUME_OVERRIDE,
     CONF_WATER_TEMPERATURE_SENSOR,
     CONF_WEATHER_ENTITY,
-    CONFIG_VERSION,
+    CONF_WINTER_PRODUCT_DOSE_PER_M3,
+    CONF_WINTER_PRODUCT_INTERVAL_DAYS,
+    CONF_WINTER_PRODUCT_TYPE,
     DEFAULT_BACKWASH_INTERVAL_DAYS,
     DEFAULT_CHLORINATOR_ACTIVE_MONTHS_NORTH,
     DEFAULT_CHLORINATOR_ACTIVE_MONTHS_SOUTH,
     DEFAULT_CHLORINATOR_MIN_WATER_TEMP,
     DEFAULT_CHLORINATOR_PRODUCTION_PCT,
+    DEFAULT_DOSE_UNIT,
     DEFAULT_EQUIPMENT_ROOM_MAX_TEMP,
     DEFAULT_FILTER_PRESSURE_CRITICAL,
     DEFAULT_FILTER_PRESSURE_NORMAL_MAX,
     DEFAULT_FILTER_PRESSURE_NORMAL_MIN,
+    DEFAULT_FREEZE_THRESHOLD,
     DEFAULT_FREE_CHLORINE_RANGE_MAX,
     DEFAULT_FREE_CHLORINE_RANGE_MIN,
     DEFAULT_FREE_CHLORINE_TARGET,
-    DEFAULT_FREEZE_THRESHOLD,
     DEFAULT_MANUAL_OVERRIDE_MINUTES,
     DEFAULT_NAME,
     DEFAULT_NOTIFICATION_SEVERITY,
@@ -139,8 +158,11 @@ from .const import (
     DEFAULT_SALT_RANGE_MAX,
     DEFAULT_SALT_RANGE_MIN,
     DEFAULT_SALT_TARGET,
+    DEFAULT_SHOCK_PRODUCT,
     DEFAULT_SKIMMERS_COUNT,
     DEFAULT_SOLAR_IMPORT_TOLERANCE_W,
+    DEFAULT_WINTER_PRODUCT_DOSE_PER_M3,
+    DEFAULT_WINTER_PRODUCT_INTERVAL_DAYS,
     DIMENSION_KEYS,
     DOMAIN,
     ChlorinationType,
@@ -157,9 +179,13 @@ from .const import (
     PumpSpeedType,
     Severity,
 )
+from .pool.dosing import SHOCK_DEFAULT_CONCENTRATION, SHOCK_LIQUIDS
 from .pool.geometry import PoolDimensions, calculate_volume
 from .pool.hardware import find, load_hardware
+from .pool.tasks import TASKS, TASKS_BY_KEY, configured_days, task_applies
+from .pool.readings import DEFAULT_STALE_DAYS, KINDS, NEW_SENSOR_KINDS, default_range
 from .pool.layouts import LayoutCatalog, get_orientation_options, load_catalog
+from .pool.season import default_swimming_months
 
 CUSTOM = "custom"
 CATALOG_CACHE = f"{DOMAIN}_catalogs"
@@ -217,6 +243,44 @@ def _values(enum) -> list[str]:
 
 
 MONTHS = [str(m) for m in range(1, 13)]
+WINTER_PRODUCT_TYPES = ["none", "floater", "liquid", "tablets"]
+SHOCK_PRODUCTS = list(SHOCK_DEFAULT_CONCENTRATION)
+# The highest concentration that can be real: per cent of chlorine for a
+# granular product, g/L for a liquid one.
+SHOCK_MAX_GRANULAR = 100
+SHOCK_MAX_LIQUID = 300
+# The units read the same in every language, and "mL" could not be a
+# translation key (they are lower case).
+_DOSE_UNIT_SELECTOR = sel.SelectSelector(
+    sel.SelectSelectorConfig(options=["mL", "g"], mode=sel.SelectSelectorMode.DROPDOWN)
+)
+
+
+def _or(value: Any, default: Any) -> Any:
+    """``value``, or ``default`` when it is unset: a stored None means "the default"."""
+    return default if value is None else value
+
+
+def _shock_concentration(
+    user_input: dict[str, Any], shown_product: str, shown: float
+) -> float | None | bool:
+    """The shock concentration to store: None to follow the product, or
+    False when it cannot be right for the product chosen.
+
+    A figure is per cent for one product and g/L for another, so one left as
+    shown when the product changes is dropped rather than carried over: a
+    custom 70 % read as 70 g/L would double the litres.
+    """
+    product = user_input.get(CONF_SHOCK_PRODUCT, shown_product)
+    value = user_input.get(CONF_SHOCK_CONCENTRATION)
+    if value is not None and product != shown_product and value == shown:
+        value = None
+    if value is None or value == SHOCK_DEFAULT_CONCENTRATION[product]:
+        return None
+    highest = SHOCK_MAX_LIQUID if product in SHOCK_LIQUIDS else SHOCK_MAX_GRANULAR
+    if not 1 <= value <= highest:
+        return False
+    return float(value)
 
 
 def _flatten(user_input: dict[str, Any]) -> dict[str, Any]:
@@ -547,6 +611,16 @@ class _Wizard:
 
     async def async_step_water(self, user_input: dict[str, Any] | None = None):
         d = self._data
+        swimming = d.get(CONF_SWIMMING_MONTHS) or default_swimming_months(
+            d.get(CONF_CHLORINATOR_ACTIVE_MONTHS),
+            d.get(CONF_CHLORINATION_TYPE) == ChlorinationType.SALT,
+            float(d.get(CONF_LATITUDE, self.hass.config.latitude) or 0),
+        )
+        is_salt = d.get(CONF_CHLORINATION_TYPE, ChlorinationType.SALT) == ChlorinationType.SALT
+        shock_product = d.get(CONF_SHOCK_PRODUCT) or DEFAULT_SHOCK_PRODUCT
+        shown_concentration = _or(
+            d.get(CONF_SHOCK_CONCENTRATION), SHOCK_DEFAULT_CONCENTRATION[shock_product]
+        )
         schema = vol.Schema(
             {
                 vol.Required(
@@ -581,11 +655,61 @@ class _Wizard:
                     CONF_FREE_CHLORINE_RANGE_MAX,
                     default=d.get(CONF_FREE_CHLORINE_RANGE_MAX, DEFAULT_FREE_CHLORINE_RANGE_MAX),
                 ): _number(0, 10, 0.1, "ppm"),
+                vol.Required(
+                    CONF_SWIMMING_MONTHS, default=[str(m) for m in swimming]
+                ): _select(MONTHS, "month", multiple=True),
+                vol.Required(
+                    CONF_WINTER_PRODUCT_TYPE, default=d.get(CONF_WINTER_PRODUCT_TYPE) or "none"
+                ): _select(WINTER_PRODUCT_TYPES, "winter_product_type"),
+                vol.Required(
+                    CONF_WINTER_PRODUCT_DOSE_PER_M3,
+                    default=d.get(CONF_WINTER_PRODUCT_DOSE_PER_M3)
+                    or DEFAULT_WINTER_PRODUCT_DOSE_PER_M3,
+                ): _number(0.001, 1, 0.001),
+                vol.Required(
+                    CONF_WINTER_PRODUCT_INTERVAL_DAYS,
+                    default=d.get(CONF_WINTER_PRODUCT_INTERVAL_DAYS)
+                    or DEFAULT_WINTER_PRODUCT_INTERVAL_DAYS,
+                ): _number(7, 365, 1, "d"),
+                **self._readings_fields(is_salt),
+                vol.Required(CONF_SHOCK_PRODUCT, default=shock_product): _select(
+                    SHOCK_PRODUCTS, "shock_product"
+                ),
+                # Empty, it follows the product: per cent for the granular
+                # ones, g/L for the liquid.
+                vol.Optional(
+                    CONF_SHOCK_CONCENTRATION,
+                    description={"suggested_value": shown_concentration},
+                ): _number(1, 1000, "any"),  # judged per product below
+                # The label's dose per 10 m³; HomePool has no figure of its own.
+                vol.Optional(
+                    CONF_CLARIFIER_DOSE_PER_10M3,
+                    description=self._sv(CONF_CLARIFIER_DOSE_PER_10M3),
+                ): _number(0, 10000, "any"),
+                vol.Required(
+                    CONF_CLARIFIER_DOSE_UNIT,
+                    default=d.get(CONF_CLARIFIER_DOSE_UNIT) or DEFAULT_DOSE_UNIT,
+                ): _DOSE_UNIT_SELECTOR,
+                vol.Optional(
+                    CONF_FLOCCULANT_DOSE_PER_10M3,
+                    description=self._sv(CONF_FLOCCULANT_DOSE_PER_10M3),
+                ): _number(0, 10000, "any"),
+                vol.Required(
+                    CONF_FLOCCULANT_DOSE_UNIT,
+                    default=d.get(CONF_FLOCCULANT_DOSE_UNIT) or DEFAULT_DOSE_UNIT,
+                ): _DOSE_UNIT_SELECTOR,
             }
         )
         errors: dict[str, str] = {}
         if user_input is not None:
-            if not (
+            concentration = _shock_concentration(user_input, shock_product, shown_concentration)
+            if not user_input.get(CONF_SWIMMING_MONTHS):
+                errors[CONF_SWIMMING_MONTHS] = "no_months"
+            elif concentration is False:
+                errors[CONF_SHOCK_CONCENTRATION] = "concentration_range"
+            elif bad := self._reading_range_error(user_input):
+                errors[bad] = "range_order"
+            elif not (
                 user_input[CONF_PH_RANGE_MIN]
                 <= user_input[CONF_PH_TARGET]
                 <= user_input[CONF_PH_RANGE_MAX]
@@ -596,8 +720,59 @@ class _Wizard:
                 self._data[CONF_PH_CALIBRATION_INTERVAL_DAYS] = int(
                     self._data[CONF_PH_CALIBRATION_INTERVAL_DAYS]
                 )
+                self._data[CONF_WINTER_PRODUCT_INTERVAL_DAYS] = int(
+                    self._data[CONF_WINTER_PRODUCT_INTERVAL_DAYS]
+                )
+                self._data[CONF_SWIMMING_MONTHS] = sorted(
+                    int(m) for m in self._data[CONF_SWIMMING_MONTHS]
+                )
+                for kind in KINDS:
+                    self._data[f"{kind}_stale_days"] = int(self._data[f"{kind}_stale_days"])
+                self._keep_only_changed(is_salt)
+                self._data[CONF_SHOCK_CONCENTRATION] = concentration
                 return await self._after("water")
         return self._form("water", schema, errors)
+
+    def _keep_only_changed(self, is_salt: bool) -> None:
+        """Forget the ranges left as the form showed them by default, so they
+        keep following the chlorination (the cyanuric acid's does)."""
+        d = self._data
+        for kind in NEW_SENSOR_KINDS:
+            for key, default in zip(
+                (f"{kind}_range_min", f"{kind}_range_max"), default_range(kind, is_salt)
+            ):
+                if d.get(key) is not None and default is not None and d[key] == default:
+                    d[key] = None
+
+    def _readings_fields(self, is_salt: bool) -> dict[Any, Any]:
+        """The ranges of the readings taken by hand, and how long each one is trusted."""
+        d = self._data
+        fields: dict[Any, Any] = {}
+        for kind in NEW_SENSOR_KINDS:
+            low, high = default_range(kind, is_salt)
+            if low is not None:
+                key = f"{kind}_range_min"
+                fields[vol.Required(key, default=_or(d.get(key), low))] = _number(
+                    0, 5000, "any", "mg/L"
+                )
+            key = f"{kind}_range_max"
+            fields[vol.Required(key, default=_or(d.get(key), high))] = _number(
+                0, 5000, "any", "mg/L"
+            )
+        for kind in KINDS:
+            key = f"{kind}_stale_days"
+            fields[vol.Required(key, default=d.get(key, DEFAULT_STALE_DAYS[kind]))] = _number(
+                1, 365, 1, "d"
+            )
+        return fields
+
+    def _reading_range_error(self, user_input: dict[str, Any]) -> str | None:
+        """The first reading whose lowest value is above its highest, or None."""
+        for kind in NEW_SENSOR_KINDS:
+            low, high = user_input.get(f"{kind}_range_min"), user_input.get(f"{kind}_range_max")
+            if low is not None and high is not None and low > high:
+                return f"{kind}_range_min"
+        return None
 
     async def async_step_chlorinator_model(self, user_input: dict[str, Any] | None = None):
         _, hardware = await _catalogs(self.hass)
@@ -911,6 +1086,96 @@ class _Wizard:
                 return await self._after("notifications")
         return self._form("notifications", schema, errors)
 
+    # ── tasks ──
+
+    def _coordinator(self):
+        """The running pool, when there is one (the setup wizard has none yet)."""
+        return None
+
+    def _last_done_date(self, key: str):
+        coordinator = self._coordinator()
+        if coordinator is None:
+            return None
+        done = dt_util.parse_datetime(coordinator.tasks.get(TASKS_BY_KEY[key].action) or "")
+        return dt_util.as_local(done).date() if done else None
+
+    async def _record_last_done(self, key: str, day, entry: dict[str, Any]) -> None:
+        """Keep a "last done" date, to be taken in when the pool loads."""
+        entry["last_done"] = day.isoformat()
+
+    async def async_step_tasks(self, user_input: dict[str, Any] | None = None):
+        d = self._data
+        stored: dict[str, dict[str, Any]] = d.get("tasks") or {}
+        shown = [t for t in TASKS if task_applies(t.key, d)]
+        fields: dict[Any, Any] = {}
+        for defn in shown:
+            key, mine = defn.key, stored.get(defn.key, {})
+            fields[
+                vol.Required(f"{key}_days", default=mine.get("days", configured_days(defn, d, "swimming")))
+            ] = _number(1, 3650, 1, "d")
+            if defn.pump_hours is not None:
+                fields[
+                    vol.Required(
+                        f"{key}_pump_hours", default=mine.get("pump_hours", defn.pump_hours)
+                    )
+                ] = _number(1, 2000, 1, "h")
+            if defn.optional:
+                fields[
+                    vol.Required(
+                        f"{key}_enabled", default=mine.get("enabled", defn.enabled_by_default)
+                    )
+                ] = bool
+            last = self._last_done_date(key)
+            fields[
+                vol.Optional(
+                    f"{key}_last_done",
+                    description={"suggested_value": last.isoformat()} if last else {},
+                )
+            ] = sel.DateSelector()
+        fields[
+            vol.Required(
+                CONF_HAS_PH_PROBE_OUTSIDE, default=d.get(CONF_HAS_PH_PROBE_OUTSIDE, False)
+            )
+        ] = bool
+        schema = vol.Schema(fields)
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            today = dt_util.now().date()
+            dates = {}
+            for defn in shown:
+                given = dt_util.parse_date(user_input.get(f"{defn.key}_last_done") or "")
+                if given is not None and given > today:
+                    errors[f"{defn.key}_last_done"] = "date_in_future"
+                if given is not None:
+                    dates[defn.key] = given
+            if not errors:
+                # Only what differs from the default is kept, so a default that
+                # depends on the season (the water test in winter) still follows it.
+                tasks = dict(stored)
+                for defn in shown:
+                    key, entry = defn.key, {}
+                    days = int(user_input[f"{key}_days"])
+                    if days != configured_days(defn, d, "swimming"):
+                        entry["days"] = days
+                    if defn.pump_hours is not None:
+                        hours = float(user_input[f"{key}_pump_hours"])
+                        if hours != defn.pump_hours:
+                            entry["pump_hours"] = hours
+                    if defn.optional:
+                        enabled = bool(user_input[f"{key}_enabled"])
+                        if enabled != defn.enabled_by_default:
+                            entry["enabled"] = enabled
+                    if key in dates and dates[key] != self._last_done_date(key):
+                        await self._record_last_done(key, dates[key], entry)
+                    if entry:
+                        tasks[key] = entry
+                    else:
+                        tasks.pop(key, None)
+                d["tasks"] = tasks
+                d[CONF_HAS_PH_PROBE_OUTSIDE] = bool(user_input[CONF_HAS_PH_PROBE_OUTSIDE])
+                return await self._after("tasks")
+        return self._form("tasks", schema, errors)
+
 
 class HomePoolConfigFlow(_Wizard, ConfigFlow, domain=DOMAIN):
     """Set up a pool, one group of questions at a time."""
@@ -927,6 +1192,7 @@ class HomePoolConfigFlow(_Wizard, ConfigFlow, domain=DOMAIN):
         "connections",
         "control",
         "notifications",
+        "tasks",
     )
 
     def __init__(self) -> None:
@@ -950,6 +1216,7 @@ class HomePoolConfigFlow(_Wizard, ConfigFlow, domain=DOMAIN):
             "connections": self.async_step_connections,
             "control": self.async_step_control,
             "notifications": self.async_step_notifications,
+            "tasks": self.async_step_tasks,
         }[nxt]()
 
     @staticmethod
@@ -969,8 +1236,20 @@ class HomePoolOptionsFlow(_Wizard, OptionsFlow):
         menu = ["identity", "shape", "construction", "pump", "water"]
         if self._data.get(CONF_CHLORINATION_TYPE) == ChlorinationType.SALT:
             menu.append("chlorinator_model")
-        menu += ["connections", "control", "notifications"]
+        menu += ["connections", "control", "notifications", "tasks"]
         return self.async_show_menu(step_id="init", menu_options=menu)
+
+    def _coordinator(self):
+        if self.config_entry.state is not ConfigEntryState.LOADED:
+            return None
+        return self.config_entry.runtime_data
+
+    async def _record_last_done(self, key: str, day, entry: dict[str, Any]) -> None:
+        coordinator = self._coordinator()
+        if coordinator is None:
+            await super()._record_last_done(key, day, entry)
+        else:
+            await coordinator.async_complete_task(key, day)
 
     async def _after(self, step: str) -> ConfigFlowResult:
         if step == "water" and self._data.get(CONF_CHLORINATION_TYPE) == ChlorinationType.SALT and (

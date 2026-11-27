@@ -112,6 +112,12 @@ BINARY_SENSORS: tuple[PoolBinaryDescription, ...] = (
         value_fn=lambda c: c.freeze_active,
     ),
     PoolBinaryDescription(
+        key="swimming_not_advised",
+        device_class=BinarySensorDeviceClass.SAFETY,
+        value_fn=lambda c: c.swimming_not_advised is not None,
+        attrs_fn=lambda c: {"reason": c.swimming_not_advised},
+    ),
+    PoolBinaryDescription(
         key="chlorinator_in_season",
         exists_fn=lambda c: c.is_salt,
         value_fn=lambda c: c.in_season,
