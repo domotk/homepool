@@ -18,16 +18,20 @@ from homeassistant.util import dt as dt_util
 
 from .const import (
     ATTR_ACTION_TYPE,
+    ATTR_CHECKLIST,
     ATTR_DATE,
     ATTR_DURATION,
     ATTR_NOTES,
     ATTR_STATE,
+    ATTR_STEP,
     ATTR_TASK,
     ATTR_VALUE,
     CONFIG_VERSION,
     DOMAIN,
     PLATFORMS,
+    SERVICE_COMPLETE_STEP,
     SERVICE_COMPLETE_TASK,
+    SERVICE_DISMISS_CHECKLIST,
     SERVICE_DISMISS_SEASON_PROPOSAL,
     SERVICE_FORCE_PH_WINDOW,
     SERVICE_RECALCULATE,
@@ -41,6 +45,7 @@ from .const import (
     ManualAction,
 )
 from .coordinator import PoolCoordinator
+from .pool.checklists import LIST_IDS
 from .pool.season import SeasonState
 from .pool.tasks import TASKS_BY_KEY
 
@@ -66,6 +71,10 @@ TASK_SCHEMA = cv.make_entity_service_schema(
 )
 SEASON_SCHEMA = cv.make_entity_service_schema(
     {vol.Required(ATTR_STATE): vol.In([s.value for s in SeasonState])}
+)
+STEP_SCHEMA = cv.make_entity_service_schema({vol.Required(ATTR_STEP): cv.string})
+CHECKLIST_SCHEMA = cv.make_entity_service_schema(
+    {vol.Required(ATTR_CHECKLIST): vol.In(list(LIST_IDS))}
 )
 SALT_SCHEMA = cv.make_entity_service_schema(
     {vol.Required(ATTR_VALUE): vol.All(vol.Coerce(float), vol.Range(min=0, max=15))}
@@ -117,6 +126,8 @@ async def async_unload_entry(hass: HomeAssistant, entry: HomePoolConfigEntry) ->
             SERVICE_RESET_DAILY,
             SERVICE_SET_SEASON_STATE,
             SERVICE_DISMISS_SEASON_PROPOSAL,
+            SERVICE_COMPLETE_STEP,
+            SERVICE_DISMISS_CHECKLIST,
         ):
             hass.services.async_remove(DOMAIN, service)
     return unloaded
@@ -211,6 +222,24 @@ def _async_register_services(hass: HomeAssistant) -> None:
         for pool in await _pools(call):
             await pool.async_dismiss_season_proposal()
 
+    async def _complete_step(call: ServiceCall) -> None:
+        step = call.data[ATTR_STEP]
+        pools = await _pools(call)
+        # Every pool first, so a call that one of them refuses changes none.
+        for pool in pools:
+            if not pool.has_open_step(step):
+                raise ServiceValidationError(
+                    translation_domain=DOMAIN,
+                    translation_key="step_not_open",
+                    translation_placeholders={"step": step, "pool": pool.pool_name},
+                )
+        for pool in pools:
+            await pool.async_complete_step(step)
+
+    async def _dismiss_checklist(call: ServiceCall) -> None:
+        for pool in await _pools(call):
+            await pool.async_dismiss_checklist(call.data[ATTR_CHECKLIST])
+
     async def _record_salt(call: ServiceCall) -> None:
         for pool in await _pools(call):
             await pool.async_record_reading("salt", call.data[ATTR_VALUE])
@@ -236,6 +265,8 @@ def _async_register_services(hass: HomeAssistant) -> None:
         SERVICE_STOP_CYCLE: (_stop_cycle, EMPTY_SCHEMA),
         SERVICE_RECORD_MANUAL_ACTION: (_record_action, ACTION_SCHEMA),
         SERVICE_COMPLETE_TASK: (_complete_task, TASK_SCHEMA),
+        SERVICE_COMPLETE_STEP: (_complete_step, STEP_SCHEMA),
+        SERVICE_DISMISS_CHECKLIST: (_dismiss_checklist, CHECKLIST_SCHEMA),
         SERVICE_RECORD_SALT_LEVEL: (_record_salt, SALT_SCHEMA),
         SERVICE_RECORD_FREE_CHLORINE: (_record_chlorine, CHLORINE_SCHEMA),
         SERVICE_RECALCULATE: (_recalculate, EMPTY_SCHEMA),

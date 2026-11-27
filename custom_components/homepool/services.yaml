@@ -151,3 +151,29 @@ dismiss_season_proposal:
   target:
     entity:
       integration: homepool
+
+complete_step:
+  target:
+    entity:
+      integration: homepool
+  fields:
+    step:
+      required: true
+      example: closing.backwash
+      selector:
+        text:
+
+dismiss_checklist:
+  target:
+    entity:
+      integration: homepool
+  fields:
+    checklist:
+      required: true
+      selector:
+        select:
+          translation_key: checklist
+          options:
+            - closing
+            - opening
+            - treatment

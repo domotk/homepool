@@ -294,6 +294,7 @@ selectors = {
             "battery": T("Robot with battery", "Robot con batería"), "hydraulic": T("Hydraulic", "Hidráulico")},
   "task": {k: v for k, v in task_names.items()},
   "season_state": season_states,
+  "checklist": {"closing": T("Closing", "Cierre"), "opening": T("Opening", "Apertura"), "treatment": T("Treatment", "Tratamiento")},
   "severity": {"info": T("Information", "Información"), "warning": T("Warning", "Aviso"), "critical": T("Critical", "Crítico")},
   "action_type": {"backwash": T("Backwash", "Contralavado"), "filter_cleaned": T("Filter cleaned", "Filtro limpiado"),
             "salt_added": T("Salt added", "Sal añadida"), "ph_calibrated": T("pH probe calibrated", "Sonda de pH calibrada"),
@@ -432,12 +433,18 @@ services = {
   "set_season_state": (T("Set season state", "Cambiar estado de temporada"), T("Confirms the pool's season state. Wintering turns the chlorinator off and swimming turns it on; passive wintering keeps the pump off.", "Confirma el estado de temporada de la piscina. Invernar apaga el clorador y el baño lo enciende; el invernaje pasivo mantiene la bomba parada."),
       {"state": (T("State", "Estado"), T("The season state to set.", "El estado de temporada que poner."))}),
   "dismiss_season_proposal": (T("Dismiss season proposal", "Descartar propuesta de temporada"), T("Stops reminding about the season change the calendar proposed, until it proposes another.", "Deja de recordar el cambio de temporada propuesto por el calendario, hasta que proponga otro."), {}),
+  "complete_step": (T("Complete step", "Completar paso"), T("Ticks a step of an open checklist, by its id (for example closing.backwash), and marks the matching recurring task as done.", "Marca un paso de una lista abierta, por su id (por ejemplo closing.backwash), y marca como hecha la tarea periódica que le corresponda."),
+      {"step": (T("Step", "Paso"), T("The step id: the list, a dot and the step.", "El id del paso: la lista, un punto y el paso."))}),
+  "dismiss_checklist": (T("Dismiss checklist", "Descartar lista"), T("Closes a checklist without finishing it.", "Cierra una lista sin terminarla."),
+      {"checklist": (T("Checklist", "Lista"), T("Which list to close.", "Qué lista cerrar."))}),
   "reset_daily_counters": (T("Reset today's counters", "Reiniciar contadores de hoy"), T("Starts today's filtration count from zero.", "Vuelve a poner a cero la filtración de hoy."), {}),
 }
 
 exceptions = {"no_pool_targeted": T("That target matches no HomePool pool.", "Ese destino no corresponde a ninguna piscina de HomePool."),
   "date_in_future": T("That date has not happened yet.", "Esa fecha todavía no ha llegado."),
-  "task_not_in_pool": T("{pool} has no {task} task.", "{pool} no tiene la tarea {task}.")}
+  "task_not_in_pool": T("{pool} has no {task} task.", "{pool} no tiene la tarea {task}."),
+  "step_not_open": T("{pool} has no open step {step}.", "{pool} no tiene abierto el paso {step}."),
+  "cycle_in_winter_passive": T("The pump does not start in passive wintering. Change the season state first.", "La bomba no arranca en el invernaje pasivo. Cambia antes el estado de temporada.")}
 
 def build(i):
     pick = lambda t: t[i]

@@ -11,6 +11,7 @@ from itertools import product
 
 from freezegun.api import FrozenDateTimeFactory
 import pytest
+import voluptuous as vol
 from pytest_homeassistant_custom_component.common import MockConfigEntry, async_fire_time_changed
 
 from homeassistant.core import Context, HomeAssistant
@@ -375,7 +376,7 @@ async def test_confirming_winter_active_turns_the_cell_off(
 async def test_a_bad_season_state_is_refused(hass: HomeAssistant) -> None:
     SwitchRouter(hass)
     entry = await setup_pool(hass)
-    with pytest.raises(Exception):  # noqa: B017 - the schema refuses it
+    with pytest.raises(vol.Invalid):  # the schema refuses it
         await set_season(hass, entry, "autumn")
 
 
@@ -409,8 +410,9 @@ async def test_winter_passive_keeps_the_pump_off(
     await tick(hass, freezer, 1)
     assert state(hass, PUMP) == "off"
 
-    # A manual cycle does not run it either.
-    await entry.runtime_data.async_start_cycle(30)
+    # A manual cycle is refused, so it cannot run it either.
+    with pytest.raises(ServiceValidationError):
+        await entry.runtime_data.async_start_cycle(30)
     await tick(hass, freezer, 1)
     assert state(hass, PUMP) == "off"
 

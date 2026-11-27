@@ -204,7 +204,11 @@ SENSORS: tuple[PoolSensorDescription, ...] = (
             "filter_media_check",
         ],
         value_fn=lambda c: c.next_manual_task,
-        attrs_fn=lambda c: {"tasks": c.task_status(), "recent_actions": c.actions[-10:]},
+        attrs_fn=lambda c: {
+            "tasks": c.task_status(),
+            "checklists": c.checklist_view(),
+            "recent_actions": c.actions[-10:],
+        },
     ),
     PoolSensorDescription(
         key="overall_status",

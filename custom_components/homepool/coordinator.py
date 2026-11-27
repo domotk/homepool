@@ -44,6 +44,7 @@ from homeassistant.core import (
     HomeAssistant,
     callback,
 )
+from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers.event import async_call_later, async_track_state_change_event
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
@@ -170,6 +171,7 @@ from .pool.chlorine_calculator import (
     calculate_chlorine_target,
     is_chlorinator_in_season,
 )
+from .pool.checklists import CLOSING, OPENING, build, step_def
 from .pool.filtration_calculator import FiltrationInputs, calculate_filtration_target
 from .pool.geometry import calculate_cycle_duration_minutes
 from .pool.safety import evaluate_safety
@@ -359,6 +361,9 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # A season change the calendar proposes and the owner has not
         # confirmed: {"to", "since", "reminded", "dismissed_for"}.
         self.season_proposal: dict[str, Any] | None = None
+        # Open step lists by id (closing, opening, treatment):
+        # {"created": iso, "steps": [{"id", "done": iso | None}]}.
+        self.checklists: dict[str, dict[str, Any]] = {}
         # The probe's last distinct pH reading and when it was first seen.
         self._ph_seen: tuple[float, datetime] | None = None
         self._closed_days: list[dict[str, Any]] = []
@@ -510,6 +515,7 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.due_notified = data.get("due_notified") or {}
         self.pending_reminders = data.get("pending_reminders") or []
         self.season_proposal = data.get("season_proposal")
+        self.checklists = data.get("checklists") or {}
         if self.in_season_last is None and self.is_salt:
             # Known from the first day, so the first season change after
             # installing is not missed (it used to be set at the first midnight).
@@ -663,6 +669,7 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "due_notified": self.due_notified,
             "pending_reminders": self.pending_reminders,
             "season_proposal": self.season_proposal,
+            "checklists": self.checklists,
         }
 
     def _save(self) -> None:
@@ -1263,13 +1270,17 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     async def _async_season_proposal(self, now: datetime) -> None:
         """Propose the season change the calendar calls for, and bring it up
         again every week until it is confirmed or dismissed."""
+        current = self.season_proposal
+        if current is not None and current.get("to") not in CALENDAR_PROPOSALS:
+            # The finished opening list proposes swimming: not the calendar's.
+            return
         to = None
         if self.conf.get(CONF_CHLORINATOR_AUTO_TOGGLE, True):
             to = season_proposal(now.date(), self.swimming_months, self.season_state)
-        current = self.season_proposal
         if to is None:
-            if current is not None and current.get("to") in CALENDAR_PROPOSALS:
+            if current is not None:
                 self.season_proposal = None
+                self._save()
             return
         is_new = current is None or current.get("to") != to
         if is_new:
@@ -1301,8 +1312,145 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self._open_season_checklist(to)
         self._save()
 
+    # ──────────────────────────────────────────
+    # Checklists
+    # ──────────────────────────────────────────
+
+    @property
+    def equipment(self) -> set[str]:
+        """The equipment flags the step lists filter by."""
+        flags = set()
+        if self.is_salt:
+            flags.add("salt")
+        if task_applies("winter_product", self.conf):
+            flags.add("winter_product")
+        if task_applies("ph_calibration", self.conf):
+            flags.add("ph_probe")
+        return flags
+
     def _open_season_checklist(self, to: str) -> None:
-        """Open the closing or opening checklist. Arrives with the checklists."""
+        """Open the closing list (``to`` is "winter") or the opening list
+        ("opening"), unless one is already open: its progress is kept."""
+        list_id = CLOSING if to == "winter" else OPENING if to == "opening" else None
+        if list_id is None or list_id in self.checklists:
+            return
+        self.checklists[list_id] = {
+            "created": dt_util.utcnow().isoformat(),
+            "steps": [
+                {"id": s.id, "done": None} for s in build(list_id, self.equipment)
+            ],
+        }
+
+    def _prune_passive_steps(self) -> None:
+        """Active wintering: the steps for a pool that sits unpowered are moot."""
+        closing = self.checklists.get(CLOSING)
+        if closing is None:
+            return
+        closing["steps"] = [
+            s
+            for s in closing["steps"]
+            if not (d := step_def(CLOSING, s["id"])) or not d.only_passive
+        ]
+        self._drop_if_done(CLOSING)
+
+    def _drop_if_done(self, list_id: str) -> bool:
+        checklist = self.checklists.get(list_id)
+        if checklist is None or any(s["done"] is None for s in checklist["steps"]):
+            return False
+        del self.checklists[list_id]
+        return True
+
+    def _closing_needs_pump(self) -> bool:
+        """Passive wintering with a closing step that needs the pump still open."""
+        closing = self.checklists.get(CLOSING)
+        if not self.winter_passive or closing is None:
+            return False
+        for step in closing["steps"]:
+            d = step_def(CLOSING, step["id"])
+            if step["done"] is None and d is not None and d.needs_pump:
+                return True
+        return False
+
+    def checklist_view(self) -> dict[str, list[dict[str, Any]]]:
+        """The open lists, with their texts in Home Assistant's language."""
+        language = self.hass.config.language
+        view: dict[str, list[dict[str, Any]]] = {}
+        for list_id, checklist in self.checklists.items():
+            steps = []
+            for step in checklist["steps"]:
+                d = step_def(list_id, step["id"], checklist.get("treatment"))
+                steps.append(
+                    {
+                        "id": step["id"],
+                        "text": text(language, d.text_key) if d else step["id"],
+                        "done": step["done"] is not None,
+                        "done_at": step["done"],
+                    }
+                )
+            view[list_id] = steps
+        return view
+
+    def has_open_step(self, step: str) -> bool:
+        checklist = self.checklists.get(step.split(".", 1)[0])
+        return checklist is not None and any(
+            s["id"] == step for s in checklist["steps"]
+        )
+
+    async def async_complete_step(self, step: str) -> None:
+        """Tick a step of an open list, and what it stands for with it."""
+        list_id = step.split(".", 1)[0]
+        checklist = self.checklists.get(list_id)
+        entry = next((s for s in (checklist or {}).get("steps", []) if s["id"] == step), None)
+        if entry is None:
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="step_not_open",
+                translation_placeholders={"step": step, "pool": self.pool_name},
+            )
+        if entry["done"] is not None:
+            return
+        entry["done"] = dt_util.utcnow().isoformat()
+        d = step_def(list_id, step, checklist.get("treatment"))
+        finished = self._drop_if_done(list_id)
+        if finished and list_id == OPENING:
+            await self._async_propose_swimming()
+        else:
+            self._save()
+        if d is not None and d.completes_task:
+            await self.async_record_action(TASKS_BY_KEY[d.completes_task].action)
+        elif step == "opening.reconnect_cell":
+            await self.async_set_setting("chlorinator_enabled", True)
+        else:
+            await self.async_refresh()
+
+    async def async_dismiss_checklist(self, list_id: str) -> None:
+        if self.checklists.pop(list_id, None) is not None:
+            self._save()
+            await self.async_refresh()
+
+    async def _async_propose_swimming(self) -> None:
+        """The opening list is done: propose the swimming state, which the owner confirms."""
+        now = dt_util.now()
+        self.season_proposal = {
+            "to": SeasonState.SWIMMING.value,
+            "since": now.isoformat(),
+            "reminded": now.isoformat(),
+            "dismissed_for": None,
+        }
+        self.hass.bus.async_fire(
+            EVENT_SEASON_PROPOSAL,
+            {
+                "entry_id": self.entry.entry_id,
+                "pool": self.pool_name,
+                "to": SeasonState.SWIMMING.value,
+            },
+        )
+        language = self.hass.config.language
+        await self._async_remind(
+            text(language, "title") + f" · {self.pool_name}",
+            text(language, "season_proposal_swimming", pool=self.pool_name),
+        )
+        self._save()
 
     def _sample_inputs(self, now: datetime) -> None:
         air = self.air_temperature
@@ -2058,6 +2206,7 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             {"reason": ", ".join(self.safety_reasons)},
         )
         await self._async_freeze_alert()
+        await self._async_set("closing_needs_pump", self._closing_needs_pump(), Severity.WARNING)
         ph = self.ph
         await self._async_set(
             "ph_out_of_range",
@@ -2157,6 +2306,17 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         elif new in WINTER_STATES:
             self.settings["chlorinator_enabled"] = False
         self.season_proposal = None
+        if new == SeasonState.WINTER_PASSIVE:
+            # The pump never starts in passive wintering: nothing may be left running.
+            self.cycle_until = None
+            self.override = None
+        if new != old:
+            if new in WINTER_STATES and old not in WINTER_STATES:
+                self._open_season_checklist("winter")
+            elif new == SeasonState.OPENING:
+                self._open_season_checklist("opening")
+        if new == SeasonState.WINTER_ACTIVE:
+            self._prune_passive_steps()
         if new != old:
             self.hass.bus.async_fire(
                 EVENT_SEASON_STATE_CHANGED,
@@ -2217,6 +2377,10 @@ class PoolCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             _LOGGER.warning("%s: could not set production on %s", self.pool_name, entity_id)
 
     async def async_start_cycle(self, minutes: float | None = None) -> None:
+        if self.winter_passive:
+            raise ServiceValidationError(
+                translation_domain=DOMAIN, translation_key="cycle_in_winter_passive"
+            )
         duration = minutes or self.cycle_duration or 60
         self.cycle_until = dt_util.utcnow() + timedelta(minutes=float(duration))
         self.override = None

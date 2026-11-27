@@ -742,6 +742,13 @@
         "opening": "Puesta en marcha"
       }
     },
+    "checklist": {
+      "options": {
+        "closing": "Cierre",
+        "opening": "Apertura",
+        "treatment": "Tratamiento"
+      }
+    },
     "severity": {
       "options": {
         "info": "Información",
@@ -1139,6 +1146,26 @@
       "description": "Deja de recordar el cambio de temporada propuesto por el calendario, hasta que proponga otro.",
       "fields": {}
     },
+    "complete_step": {
+      "name": "Completar paso",
+      "description": "Marca un paso de una lista abierta, por su id (por ejemplo closing.backwash), y marca como hecha la tarea periódica que le corresponda.",
+      "fields": {
+        "step": {
+          "name": "Paso",
+          "description": "El id del paso: la lista, un punto y el paso."
+        }
+      }
+    },
+    "dismiss_checklist": {
+      "name": "Descartar lista",
+      "description": "Cierra una lista sin terminarla.",
+      "fields": {
+        "checklist": {
+          "name": "Lista",
+          "description": "Qué lista cerrar."
+        }
+      }
+    },
     "reset_daily_counters": {
       "name": "Reiniciar contadores de hoy",
       "description": "Vuelve a poner a cero la filtración de hoy.",
@@ -1154,6 +1181,12 @@
     },
     "task_not_in_pool": {
       "message": "{pool} no tiene la tarea {task}."
+    },
+    "step_not_open": {
+      "message": "{pool} no tiene abierto el paso {step}."
+    },
+    "cycle_in_winter_passive": {
+      "message": "La bomba no arranca en el invernaje pasivo. Cambia antes el estado de temporada."
     }
   }
 }

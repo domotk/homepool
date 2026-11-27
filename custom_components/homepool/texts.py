@@ -70,6 +70,35 @@ TEXTS: dict[str, dict[str, str]] = {
             "{pool}: HomePool now keeps a season state, and it is set to {state}. "
             "Change it if that is not right."
         ),
+        "season_proposal_swimming": (
+            "{pool}: the pool is ready. Set the season state to swimming to start the season."
+        ),
+        "closing_needs_pump": (
+            "{pool}: passive wintering was confirmed with closing steps that need the "
+            "pump still open. The pump will no longer start."
+        ),
+        "step_closing_shock": "Shock the water with the pH at 7.2–7.4.",
+        "step_closing_cell": "Clean the salt cell and store it.",
+        "step_closing_backwash": "Backwash the filter.",
+        "step_closing_lower_level": "Lower the water level below the skimmers.",
+        "step_closing_plugs": "Fit the plugs and gizmos and drain the pipes.",
+        "step_closing_winter_product": "Add the winter product.",
+        "step_opening_remove_winter_product": "Remove the winter product.",
+        "step_opening_backwash": "Backwash the filter.",
+        "step_opening_measure": "Measure pH, alkalinity, cyanuric acid and salt.",
+        "step_opening_salt": "Add salt up to the target.",
+        "step_opening_reconnect_cell": "Reconnect the salt cell; this turns the chlorinator on.",
+        "step_opening_calibrate_ph": "Calibrate the pH probe.",
+        "step_opening_shock": "Shock the water.",
+        "step_treatment_brush": "Brush the walls and the floor.",
+        "step_treatment_ph_shock": "Adjust the pH to 7.0–7.4.",
+        "step_treatment_ph_settle": "Adjust the pH to 7.2–7.6.",
+        "step_treatment_dose": "Add the dose.",
+        "step_treatment_algaecide": "Add a copper-free algaecide.",
+        "step_treatment_measure": "Measure pH and chlorine after 12–24 h.",
+        "step_treatment_vacuum": "Vacuum the floor to waste.",
+        "step_treatment_backwash": "Backwash when it is done.",
+        "step_treatment_refill": "Refill the water.",
         "season_swimming": "swimming",
         "season_winter_active": "active wintering",
         "season_winter_passive": "passive wintering",
@@ -138,6 +167,36 @@ TEXTS: dict[str, dict[str, str]] = {
             "{pool}: HomePool tiene ahora estado de temporada: está en {state}; "
             "cámbialo si no es así."
         ),
+        "season_proposal_swimming": (
+            "{pool}: la piscina está lista. Cambia el estado de temporada a baño para "
+            "empezar la temporada."
+        ),
+        "closing_needs_pump": (
+            "{pool}: se ha confirmado el invernaje pasivo con pasos de cierre que "
+            "necesitan la bomba sin hacer. La bomba ya no arrancará."
+        ),
+        "step_closing_shock": "Choque con el pH en 7,2–7,4.",
+        "step_closing_cell": "Limpia la célula y guárdala.",
+        "step_closing_backwash": "Haz un contralavado.",
+        "step_closing_lower_level": "Baja el nivel del agua bajo los skimmers.",
+        "step_closing_plugs": "Pon los tapones y gizmos y vacía las tuberías.",
+        "step_closing_winter_product": "Echa el producto de invierno.",
+        "step_opening_remove_winter_product": "Retira el producto de invierno.",
+        "step_opening_backwash": "Haz un contralavado.",
+        "step_opening_measure": "Mide pH, alcalinidad, ácido cianúrico y sal.",
+        "step_opening_salt": "Añade sal hasta el objetivo.",
+        "step_opening_reconnect_cell": "Reconecta la célula; esto enciende el clorador.",
+        "step_opening_calibrate_ph": "Calibra la sonda de pH.",
+        "step_opening_shock": "Haz el choque.",
+        "step_treatment_brush": "Cepilla paredes y fondo.",
+        "step_treatment_ph_shock": "Ajusta el pH a 7,0–7,4.",
+        "step_treatment_ph_settle": "Ajusta el pH a 7,2–7,6.",
+        "step_treatment_dose": "Echa la dosis.",
+        "step_treatment_algaecide": "Echa un alguicida sin cobre.",
+        "step_treatment_measure": "Mide pH y cloro a las 12–24 h.",
+        "step_treatment_vacuum": "Aspira el fondo a desagüe.",
+        "step_treatment_backwash": "Haz un contralavado al terminar.",
+        "step_treatment_refill": "Rellena el agua.",
         "season_swimming": "baño",
         "season_winter_active": "invernaje activo",
         "season_winter_passive": "invernaje pasivo",

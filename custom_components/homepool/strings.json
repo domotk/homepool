@@ -742,6 +742,13 @@
         "opening": "Opening"
       }
     },
+    "checklist": {
+      "options": {
+        "closing": "Closing",
+        "opening": "Opening",
+        "treatment": "Treatment"
+      }
+    },
     "severity": {
       "options": {
         "info": "Information",
@@ -1139,6 +1146,26 @@
       "description": "Stops reminding about the season change the calendar proposed, until it proposes another.",
       "fields": {}
     },
+    "complete_step": {
+      "name": "Complete step",
+      "description": "Ticks a step of an open checklist, by its id (for example closing.backwash), and marks the matching recurring task as done.",
+      "fields": {
+        "step": {
+          "name": "Step",
+          "description": "The step id: the list, a dot and the step."
+        }
+      }
+    },
+    "dismiss_checklist": {
+      "name": "Dismiss checklist",
+      "description": "Closes a checklist without finishing it.",
+      "fields": {
+        "checklist": {
+          "name": "Checklist",
+          "description": "Which list to close."
+        }
+      }
+    },
     "reset_daily_counters": {
       "name": "Reset today's counters",
       "description": "Starts today's filtration count from zero.",
@@ -1154,6 +1181,12 @@
     },
     "task_not_in_pool": {
       "message": "{pool} has no {task} task."
+    },
+    "step_not_open": {
+      "message": "{pool} has no open step {step}."
+    },
+    "cycle_in_winter_passive": {
+      "message": "The pump does not start in passive wintering. Change the season state first."
     }
   }
 }
